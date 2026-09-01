@@ -1,0 +1,21 @@
+status: reference-only
+canonical_repository: misawsneto/ww-orchestration
+canonical_commit: 21aac374d28e6ad39944214866780a74b39f8e24
+models:
+  domain:
+    version: 0.5.0
+    path: docs/orchestration/domain/model.yaml
+  flow:
+    version: 0.5.0
+    path: docs/orchestration/flow/model.yaml
+  ows_profile:
+    version: 0.1.0
+    path: docs/orchestration/ows/profile.yaml
+    ows_version: 1.0.3
+    expression_language: jq
+    expression_mode: strict
+boundary:
+  orchestration: governed epistemic, deontic and temporal work semantics
+  engine: deterministic Flow and probabilistic Agent execution
+  flow_definition_authority: accepted OWS document
+  agent_execution_from_flow: native A2A call
