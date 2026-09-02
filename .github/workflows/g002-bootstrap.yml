@@ -17,19 +17,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install G002 payload
+      - name: Install exact G002 payload
         shell: bash
         run: |
           set -euo pipefail
-          cat .bootstrap/g002.part00 .bootstrap/g002.part01 .bootstrap/g002.part02 > "$RUNNER_TEMP/g002.b64"
-          echo "payload_base64_bytes=$(wc -c < \"$RUNNER_TEMP/g002.b64\")"
+          cat .g002payload/part00 .g002payload/part01 .g002payload/part02 .g002payload/part03 .g002payload/part04 .g002payload/part05 .g002payload/part06 > "$RUNNER_TEMP/g002.b64"
+          bytes=$(wc -c < "$RUNNER_TEMP/g002.b64")
+          echo "payload_base64_bytes=$bytes"
+          test "$bytes" -eq 25084
           base64 -d "$RUNNER_TEMP/g002.b64" > "$RUNNER_TEMP/g002.tar.gz"
           echo '2c54d74467d246f81ed88dc247f9f479f5a20f0b6239d29e0b5081a7741d49f8  '"$RUNNER_TEMP/g002.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/g002.tar.gz" -C .
-          rm -rf .bootstrap
+          rm -rf .g002payload .bootstrap
           rm -f .github/workflows/g002-bootstrap.yml
           rmdir .github/workflows 2>/dev/null || true
           rmdir .github 2>/dev/null || true
+
+      - name: Apply preflight scaffold correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('crates/ww-runtime/Cargo.toml')
+          s = p.read_text()
+          if 'futures-util.workspace = true' not in s:
+              s = s.replace('[dev-dependencies]\n', '[dev-dependencies]\nfutures-util.workspace = true\n')
+              p.write_text(s)
+          PY
 
       - name: Install pinned Rust
         shell: bash
