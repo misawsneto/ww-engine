@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat .g002payload/part00 .g002payload/part01 .g002payload/part02 .g002payload/part03 .g002payload/part04 .g002payload/part05a .g002payload/part05b .g002payload/part05c .g002payload/part05d .g002payload/part06 > "$RUNNER_TEMP/g002.b64"
+          cat .g002payload/part00 .g002payload/part01 .g002payload/part02 .g002payload/part03 .g002payload/part04 .g002payload/part05a .g002payload/part05b .g002payload/part05c0 .g002payload/part05c1 .g002payload/part05c2 .g002payload/part05c3 .g002payload/part05d .g002payload/part06 > "$RUNNER_TEMP/g002.b64"
           bytes=$(wc -c < "$RUNNER_TEMP/g002.b64")
           echo "payload_base64_bytes=$bytes"
           test "$bytes" -eq 25084
