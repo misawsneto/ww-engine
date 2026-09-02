@@ -30,6 +30,7 @@
 
 ## Now / next
 
-- Now — G001 — review and converge the engine architecture, interfaces, ownership boundaries, and Rust decomposition.
-- Next — G002 — implement a falsification-oriented Rust spike for shared runtime + Agent + Flow + local Flow-to-Agent invocation.
-- Later — broaden OWS coverage, provider support, policy/sandboxing, remote execution, SDKs, CLI, and TUI without weakening the sibling-kernel boundary.
+- Now — G002 — implement the shared runtime walking skeleton only: IDs, lifecycle, SQLite transactions, durable audit/events, cancellation, artifacts, SDK inspection/event streaming, and CLI.
+- Next — G003 — implement the thin probabilistic Agent kernel on that substrate.
+- Then — G004/G005 — implement the deterministic OWS Flow kernel and immediately prove restart-safe Flow-to-Agent integration.
+- Later — broaden OWS coverage, providers, policy/sandboxing, remote execution, server/TUI depth, and plugins without weakening the sibling-kernel boundary.

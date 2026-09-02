@@ -13,4 +13,4 @@
 - [x] Audit and observability are separated.
 - [x] SDK, CLI and TUI cover both Agent and Flow.
 - [x] G002 is bounded and falsification-oriented.
-- [ ] User architecture review accepted.
+- [x] User architecture review accepted.
