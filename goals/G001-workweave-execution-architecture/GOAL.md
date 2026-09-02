@@ -4,6 +4,10 @@
 
 Establish an implementable architecture for one Rust WorkWeave execution platform containing a probabilistic Agent kernel and deterministic OWS Flow kernel on a shared operational substrate.
 
+## State
+
+- achieved
+
 ## Success criteria
 
 - The architecture defines C1–C4 boundaries for the engine.

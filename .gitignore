@@ -1,0 +1,5 @@
+/target/
+/.workweave/
+*.db
+*.db-shm
+*.db-wal

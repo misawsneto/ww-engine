@@ -1,0 +1,12 @@
+[package]
+name = "ww-sdk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+chrono.workspace = true
+serde_json.workspace = true
+ww-runtime = { path = "../ww-runtime" }
+ww-store-sqlite = { path = "../ww-store-sqlite" }
+ww-types = { path = "../ww-types" }

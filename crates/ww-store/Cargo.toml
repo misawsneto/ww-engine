@@ -1,0 +1,12 @@
+[package]
+name = "ww-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+chrono.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+ww-types = { path = "../ww-types" }
