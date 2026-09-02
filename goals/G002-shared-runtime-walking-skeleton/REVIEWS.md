@@ -35,7 +35,7 @@ Fix applied:
 - a regression test rejects cancellation settlement without a prior durable request;
 - the cancellation reducer property test now generates at least one request before a terminal cancellation event.
 
-Reviewed code head before rustfmt: `05196726b0972fb3506894a9c1b24118e8326d4e`; GitHub Actions applied rustfmt as `16fb32f43769a72b96e513c8892b615b79e57d18`. Permanent CI on the formatted code is the remaining executable check for this finding.
+Reviewed code head before rustfmt: `05196726b0972fb3506894a9c1b24118e8326d4e`; GitHub Actions applied rustfmt as `16fb32f43769a72b96e513c8892b615b79e57d18`. A sandbox-transfer typo in the cancellation return path was then corrected as `9ea9d58f4dcafa2f5d5073beb6be65b7ab690bcc`. Permanent CI on this reviewed code is the remaining executable check for the finding.
 
 ## Terminal review status
 
