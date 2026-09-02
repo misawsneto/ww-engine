@@ -147,7 +147,7 @@ impl ExecutionService {
             )
             .await?;
         self.cancellations.signal(id).await;
-        Oi(updated)
+        Ok(updated)
     }
 
     pub async fn succeed(
