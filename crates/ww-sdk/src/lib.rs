@@ -64,9 +64,8 @@ impl WorkWeaveSdk {
     pub async fn settle_cancelled(
         &self,
         id: ExecutionId,
-        reason: Option<CancelReason>,
     ) -> Result<ExecutionRecord, RuntimeError> {
-        self.runtime.settle_cancelled(id, reason).await
+        self.runtime.settle_cancelled(id).await
     }
 
     pub async fn inspect_execution(

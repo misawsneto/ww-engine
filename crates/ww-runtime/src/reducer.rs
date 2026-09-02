@@ -1,13 +1,18 @@
 use thiserror::Error;
-use ww_types::{CancelReason, ExecutionEvent, ExecutionEventData, ExecutionKind, ExecutionStatus};
+use serde_json::Value;
+use ww_types::{
+    ArtifactRef, CancelReason, ExecutionEvent, ExecutionEventData, ExecutionKind, ExecutionStatus,
+};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ExecutionProjection {
     pub kind: ExecutionKind,
     pub configuration_digest: String,
     pub status: ExecutionStatus,
     pub cancel_requested: bool,
     pub cancel_reason: Option<CancelReason>,
+    pub result_artifact: Option<ArtifactRef>,
+    pub error: Option<Value>,
     pub version: u64,
 }
 
@@ -51,6 +56,8 @@ pub fn reduce_execution_events(
         status: ExecutionStatus::Pending,
         cancel_requested: false,
         cancel_reason: None,
+        result_artifact: None,
+        error: None,
         version: 1,
     };
 
@@ -80,27 +87,32 @@ pub fn reduce_execution_events(
                 projection.cancel_requested = true;
                 projection.cancel_reason = Some(reason.clone());
             }
-            ExecutionEventData::Succeeded { .. }
+            ExecutionEventData::Succeeded { result_artifact }
                 if matches!(
                     projection.status,
                     ExecutionStatus::Running | ExecutionStatus::Waiting
                 ) =>
             {
                 projection.status = ExecutionStatus::Succeeded;
+                projection.result_artifact = result_artifact.clone();
             }
-            ExecutionEventData::Failed { .. }
+            ExecutionEventData::Failed { error }
                 if matches!(
                     projection.status,
                     ExecutionStatus::Running | ExecutionStatus::Waiting
                 ) =>
             {
                 projection.status = ExecutionStatus::Failed;
+                projection.error = Some(error.clone());
             }
             ExecutionEventData::Cancelled { reason }
-                if matches!(
-                    projection.status,
-                    ExecutionStatus::Pending | ExecutionStatus::Running | ExecutionStatus::Waiting
-                ) =>
+                if projection.cancel_requested
+                    && matches!(
+                        projection.status,
+                        ExecutionStatus::Pending
+                            | ExecutionStatus::Running
+                            | ExecutionStatus::Waiting
+                    ) =>
             {
                 projection.status = ExecutionStatus::Cancelled;
                 if let Some(reason) = reason {
@@ -158,7 +170,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn repeated_cancel_requests_reduce_deterministically(cancel_count in 0u8..8) {
+        fn repeated_cancel_requests_reduce_deterministically(cancel_count in 1u8..8) {
             let mut events = vec![
                 event(1, ExecutionEventData::Created {
                     kind: ExecutionKind::synthetic(),

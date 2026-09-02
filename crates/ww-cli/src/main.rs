@@ -130,7 +130,7 @@ async fn main() -> Result<()> {
                 print_value(cli.json, &sdk.fail_execution(parse_id(&id)?, error).await?)?;
             }
             RunCommand::SettleCancelled { id } => {
-                print_value(cli.json, &sdk.settle_cancelled(parse_id(&id)?, None).await?)?;
+                print_value(cli.json, &sdk.settle_cancelled(parse_id(&id)?).await?)?;
             }
             RunCommand::Inspect { id } => {
                 let inspection = sdk.inspect_execution(parse_id(&id)?).await?;

@@ -147,7 +147,7 @@ impl ExecutionService {
             )
             .await?;
         self.cancellations.signal(id).await;
-        Ok(updated)
+        Oi(updated)
     }
 
     pub async fn succeed(
@@ -193,10 +193,9 @@ impl ExecutionService {
     pub async fn settle_cancelled(
         &self,
         id: ExecutionId,
-        reason: Option<CancelReason>,
     ) -> Result<ExecutionRecord, RuntimeError> {
         let current = self.store.get_execution(id).await?;
-        if current.status.is_terminal() {
+        if current.status.is_terminal() || !current.cancel_requested {
             return Err(InvalidTransition {
                 from: current.status,
                 action: "settle_cancelled",
@@ -211,7 +210,9 @@ impl ExecutionService {
                     finished_at: Some(self.clock.now()),
                     ..ExecutionPatch::default()
                 },
-                ExecutionEventData::Cancelled { reason },
+                ExecutionEventData::Cancelled {
+                    reason: current.cancel_reason.clone(),
+                },
             )
             .await?;
         self.cancellations.unregister(id).await;
@@ -228,6 +229,8 @@ impl ExecutionService {
             || reduced.status != record.status
             || reduced.cancel_requested != record.cancel_requested
             || reduced.cancel_reason != record.cancel_reason
+            || reduced.result_artifact != record.result_artifact
+            || reduced.error != record.error
             || reduced.version != record.version
         {
             return Err(RuntimeError::CorruptProjection(format!(
@@ -392,6 +395,25 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn cancellation_cannot_settle_without_durable_request() {
+        let temp = TempDir::new().unwrap();
+        let runtime = service(&temp).await;
+        let created = runtime
+            .create_execution(ExecutionKind::synthetic(), b"{}", None)
+            .await
+            .unwrap();
+        runtime.start(created.id).await.unwrap();
+
+        let error = runtime.settle_cancelled(created.id).await.unwrap_err();
+        assert!(matches!(error, RuntimeError::InvalidTransition(_)));
+
+        let inspection = runtime.inspect(created.id).await.unwrap();
+        assert_eq!(inspection.record.status, ExecutionStatus::Running);
+        assert!(!inspection.record.cancel_requested);
+        assert_eq!(inspection.record.version, 2);
+    }
+
+    #[tokio::test]
     async fn durable_cancel_signals_local_token() {
         let temp = TempDir::new().unwrap();
         let runtime = service(&temp).await;
@@ -413,7 +435,7 @@ mod tests {
             .await
             .unwrap();
         assert!(token.is_cancelled());
-        runtime.settle_cancelled(created.id, None).await.unwrap();
+        runtime.settle_cancelled(created.id).await.unwrap();
         let inspection = runtime.inspect(created.id).await.unwrap();
         assert!(inspection.record.cancel_requested);
         assert_eq!(inspection.record.status, ExecutionStatus::Cancelled);
