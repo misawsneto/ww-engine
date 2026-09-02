@@ -12,6 +12,7 @@
 | D008 | Use LangGraph as a Flow runtime reference for checkpoints, interrupts, streaming, durable execution and recovery, not as a second workflow DSL. | accepted |
 | D009 | Flow may invoke a local WorkWeave Agent through the same logical A2A execution seam used for remote agents. | accepted |
 | D010 | SDK, CLI and TUI are first-class surfaces for both Agent and Flow. | accepted |
-| D011 | Audit records are durable product data; OpenTelemetry is export/observability and is not the sole canonical execution journal. | proposed |
-| D012 | Start embedded with SQLite and design storage ports so coordinated PostgreSQL deployment can be added without changing engine semantics. | proposed |
+| D011 | Audit records are durable product data; OpenTelemetry is export/observability and is not the sole canonical execution journal. | accepted |
+| D012 | Start embedded with SQLite and preserve storage/transaction boundaries so coordinated PostgreSQL deployment can be added without changing engine semantics. | accepted |
 | D013 | Keep the common executor abstraction intentionally thin; engine-specific types remain owned by Agent or Flow. | accepted |
+| D014 | Every Goal must have at least one Goal-referenced ADR before it becomes active; architecture changes during a Goal must amend or supersede the governing ADR before reliance. | accepted |

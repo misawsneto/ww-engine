@@ -8,6 +8,10 @@ Prove that WorkWeave Engine has a durable, inspectable Rust execution substrate 
 
 - active
 
+## Architecture Decision Records
+
+- `docs/adr/ADR-0002-g002-shared-runtime.md` — accepted.
+
 ## Boundaries
 
 - Implement shared execution infrastructure only.

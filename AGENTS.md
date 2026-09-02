@@ -20,6 +20,7 @@
 - Use immutable upstream source pins for material reference-architecture claims.
 - Separate source-observed, derived, and proposed claims.
 - Capture durable direction in `DECISIONS.md`, uncertainty in `QUESTIONS.md`, active state in `PROJECT_STATE.md`, and Goal-owned work under `goals/`.
+- Before any Goal becomes active, create and reference at least one ADR under `docs/adr/`; amend or supersede it before relying on a changed architectural direction.
 - Keep reusable WorkWeave templates and skills independent from product-specific implementation details.
 
 ## Architecture authority
@@ -30,7 +31,7 @@
 
 ## Now / next
 
-- Now — G002 — implement the shared runtime walking skeleton only: IDs, lifecycle, SQLite transactions, durable audit/events, cancellation, artifacts, SDK inspection/event streaming, and CLI.
-- Next — G003 — implement the thin probabilistic Agent kernel on that substrate.
-- Then — G004/G005 — implement the deterministic OWS Flow kernel and immediately prove restart-safe Flow-to-Agent integration.
+- Now — G002 — engineering acceptance is complete; independent architecture/implementation review T010 is pending.
+- Next — G003 — proposed thin probabilistic Agent kernel; Goal packet and ADR-0003 are drafted, not active.
+- Then — G004/G005 — deterministic OWS Flow kernel followed immediately by restart-safe Flow-to-Agent integration.
 - Later — broaden OWS coverage, providers, policy/sandboxing, remote execution, server/TUI depth, and plugins without weakening the sibling-kernel boundary.

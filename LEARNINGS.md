@@ -10,3 +10,6 @@
 8. Auditability requires a durable ordered execution record in addition to exportable traces and metrics.
 9. CLI/TUI/SDK should expose both engines directly; Agent is not merely a node hidden inside Flow and Flow is not merely an Agent tool.
 10. The first Rust slice should falsify boundaries before expanding provider, workflow, plugin or sandbox breadth.
+11. G002 showed that comparing a durable current row with a reducer projection from immutable events catches audit/state drift that lifecycle tests alone can miss.
+12. Cancellation needs distinct durable request and terminal settlement phases; accepting a second reason at settlement creates an avoidable source-of-truth conflict.
+13. For G003, share the embedded SQLite file operationally but keep Agent records logically owned by Agent persistence; physical co-location must not become shared semantic ownership.

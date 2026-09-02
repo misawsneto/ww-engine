@@ -49,13 +49,13 @@ WorkWeave Orchestration remains a layer above the engine. It owns Goal-, Task-, 
 - `docs/architecture/FLOW-REFERENCE-ARCHITECTURE.md` — OWS and LangGraph runtime analysis.
 - `docs/architecture/RUST-CONTRACTS.md` — proposed Rust crate and interface contracts.
 - `docs/architecture/SOURCE-REGISTER.md` — immutable evidence pins.
+- `docs/adr/` — Goal-linked architecture decisions; every Goal must have an ADR before activation.
 - `docs/orchestration/` — references canonical WorkWeave Orchestration v0.5; this repository does not fork that model.
-- `docs/templates/` — reusable Goal/Plan/Task/Decision/Question/Evaluation/Review authoring supports from the orchestration starter.
-- `docs/STARTER-ADOPTION.md` — what was adopted, adapted, or deliberately held back from the starter.
+- `docs/templates/` — reusable Goal/Plan/Task/Decision/Question/Evaluation/Review/ADR authoring supports.
 - `goals/` — Goal packets and project bookkeeping.
 
 ## Current Goal
 
-`G001 — WorkWeave Execution Architecture` establishes the architecture boundary before production Rust implementation.
+`G002 — Shared Runtime Walking Skeleton` is engineering-complete and awaiting independent review T010. Its runtime/SQLite/cancellation/audit acceptance suite is green.
 
-The next proposed Goal is a narrow Rust execution-kernel spike that proves one local Agent run, one durable OWS Flow, Flow-to-Agent invocation, recovery, and ordered audit on the shared substrate.
+`G003 — Thin Agent Kernel` is fully drafted but remains **proposed**. It will activate only after G002 review acceptance and ADR-0003 acceptance. G003 proves one bounded provider → tool → provider Agent Run before WorkWeave Flow is implemented.

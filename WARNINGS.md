@@ -10,3 +10,5 @@
 8. Do not prematurely build remote multi-agent, plugin, sandbox and provider breadth before the local execution contracts are proven.
 9. Do not duplicate the canonical WorkWeave Orchestration v0.5 model in this repository as mutable authority.
 10. Do not infer Rust types from reference implementation names without validating the required invariants and ownership boundary.
+11. Do not let G003 Agent persistence solve atomic coordination by pushing Agent message/provider/tool types into the shared `ww-store` API.
+12. Do not expose unsafe write/process/network tools until replay classification and `RequiresIntervention` recovery are proven with fault injection.

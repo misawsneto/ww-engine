@@ -11,4 +11,4 @@
 | T007 Define Agent/Flow C1–C4 | complete | dossier and Rust contracts produced |
 | T008 Define SDK/CLI/TUI/deployment/audit | complete | first-class surfaces defined |
 | T009 Define G002 spike | complete | bounded falsification slice documented |
-| T010 Architecture review | active | confirm no hidden semantic/state-machine conflation |
+| T010 Architecture review | complete | user architecture review accepted; no hidden semantic/state-machine conflation found |

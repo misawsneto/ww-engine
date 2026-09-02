@@ -8,6 +8,10 @@ Establish an implementable architecture for one Rust WorkWeave execution platfor
 
 - achieved
 
+## Architecture Decision Records
+
+- `docs/adr/ADR-0001-g001-execution-architecture.md` — accepted.
+
 ## Success criteria
 
 - The architecture defines C1–C4 boundaries for the engine.
