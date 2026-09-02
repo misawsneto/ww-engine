@@ -29,9 +29,7 @@ jobs:
           echo '2c54d74467d246f81ed88dc247f9f479f5a20f0b6239d29e0b5081a7741d49f8  '"$RUNNER_TEMP/g002.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/g002.tar.gz" -C .
           rm -rf .g002payload .bootstrap
-          rm -f .github/workflows/g002-bootstrap.yml
-          rmdir .github/workflows 2>/dev/null || true
-          rmdir .github 2>/dev/null || true
+          rm -f .github/workflows/ci.yml
 
       - name: Apply preflight scaffold correction
         shell: bash
@@ -76,7 +74,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
+          git add -A -- . ':!.github/workflows/g002-bootstrap.yml'
           git diff --cached --check
           git commit -m 'feat: establish G002 shared runtime walking skeleton'
           git push origin HEAD:g002-shared-runtime
