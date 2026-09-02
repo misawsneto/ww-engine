@@ -57,10 +57,7 @@ fn lifecycle_survives_real_process_boundaries_and_cursor_reconnect() {
     assert_eq!(cancelled_requested["cancel_requested"], true);
     assert_eq!(cancelled_requested["version"], 3);
 
-    let settled = json_stdout(run_ww(
-        &temp,
-        &["--json", "run", "settle-cancelled", &id],
-    ));
+    let settled = json_stdout(run_ww(&temp, &["--json", "run", "settle-cancelled", &id]));
     assert_eq!(settled["status"], "cancelled");
     assert_eq!(settled["version"], 4);
 
