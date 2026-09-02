@@ -4,7 +4,7 @@
 
 - Product: WorkWeave Engine.
 - Language: Rust.
-- Active Goal: `G002 — Shared Runtime Walking Skeleton`.
+- Active Goal: `G002 — Shared Runtime Walking Skeleton` (ready for independent review).
 - G001 architecture baseline: accepted.
 - Architecture thesis: one shared Rust runtime substrate with two sibling execution kernels added in later Goals.
 - G002 boundary: shared execution identity, lifecycle, durable audit/events, SQLite, cancellation, artifacts, SDK inspection/event streaming, and CLI only.
@@ -21,4 +21,4 @@
 
 ## G002 acceptance boundary
 
-G002 is complete only when a synthetic execution can be durably created, started, cancelled, terminalized, inspected after restart, and reduced from its ordered event history; artifacts and cursor-based event inspection must also work without Agent/Flow-specific state in the shared runtime.
+Executable acceptance evidence is complete at CI run `33644225518`: synthetic execution lifecycle, real process-boundary restart/inspection, ordered event reduction, cursor reconnect, optimistic conflict rejection, durable cancellation, artifact dedupe, and architecture-boundary checks all pass. G002 remains active only for T010 independent architecture/implementation review.
