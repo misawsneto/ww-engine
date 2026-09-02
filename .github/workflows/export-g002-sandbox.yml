@@ -11,9 +11,10 @@ jobs:
   export:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout full history
+      - name: Checkout verified main with full history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: main
           fetch-depth: 0
           persist-credentials: false
 
@@ -21,6 +22,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "b03a1278f127ecd4c65a57bd0c4130890f0da916"
           git rev-parse HEAD > "$RUNNER_TEMP/checkout-sha.txt"
           tar -czf "$RUNNER_TEMP/ww-engine-g002-full-checkout.tar.gz" .
           sha256sum "$RUNNER_TEMP/ww-engine-g002-full-checkout.tar.gz" > "$RUNNER_TEMP/ww-engine-g002-full-checkout.tar.gz.sha256"
