@@ -1,0 +1,37 @@
+name: Export G002 Sandbox Checkout
+
+on:
+  push:
+    branches: [sandbox-export-g002-20260902]
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Package checkout including Git metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD > "$RUNNER_TEMP/checkout-sha.txt"
+          tar -czf "$RUNNER_TEMP/ww-engine-g002-full-checkout.tar.gz" .
+          sha256sum "$RUNNER_TEMP/ww-engine-g002-full-checkout.tar.gz" > "$RUNNER_TEMP/ww-engine-g002-full-checkout.tar.gz.sha256"
+
+      - name: Upload checkout
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ww-engine-g002-full-checkout
+          path: |
+            ${{ runner.temp }}/ww-engine-g002-full-checkout.tar.gz
+            ${{ runner.temp }}/ww-engine-g002-full-checkout.tar.gz.sha256
+            ${{ runner.temp }}/checkout-sha.txt
+          if-no-files-found: error
+          retention-days: 1
