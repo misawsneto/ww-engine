@@ -1,5 +1,5 @@
-use thiserror::Error;
 use serde_json::Value;
+use thiserror::Error;
 use ww_types::{
     ArtifactRef, CancelReason, ExecutionEvent, ExecutionEventData, ExecutionKind, ExecutionStatus,
 };

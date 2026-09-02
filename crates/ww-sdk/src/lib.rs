@@ -61,10 +61,7 @@ impl WorkWeaveSdk {
         self.runtime.fail(id, error).await
     }
 
-    pub async fn settle_cancelled(
-        &self,
-        id: ExecutionId,
-    ) -> Result<ExecutionRecord, RuntimeError> {
+    pub async fn settle_cancelled(&self, id: ExecutionId) -> Result<ExecutionRecord, RuntimeError> {
         self.runtime.settle_cancelled(id).await
     }
 

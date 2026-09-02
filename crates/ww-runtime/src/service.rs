@@ -190,10 +190,7 @@ impl ExecutionService {
         .await
     }
 
-    pub async fn settle_cancelled(
-        &self,
-        id: ExecutionId,
-    ) -> Result<ExecutionRecord, RuntimeError> {
+    pub async fn settle_cancelled(&self, id: ExecutionId) -> Result<ExecutionRecord, RuntimeError> {
         let current = self.store.get_execution(id).await?;
         if current.status.is_terminal() || !current.cancel_requested {
             return Err(InvalidTransition {
