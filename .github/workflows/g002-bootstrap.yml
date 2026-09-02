@@ -1,0 +1,67 @@
+name: G002 Bootstrap
+
+on:
+  push:
+    branches: [g002-shared-runtime]
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Install G002 payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .bootstrap/g002.part00 .bootstrap/g002.part01 .bootstrap/g002.part02 > "$RUNNER_TEMP/g002.b64"
+          test "$(wc -c < "$RUNNER_TEMP/g002.b64")" -eq 25084
+          base64 -d "$RUNNER_TEMP/g002.b64" > "$RUNNER_TEMP/g002.tar.gz"
+          echo '2c54d74467d246f81ed88dc247f9f479f5a20f0b6239d29e0b5081a7741d49f8  '"$RUNNER_TEMP/g002.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/g002.tar.gz" -C .
+          rm -rf .bootstrap
+          rm -f .github/workflows/g002-bootstrap.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+
+      - name: Install pinned Rust
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.98.0
+          rustc --version
+          cargo --version
+
+      - name: Normalize formatting
+        run: cargo fmt --all
+
+      - name: Verify architecture boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R -n -E 'Agent|FlowToken|OWS|provider|tool.loop' crates/ww-types crates/ww-store crates/ww-store-sqlite crates/ww-runtime
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace --all-features
+
+      - name: Commit verified G002 baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'feat: establish G002 shared runtime walking skeleton'
+          git push origin HEAD:g002-shared-runtime
