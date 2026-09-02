@@ -1,0 +1,38 @@
+name: Format G002 Review Fix
+
+on:
+  push:
+    branches: [g002-shared-runtime]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Install Rust
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.98.0 --profile minimal --component rustfmt
+          rustup default 1.98.0
+
+      - name: Format reviewed runtime fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --all
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add crates/ww-runtime/src/reducer.rs crates/ww-runtime/src/service.rs crates/ww-sdk/src/lib.rs
+          git diff --cached --check
+          git commit -m 'style: format G002 review fix'
+          git push origin HEAD:main
