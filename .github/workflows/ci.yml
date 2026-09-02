@@ -28,6 +28,13 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
 
+      - name: Architecture boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R -n -E 'Agent|FlowToken|OWS|provider|tool.loop' crates/ww-types crates/ww-store crates/ww-store-sqlite crates/ww-runtime
+          ! grep -R -n -E 'ww-store|rusqlite' crates/ww-cli/src crates/ww-cli/Cargo.toml
+
       - name: Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
