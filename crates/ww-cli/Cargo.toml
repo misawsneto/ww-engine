@@ -16,3 +16,6 @@ serde_json.workspace = true
 tokio.workspace = true
 ww-sdk = { path = "../ww-sdk" }
 ww-types = { path = "../ww-types" }
+
+[dev-dependencies]
+tempfile.workspace = true
