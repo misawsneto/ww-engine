@@ -10,11 +10,11 @@ pub struct CancellationRegistry {
 
 impl CancellationRegistry {
     pub async fn register(&self, id: ExecutionId, already_cancelled: bool) -> CancellationToken {
-        let mut tokens = self.inner.lock().await;
-        let token = tokens.entry(id).or_default().clone();
+        let token = CancellationToken::new();
         if already_cancelled {
             token.cancel();
         }
+        self.inner.lock().await.insert(id, token.clone());
         token
     }
 
@@ -30,29 +30,5 @@ impl CancellationRegistry {
 
     pub async fn unregister(&self, id: ExecutionId) {
         self.inner.lock().await.remove(&id);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn repeated_registration_reuses_one_root_token() {
-        let registry = CancellationRegistry::default();
-        let id = ExecutionId::new();
-        let first = registry.register(id, false).await;
-        let second = registry.register(id, false).await;
-
-        assert!(registry.signal(id).await);
-        assert!(first.is_cancelled());
-        assert!(second.is_cancelled());
-    }
-
-    #[tokio::test]
-    async fn durable_cancellation_is_observed_on_later_registration() {
-        let registry = CancellationRegistry::default();
-        let token = registry.register(ExecutionId::new(), true).await;
-        assert!(token.is_cancelled());
     }
 }

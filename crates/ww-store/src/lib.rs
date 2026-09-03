@@ -17,7 +17,7 @@ pub struct NewExecution {
     pub event_id: EventId,
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default)]
 pub struct ExecutionPatch {
     pub status: Option<ExecutionStatus>,
     pub started_at: Option<DateTime<Utc>>,
@@ -38,16 +38,8 @@ pub struct ExecutionMutation {
     pub event: ExecutionEventData,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct ExecutionHistorySnapshot {
-    pub record: ExecutionRecord,
-    pub events: Vec<ExecutionEvent>,
-}
-
 #[derive(Debug, Error)]
 pub enum StoreError {
-    #[error("invalid store command: {0}")]
-    Invalid(String),
     #[error("record not found: {0}")]
     NotFound(String),
     #[error("optimistic version conflict for {id}: expected {expected}, actual {actual}")]
@@ -58,14 +50,8 @@ pub enum StoreError {
     },
     #[error("store data is corrupt: {0}")]
     Corrupt(String),
-    #[error("unsupported durable payload version {version} for {subject}")]
-    UnsupportedVersion { subject: String, version: u64 },
-    #[error("store migration error: {0}")]
-    Migration(String),
-    #[error("transient store backend error: {0}")]
-    TransientBackend(String),
-    #[error("permanent store backend error: {0}")]
-    PermanentBackend(String),
+    #[error("store backend error: {0}")]
+    Backend(String),
 }
 
 #[async_trait]
@@ -75,11 +61,6 @@ pub trait RuntimeStore: Send + Sync {
     async fn create_execution(&self, new: NewExecution) -> Result<ExecutionRecord, StoreError>;
 
     async fn get_execution(&self, id: ExecutionId) -> Result<ExecutionRecord, StoreError>;
-
-    async fn load_execution_history(
-        &self,
-        id: ExecutionId,
-    ) -> Result<ExecutionHistorySnapshot, StoreError>;
 
     async fn mutate_execution(
         &self,

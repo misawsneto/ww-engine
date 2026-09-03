@@ -111,16 +111,14 @@ impl ExecutionService {
             }
             .into());
         }
-        let occurred_at = self.clock.now();
         self.mutate(
             &current,
             ExecutionPatch {
                 status: Some(ExecutionStatus::Running),
-                started_at: Some(occurred_at),
+                started_at: Some(self.clock.now()),
                 ..ExecutionPatch::default()
             },
             ExecutionEventData::Started,
-            occurred_at,
         )
         .await
     }
@@ -138,7 +136,6 @@ impl ExecutionService {
             }
             .into());
         }
-        let occurred_at = self.clock.now();
         let updated = self
             .mutate(
                 &current,
@@ -147,7 +144,6 @@ impl ExecutionService {
                     ..ExecutionPatch::default()
                 },
                 ExecutionEventData::CancelRequested { reason },
-                occurred_at,
             )
             .await?;
         self.cancellations.signal(id).await;
@@ -161,17 +157,15 @@ impl ExecutionService {
     ) -> Result<ExecutionRecord, RuntimeError> {
         let current = self.store.get_execution(id).await?;
         self.require_active(&current, "succeed")?;
-        let occurred_at = self.clock.now();
         self.mutate(
             &current,
             ExecutionPatch {
                 status: Some(ExecutionStatus::Succeeded),
-                finished_at: Some(occurred_at),
+                finished_at: Some(self.clock.now()),
                 result_artifact: result_artifact.clone(),
                 ..ExecutionPatch::default()
             },
             ExecutionEventData::Succeeded { result_artifact },
-            occurred_at,
         )
         .await
     }
@@ -183,17 +177,15 @@ impl ExecutionService {
     ) -> Result<ExecutionRecord, RuntimeError> {
         let current = self.store.get_execution(id).await?;
         self.require_active(&current, "fail")?;
-        let occurred_at = self.clock.now();
         self.mutate(
             &current,
             ExecutionPatch {
                 status: Some(ExecutionStatus::Failed),
-                finished_at: Some(occurred_at),
+                finished_at: Some(self.clock.now()),
                 error: Some(error.clone()),
                 ..ExecutionPatch::default()
             },
             ExecutionEventData::Failed { error },
-            occurred_at,
         )
         .await
     }
@@ -207,19 +199,17 @@ impl ExecutionService {
             }
             .into());
         }
-        let occurred_at = self.clock.now();
         let updated = self
             .mutate(
                 &current,
                 ExecutionPatch {
                     status: Some(ExecutionStatus::Cancelled),
-                    finished_at: Some(occurred_at),
+                    finished_at: Some(self.clock.now()),
                     ..ExecutionPatch::default()
                 },
                 ExecutionEventData::Cancelled {
                     reason: current.cancel_reason.clone(),
                 },
-                occurred_at,
             )
             .await?;
         self.cancellations.unregister(id).await;
@@ -227,9 +217,9 @@ impl ExecutionService {
     }
 
     pub async fn inspect(&self, id: ExecutionId) -> Result<ExecutionInspection, RuntimeError> {
-        let snapshot = self.store.load_execution_history(id).await?;
-        let record = snapshot.record;
-        let reduced = reduce_execution_events(&snapshot.events)
+        let record = self.store.get_execution(id).await?;
+        let events = self.all_events(id).await?;
+        let reduced = reduce_execution_events(&events)
             .map_err(|error| RuntimeError::CorruptProjection(error.to_string()))?;
         if reduced.kind != record.kind
             || reduced.configuration_digest != record.configuration_digest
@@ -297,6 +287,20 @@ impl ExecutionService {
             .await)
     }
 
+    async fn all_events(&self, id: ExecutionId) -> Result<Vec<ExecutionEvent>, RuntimeError> {
+        let mut cursor = 0;
+        let mut all = Vec::new();
+        loop {
+            let page = self.events(id, cursor, 256).await?;
+            if page.is_empty() {
+                break;
+            }
+            cursor = page.last().expect("non-empty page").sequence;
+            all.extend(page);
+        }
+        Ok(all)
+    }
+
     fn require_active(
         &self,
         current: &ExecutionRecord,
@@ -321,7 +325,6 @@ impl ExecutionService {
         current: &ExecutionRecord,
         patch: ExecutionPatch,
         event: ExecutionEventData,
-        occurred_at: DateTime<Utc>,
     ) -> Result<ExecutionRecord, RuntimeError> {
         self.store
             .mutate_execution(ExecutionMutation {
@@ -329,7 +332,7 @@ impl ExecutionService {
                 expected_version: current.version,
                 patch,
                 event_id: EventId::new(),
-                occurred_at,
+                occurred_at: self.clock.now(),
                 visibility: EventVisibility::Public,
                 event,
             })

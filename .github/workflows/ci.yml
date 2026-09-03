@@ -42,9 +42,6 @@ jobs:
           # no Agent crate depends on Flow or OWS
           ! grep -R -n -E 'ww-flow|OWS' crates/ww-agent-core crates/ww-agent-provider crates/ww-agent-store-sqlite
 
-      - name: Structural dependency boundaries
-        run: bash .github/scripts/check-architecture.sh
-
       - name: Clippy
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 

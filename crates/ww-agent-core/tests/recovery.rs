@@ -2,11 +2,12 @@ use chrono::{TimeZone, Utc};
 use serde_json::json;
 use uuid::Uuid;
 use ww_agent_core::{
-    AgentAssistantContent, AgentCompletionReason, AgentEntry, AgentEntryData, AgentEntryId,
-    AgentPhase, AgentRecord, AgentRecordData, AgentRunId, AgentTerminalResult, AgentToolCall,
-    AgentUsage, CorruptionError, DurableAssistantMessage, LogicalToolCallId, ModelAttemptId,
-    ToolAttemptId, reduce_agent_history,
+    AgentAssistantContent, AgentEntry, AgentEntryData, AgentEntryId, AgentPhase, AgentRecord,
+    AgentRecordData, AgentRunId, AgentTerminalResult, AgentToolCall, CorruptionError,
+    DurableAssistantMessage, LogicalToolCallId, ModelAttemptId, ToolAttemptId,
+    reduce_agent_history,
 };
+use ww_agent_provider::{CompletionReason, ModelUsage, ToolCallId};
 
 fn run_id() -> AgentRunId {
     AgentRunId::from_uuid(Uuid::from_u128(1))
@@ -51,11 +52,11 @@ fn assistant_text(id: u128, ordinal: u64, attempt_id: ModelAttemptId) -> AgentEn
                 content: vec![AgentAssistantContent::Text {
                     text: "done".to_owned(),
                 }],
-                stop_reason: AgentCompletionReason::Stop,
-                usage: Some(AgentUsage {
+                stop_reason: CompletionReason::Stop,
+                usage: Some(ModelUsage {
                     input_tokens: 5,
                     output_tokens: 2,
-                    ..AgentUsage::default()
+                    ..ModelUsage::default()
                 }),
                 provider_request_id: Some("req-1".to_owned()),
             },
@@ -83,13 +84,14 @@ fn assistant_tool(
                     .map(|(index, logical_id)| AgentAssistantContent::ToolCall {
                         call: AgentToolCall {
                             logical_id: *logical_id,
-                            provider_call_id: format!("provider-{index}"),
+                            provider_call_id: ToolCallId::new(format!("provider-{index}")).unwrap(),
                             name: format!("test.{index}"),
+                            arguments_json: "{}".to_owned(),
                             arguments: json!({}),
                         },
                     })
                     .collect(),
-                stop_reason: AgentCompletionReason::ToolUse,
+                stop_reason: CompletionReason::ToolUse,
                 usage: None,
                 provider_request_id: Some("req-tool".to_owned()),
             },

@@ -38,8 +38,6 @@ pub struct AgentHistorySnapshot {
 
 #[derive(Debug, Error)]
 pub enum AgentStoreError {
-    #[error("invalid Agent store command: {0}")]
-    Invalid(String),
     #[error("Agent run not found: {0}")]
     NotFound(String),
     #[error("Agent run version conflict for {id}: expected {expected}, actual {actual}")]
@@ -50,14 +48,8 @@ pub enum AgentStoreError {
     },
     #[error("Agent store data is corrupt: {0}")]
     Corrupt(String),
-    #[error("unsupported Agent durable payload version {version} for {subject}")]
-    UnsupportedVersion { subject: String, version: u64 },
-    #[error("Agent store migration error: {0}")]
-    Migration(String),
-    #[error("transient Agent store backend error: {0}")]
-    TransientBackend(String),
-    #[error("permanent Agent store backend error: {0}")]
-    PermanentBackend(String),
+    #[error("Agent store backend error: {0}")]
+    Backend(String),
 }
 
 #[async_trait]

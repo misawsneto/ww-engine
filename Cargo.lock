@@ -1139,7 +1139,6 @@ dependencies = [
  "rusqlite",
  "serde_json",
  "tempfile",
- "thiserror",
  "tokio",
  "ww-store",
  "ww-types",

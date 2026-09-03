@@ -217,6 +217,7 @@ impl ResponseAssembler {
                 call: ToolCall {
                     id: tool.id.clone(),
                     name: tool.name.clone(),
+                    arguments_json: tool.arguments_json.clone(),
                     arguments: tool
                         .arguments
                         .clone()

@@ -1,3 +1,6 @@
+pragma foreign_keys = on;
+pragma journal_mode = wal;
+
 create table if not exists agent_runs (
     id                  text primary key,
     configuration_json  text not null,

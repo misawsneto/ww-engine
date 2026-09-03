@@ -4,14 +4,6 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
-[features]
-test-support = []
-
-[[bin]]
-name = "agent-store-fixture"
-path = "src/bin/agent-store-fixture.rs"
-required-features = ["test-support"]
-
 [dependencies]
 async-trait.workspace = true
 chrono.workspace = true

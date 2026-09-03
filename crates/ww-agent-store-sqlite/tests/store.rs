@@ -1,12 +1,10 @@
 use chrono::Utc;
-use rusqlite::Connection;
 use serde_json::json;
 use tempfile::TempDir;
 use ww_agent_core::{
-    AgentAppend, AgentAssistantContent, AgentCompletionReason, AgentEntry, AgentEntryData,
-    AgentEntryId, AgentPhase, AgentRecord, AgentRecordData, AgentRunId, AgentStore,
-    AgentStoreError, AgentTerminalResult, DurableAssistantMessage, ModelAttemptId, NewAgentRun,
-    reduce_agent_history,
+    AgentAppend, AgentAssistantContent, AgentEntry, AgentEntryData, AgentEntryId, AgentPhase,
+    AgentRecord, AgentRecordData, AgentRunId, AgentStore, AgentStoreError, AgentTerminalResult,
+    CompletionReason, DurableAssistantMessage, ModelAttemptId, NewAgentRun, reduce_agent_history,
 };
 use ww_agent_store_sqlite::SqliteAgentStore;
 
@@ -14,46 +12,6 @@ async fn migrated_store(temp: &TempDir) -> SqliteAgentStore {
     let store = SqliteAgentStore::new(temp.path().join("runtime.db"));
     store.migrate().await.expect("migrate Agent store");
     store
-}
-
-#[tokio::test]
-async fn existing_v1_agent_state_migrates_without_data_loss() {
-    let temp = TempDir::new().expect("temp dir");
-    let path = temp.path().join("runtime.db");
-    let run_id = AgentRunId::new();
-    let entry = initial_entry(run_id);
-    let connection = Connection::open(&path).expect("open v1 database");
-    connection
-        .execute_batch(include_str!("../migrations/0001_agent.sql"))
-        .expect("create v1 schema");
-    connection
-        .execute(
-            "insert into agent_runs (id, configuration_json, created_at, version) values (?1, ?2, ?3, 1)",
-            rusqlite::params![run_id.to_string(), "{}", entry.created_at.to_rfc3339()],
-        )
-        .expect("insert v1 run");
-    connection
-        .execute(
-            "insert into agent_entries (id, run_id, ordinal, created_at, kind, payload_json) values (?1, ?2, 1, ?3, 'user_input', ?4)",
-            rusqlite::params![
-                entry.id.to_string(),
-                run_id.to_string(),
-                entry.created_at.to_rfc3339(),
-                serde_json::to_string(&entry.data).expect("serialize entry"),
-            ],
-        )
-        .expect("insert v1 entry");
-    drop(connection);
-
-    let store = SqliteAgentStore::new(&path);
-    store.migrate().await.expect("upgrade v1 schema");
-    let history = store
-        .load_history(run_id)
-        .await
-        .expect("load upgraded state");
-    assert_eq!(history.run.configuration, json!({}));
-    assert_eq!(history.entries, vec![entry]);
-    assert!(history.records.is_empty());
 }
 
 fn initial_entry(run_id: AgentRunId) -> AgentEntry {
@@ -85,7 +43,7 @@ fn terminal_append(run_id: AgentRunId, assistant_id: AgentEntryId) -> AgentAppen
                     content: vec![AgentAssistantContent::Text {
                         text: "done".to_owned(),
                     }],
-                    stop_reason: AgentCompletionReason::Stop,
+                    stop_reason: CompletionReason::Stop,
                     usage: None,
                     provider_request_id: None,
                 },
@@ -274,7 +232,7 @@ async fn failed_batch_rolls_back_inserted_entries_records_and_version() {
         })
         .await
         .expect_err("duplicate primary key must abort batch");
-    assert!(matches!(error, AgentStoreError::PermanentBackend(_)));
+    assert!(matches!(error, AgentStoreError::Backend(_)));
 
     let history = store
         .load_history(run_id)
@@ -317,7 +275,7 @@ async fn append_rejects_non_contiguous_ordinals_before_mutation() {
         })
         .await
         .expect_err("ordinal gap must fail");
-    assert!(matches!(error, AgentStoreError::Invalid(_)));
+    assert!(matches!(error, AgentStoreError::Corrupt(_)));
 
     let history = store
         .load_history(run_id)
@@ -325,64 +283,4 @@ async fn append_rejects_non_contiguous_ordinals_before_mutation() {
         .expect("history after rejection");
     assert_eq!(history.run.version, 1);
     assert_eq!(history.entries.len(), 1);
-}
-
-#[tokio::test]
-async fn unsupported_agent_payload_version_fails_closed() {
-    let temp = TempDir::new().expect("temp dir");
-    let path = temp.path().join("runtime.db");
-    let store = SqliteAgentStore::new(&path);
-    store.migrate().await.expect("migrate Agent store");
-    let run_id = AgentRunId::new();
-    store
-        .create_run(NewAgentRun {
-            id: run_id,
-            configuration: json!({}),
-            created_at: Utc::now(),
-            initial_entry: initial_entry(run_id),
-        })
-        .await
-        .expect("create run");
-    Connection::open(&path)
-        .expect("open database")
-        .execute(
-            "update agent_entries set payload_version = 2 where run_id = ?1",
-            [run_id.to_string()],
-        )
-        .expect("tamper payload version");
-
-    assert!(matches!(
-        store.load_history(run_id).await,
-        Err(AgentStoreError::UnsupportedVersion { version: 2, .. })
-    ));
-}
-
-#[tokio::test]
-async fn agent_entry_kind_must_match_deserialized_payload() {
-    let temp = TempDir::new().expect("temp dir");
-    let path = temp.path().join("runtime.db");
-    let store = SqliteAgentStore::new(&path);
-    store.migrate().await.expect("migrate Agent store");
-    let run_id = AgentRunId::new();
-    store
-        .create_run(NewAgentRun {
-            id: run_id,
-            configuration: json!({}),
-            created_at: Utc::now(),
-            initial_entry: initial_entry(run_id),
-        })
-        .await
-        .expect("create run");
-    Connection::open(&path)
-        .expect("open database")
-        .execute(
-            "update agent_entries set kind = 'assistant_message' where run_id = ?1",
-            [run_id.to_string()],
-        )
-        .expect("tamper kind");
-
-    assert!(matches!(
-        store.load_history(run_id).await,
-        Err(AgentStoreError::Corrupt(_))
-    ));
 }

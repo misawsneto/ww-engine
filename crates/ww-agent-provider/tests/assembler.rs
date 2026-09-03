@@ -1,8 +1,7 @@
 use serde_json::json;
 use ww_agent_provider::{
     AssemblyError, CompletionReason, MessageContent, ModelEvent, ModelResponse, ModelUsage,
-    ProviderFailure, ProviderStarted, ResponseAssembler, StreamFinalizationError, ToolCallId,
-    finalize_stream,
+    ProviderFailure, ProviderStarted, ResponseAssembler, ToolCallId,
 };
 
 fn started() -> ModelEvent {
@@ -381,30 +380,4 @@ fn failed_and_aborted_events_are_terminal_without_executable_message() {
         .unwrap()
         .unwrap();
     assert!(matches!(response, ModelResponse::Aborted { .. }));
-}
-
-#[tokio::test]
-async fn production_finalizer_requires_terminal_eof() {
-    let stream = Box::pin(futures_util::stream::iter(vec![Ok(started())]));
-    assert_eq!(
-        finalize_stream(stream).await.unwrap_err(),
-        StreamFinalizationError::Assembly(AssemblyError::UnexpectedEnd)
-    );
-}
-
-#[tokio::test]
-async fn production_finalizer_rejects_post_terminal_output() {
-    let stream = Box::pin(futures_util::stream::iter(vec![
-        Ok(started()),
-        Ok(ModelEvent::Completed {
-            reason: CompletionReason::Stop,
-        }),
-        Ok(ModelEvent::TextDelta {
-            delta: "late".to_owned(),
-        }),
-    ]));
-    assert_eq!(
-        finalize_stream(stream).await.unwrap_err(),
-        StreamFinalizationError::Assembly(AssemblyError::EventAfterTerminal)
-    );
 }

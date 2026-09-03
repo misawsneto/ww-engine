@@ -122,7 +122,7 @@ async fn agent_insert_failure_rolls_back_preceding_common_creation() {
         })
         .await
         .expect_err("Agent primary-key conflict must abort whole transaction");
-    assert!(matches!(error, SqliteAgentCoordinatorError::Conflict(_)));
+    assert!(matches!(error, SqliteAgentCoordinatorError::Agent(_)));
 
     assert!(matches!(
         runtime.get_execution(execution_id).await,
@@ -140,88 +140,6 @@ async fn agent_insert_failure_rolls_back_preceding_common_creation() {
         .await
         .expect("existing Agent run remains");
     assert_eq!(existing.version, 1);
-}
-
-#[tokio::test]
-async fn exact_create_retry_returns_existing_run_without_duplicate_history() {
-    let temp = TempDir::new().expect("temp dir");
-    let (coordinator, runtime, agent) = coordinator(&temp).await;
-    let execution_id = ExecutionId::new();
-    let run_id = AgentRunId::new();
-    let request = NewCoordinatedAgentRun {
-        execution_id,
-        run_id,
-        configuration: json!({"provider": "recorded"}),
-        created_at: Utc::now(),
-        deadline: None,
-        initial_entry: initial_entry(run_id),
-    };
-
-    let first = coordinator
-        .create_run(request.clone())
-        .await
-        .expect("first create");
-    let retry = coordinator.create_run(request).await.expect("exact retry");
-
-    assert_eq!(retry, first);
-    assert_eq!(
-        runtime
-            .load_execution_history(execution_id)
-            .await
-            .expect("runtime history")
-            .events
-            .len(),
-        1
-    );
-    let history = agent.load_history(run_id).await.expect("Agent history");
-    assert_eq!(history.entries.len(), 1);
-    assert!(history.records.is_empty());
-}
-
-#[tokio::test]
-async fn conflicting_create_retry_rejects_without_mutating_existing_run() {
-    let temp = TempDir::new().expect("temp dir");
-    let (coordinator, runtime, agent) = coordinator(&temp).await;
-    let execution_id = ExecutionId::new();
-    let run_id = AgentRunId::new();
-    let created_at = Utc::now();
-    let initial_entry = initial_entry(run_id);
-    let request = NewCoordinatedAgentRun {
-        execution_id,
-        run_id,
-        configuration: json!({"provider": "recorded"}),
-        created_at,
-        deadline: None,
-        initial_entry: initial_entry.clone(),
-    };
-    coordinator.create_run(request).await.expect("first create");
-
-    let error = coordinator
-        .create_run(NewCoordinatedAgentRun {
-            execution_id,
-            run_id,
-            configuration: json!({"provider": "different"}),
-            created_at,
-            deadline: None,
-            initial_entry,
-        })
-        .await
-        .expect_err("changed retry must conflict");
-    assert!(matches!(error, SqliteAgentCoordinatorError::Conflict(_)));
-
-    assert_eq!(
-        runtime
-            .load_execution_history(execution_id)
-            .await
-            .expect("runtime history")
-            .events
-            .len(),
-        1
-    );
-    let history = agent.load_history(run_id).await.expect("Agent history");
-    assert_eq!(history.run.configuration, json!({"provider": "recorded"}));
-    assert_eq!(history.entries.len(), 1);
-    assert!(history.records.is_empty());
 }
 
 #[test]
