@@ -1034,6 +1034,7 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "ww-sdk",
  "ww-types",
