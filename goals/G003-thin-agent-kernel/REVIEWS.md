@@ -9,18 +9,33 @@ Verified slices:
 - T002 provider-neutral protocol and pure stream assembler: provider boundary, clippy, and workspace tests passed; 15 assembler/conformance tests passed.
 - T003 durable Agent entries/operational records and pure recovery reducer: clippy and workspace tests passed; 11 recovery/corruption tests passed.
 - T004 Agent-owned SQLite persistence/reconstruction: clippy and workspace tests passed, including rollback/reopen/version-conflict and real OS-process restart reconstruction.
+- T005 common/Agent SQLite transaction coordination: full merge-target-equivalent gate passed on consolidation commit `69f4ab7ecbed731d40a695dafcf487d62645b695`; atomic common-execution + Agent-run creation/linkage and rollback on injected half-write failure are verified.
+- T006 RecordedProvider conformance: the full `main` gate passed at 58/58 tests; recorded fixtures cover text, tool calls, usage, failure, cancellation, truncation, interrupted attempts, determinism, request capture, and script violations.
 
-Current checkpoint:
+## A003-reviewer durability/hygiene review — 2026-09-03
 
-- T005 common/Agent SQLite transaction coordination is complete and verified on consolidation commit `69f4ab7ecbed731d40a695dafcf487d62645b695`. The full merge-target-equivalent gate passed: rustfmt, five architecture-boundary checks, clippy with `--locked -D warnings`, and 44/44 tests.
-- T005 remains scoped only to atomic common-execution + Agent-run creation/linkage and rollback on injected half-write failure. Terminal repair remains owned by T009.
-- T006 RecordedProvider conformance and T007 tool policy/replay fixtures are the next open implementation slices.
+Disposition: blocking cleanup before the previously planned tool-contract T007. Decision D018 accepted; G003 Plan v2 inserts a bounded cleanup gate and renumbers only still-open tasks.
+
+Findings that must be closed before tool semantics expand the durable model:
+
+1. Agent durable entry/record/configuration payloads do not yet have an explicit schema/payload evolution contract; SQLite migration ownership is also not component-versioned for the shared physical database.
+2. coordinated Agent creation commits before its post-commit reads, so a crash/read failure after commit can leave the caller uncertain whether creation succeeded; retry semantics must be idempotent and typed.
+3. provider and durable tool calls carry both raw JSON and parsed JSON arguments; one representation must become authoritative before schema validation, policy, hashing, and replay semantics rely on it.
+4. durable Agent history directly serializes normalized provider-crate types; an explicit provider-to-durable conversion boundary should make `ww-agent-core` the structural owner of its disk format.
+5. provider stream consumption can bypass `ResponseAssembler::finish`; the kernel needs one production finalization path for normal completion, failure, cancellation, and interrupted EOF.
+6. store error categories collapse invalid commands, persistence corruption, conflicts, and backend failures too aggressively for durable retry/recovery decisions.
+7. runtime store, Agent store, and coordinator duplicate SQLite connection/configuration mechanics; physical-backend reuse should be introduced without moving Agent semantics into the shared store contract.
+8. architecture CI relies heavily on textual grep; retain those semantic guards but add structural dependency-graph checks.
+9. test-only binaries/recorded fixtures are exposed as normal package surfaces, and canonical project documents already drifted behind T006 completion.
+
+This review does not change the accepted sibling-kernel, provider-neutral, recovery-first architecture. It tightens implementation discipline required to satisfy ADR-0003 before the tool/replay and functional-loop slices.
 
 ## Planned terminal review focus
 
 - provider-neutral kernel ownership and dependency direction;
 - deterministic recovery reducer and corrupt-history behavior;
 - Agent/common SQLite transaction ownership without Agent DTO leakage into shared store contracts;
+- durable schema/payload evolution and idempotent create/repair semantics;
 - tool argument validation, policy, replay classification, and logical-result uniqueness;
 - crash/restart behavior at every model/tool ambiguity boundary;
 - cancellation and durable budget accounting;
