@@ -133,7 +133,6 @@ impl ModelUsage {
 pub struct ToolCall {
     pub id: ToolCallId,
     pub name: String,
-    pub arguments_json: String,
     pub arguments: Value,
 }
 

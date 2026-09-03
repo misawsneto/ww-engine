@@ -2,8 +2,8 @@ use chrono::Utc;
 use serde_json::json;
 use std::{env, path::PathBuf};
 use ww_agent_core::{
-    AgentAppend, AgentAssistantContent, AgentEntry, AgentEntryData, AgentEntryId, AgentRecord,
-    AgentRecordData, AgentRunId, AgentStore, AgentTerminalResult, CompletionReason,
+    AgentAppend, AgentAssistantContent, AgentCompletionReason, AgentEntry, AgentEntryData,
+    AgentEntryId, AgentRecord, AgentRecordData, AgentRunId, AgentStore, AgentTerminalResult,
     DurableAssistantMessage, ModelAttemptId, NewAgentRun, reduce_agent_history,
 };
 use ww_agent_store_sqlite::SqliteAgentStore;
@@ -57,7 +57,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                         content: vec![AgentAssistantContent::Text {
                             text: "done".to_owned(),
                         }],
-                        stop_reason: CompletionReason::Stop,
+                        stop_reason: AgentCompletionReason::Stop,
                         usage: None,
                         provider_request_id: Some("fixture-request".to_owned()),
                     },

@@ -1,11 +1,10 @@
 use crate::{
     AgentEntry, AgentEntryData, AgentEntryId, AgentRecord, AgentRecordData, AgentRunId,
-    AgentTerminalResult, LogicalToolCallId, ModelAttemptId, ToolAttemptId,
+    AgentTerminalResult, AgentUsage, LogicalToolCallId, ModelAttemptId, ToolAttemptId,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
-use ww_agent_provider::ModelUsage;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -66,7 +65,7 @@ pub struct AgentRecoveryState {
     pub active_tool_attempt: Option<ToolAttemptId>,
     pub model_attempts: BTreeMap<ModelAttemptId, ModelAttemptState>,
     pub tool_attempts: BTreeMap<LogicalToolCallId, Vec<ToolAttemptState>>,
-    pub usage: ModelUsage,
+    pub usage: AgentUsage,
     pub model_request_count: u64,
     pub turn_count: u64,
     pub tool_attempt_count: u64,
@@ -230,7 +229,7 @@ pub fn reduce_agent_history(
         active_tool_attempt: None,
         model_attempts: BTreeMap::new(),
         tool_attempts: BTreeMap::new(),
-        usage: ModelUsage::default(),
+        usage: AgentUsage::default(),
         model_request_count: 0,
         turn_count: 0,
         tool_attempt_count: 0,
@@ -632,8 +631,8 @@ fn finish_tool_attempt(
     Ok(())
 }
 
-fn add_usage(left: ModelUsage, right: ModelUsage) -> ModelUsage {
-    ModelUsage {
+fn add_usage(left: AgentUsage, right: AgentUsage) -> AgentUsage {
+    AgentUsage {
         input_tokens: left.input_tokens.saturating_add(right.input_tokens),
         output_tokens: left.output_tokens.saturating_add(right.output_tokens),
         cache_read_input_tokens: left

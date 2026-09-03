@@ -4,15 +4,18 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
+[features]
+test-support = ["dep:async-stream"]
+
 [dependencies]
-async-stream.workspace = true
+async-stream = { workspace = true, optional = true }
 async-trait.workspace = true
 futures-core.workspace = true
+futures-util.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio-util.workspace = true
 
 [dev-dependencies]
-futures-util.workspace = true
 tokio.workspace = true

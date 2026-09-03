@@ -25,6 +25,21 @@
 - [x] unknown references, duplicate finalization, duplicate logical tool result, and records after terminal result reject as corrupt history
 - [x] finalized entries are immutable; retries create new attempt records
 
+### D018 durability and hygiene gate
+
+- [x] runtime, Agent, and coordinator schemas use a monotonic component migration ledger
+- [x] future or gapped component versions fail closed without ledger rewrite or partial schema change
+- [x] common event and Agent configuration/entry/record payload versions are explicit and validated
+- [x] persisted event/entry/record kind metadata must match the deserialized payload
+- [x] runtime inspection and Agent history reconstruction use one SQLite read snapshot
+- [x] exact coordinated-create retries return the existing linked run; conflicting retries do not mutate it
+- [x] provider tool calls retain only parsed JSON arguments and convert explicitly to Agent-owned durable types
+- [x] one production stream finalizer rejects interrupted EOF and post-terminal output
+- [x] lifecycle patches that disagree with their events reject before mutation
+- [x] repeated cancellation registration reuses one root token
+- [x] Cargo dependency-graph checks supplement semantic boundary checks
+- [x] RecordedProvider and the process fixture are opt-in test-support surfaces
+
 ### Tool safety
 
 - [ ] JSON arguments validate before policy and execution
@@ -73,3 +88,4 @@ All checks in `EVALUATIONS.md` required for G003 closure must have current passi
 - T004 verification: temporary verifier branch; clippy and full workspace tests passed, including Agent SQLite rollback/reopen/version-conflict and real process-restart reconstruction.
 - T005 verification: consolidated engineering commit `69f4ab7ecbed731d40a695dafcf487d62645b695`; full merge-target-equivalent gate passed on Rust 1.98.0: fmt, five architecture boundary checks, clippy `--locked -D warnings`, and 44/44 tests. Coordinator acceptance covers atomic create/link, injected mid-write rollback, and mismatched database path rejection.
 - T006 verification: full `main` gate on Rust 1.98.0 — `cargo fmt --all -- --check`, five architecture boundary checks, `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`, and `cargo test --workspace --all-features --locked` at 58/58 (44 prior plus 14 new). `crates/ww-agent-provider/tests/recorded_provider.rs` covers all eight required scenarios — text-only completion, one tool call then a later final response, multiple tool calls in stable provider source order, usage accounting, provider-declared failure, cancellation, length-truncated response, and interrupted attempt with no terminal event — plus transport-unavailable, run-to-run determinism, request capture, and three script-violation rejections. The 15 T002 assembler tests remain green and the provider dependency-boundary check still passes.
+- T007–T011 verification: A003-reviewer ran the full local `main` gate on Rust 1.98.0 after implementing D018. Formatting, semantic boundary checks, structural Cargo dependency checks, locked clippy with every target/feature, and 75/75 tests pass. Seventeen added regressions cover provider-to-durable conversion, mandatory stream EOF finalization, idempotent/conflicting coordinated retries, v1 upgrade plus future/gapped migrations, transient/permanent SQLite failure classification, common and Agent payload kind/version tampering, state/event mismatch rejection, and shared cancellation registration. Remote CI evidence is recorded after push.

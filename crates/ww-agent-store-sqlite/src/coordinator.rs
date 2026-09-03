@@ -1,24 +1,26 @@
-use crate::{SqliteAgentStore, insert_new_agent_run_tx};
+use crate::{SqliteAgentStore, get_run_conn, insert_new_agent_run_tx, load_entries};
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc};
 use thiserror::Error;
 use uuid::Uuid;
 use ww_agent_core::{
     AgentEntry, AgentRunId, AgentRunRecord, AgentStore, AgentStoreError, NewAgentRun,
 };
 use ww_store::{NewExecution, RuntimeStore, StoreError};
-use ww_store_sqlite::{SqliteRuntimeStore, insert_new_execution_tx};
+use ww_store_sqlite::{
+    ComponentMigration, SqliteRuntimeStore, apply_component_migrations, configure_connection,
+    get_execution_on_connection, insert_new_execution_tx, is_transient_sqlite_error,
+};
 use ww_types::{EventId, ExecutionId, ExecutionKind, ExecutionRecord};
 
-const COORDINATOR_MIGRATION_0001: &str = r#"
-create table if not exists agent_execution_links (
-    agent_run_id  text primary key references agent_runs(id),
-    execution_id  text not null unique references executions(id)
-);
-"#;
+const COORDINATOR_MIGRATION_0001: &str = include_str!("../migrations/0001_coordinator.sql");
+const COORDINATOR_MIGRATIONS: &[ComponentMigration] = &[ComponentMigration {
+    version: 1,
+    sql: COORDINATOR_MIGRATION_0001,
+}];
 
 #[derive(Clone, Debug)]
 pub struct NewCoordinatedAgentRun {
@@ -42,12 +44,20 @@ pub enum SqliteAgentCoordinatorError {
     PathMismatch,
     #[error("invalid coordinated Agent run: {0}")]
     Invalid(String),
+    #[error("coordinated Agent run conflict: {0}")]
+    Conflict(String),
     #[error(transparent)]
     Runtime(#[from] StoreError),
     #[error(transparent)]
     Agent(#[from] AgentStoreError),
-    #[error("SQLite coordinator backend error: {0}")]
-    Backend(String),
+    #[error("SQLite coordinator data is corrupt: {0}")]
+    Corrupt(String),
+    #[error("transient SQLite coordinator backend error: {0}")]
+    TransientBackend(String),
+    #[error("permanent SQLite coordinator backend error: {0}")]
+    PermanentBackend(String),
+    #[error("SQLite coordinator migration error: {0}")]
+    Migration(String),
 }
 
 #[derive(Clone, Debug)]
@@ -84,9 +94,8 @@ impl SqliteAgentCoordinator {
         self.runtime_store.migrate().await?;
         self.agent_store.migrate().await?;
         self.run(|connection| {
-            connection
-                .execute_batch(COORDINATOR_MIGRATION_0001)
-                .map_err(backend)
+            apply_component_migrations(connection, "agent_coordinator", COORDINATOR_MIGRATIONS)
+                .map_err(|error| SqliteAgentCoordinatorError::Migration(error.to_string()))
         })
         .await
     }
@@ -102,7 +111,7 @@ impl SqliteAgentCoordinator {
             )));
         }
         let configuration_bytes = serde_json::to_vec(&new.configuration)
-            .map_err(|error| SqliteAgentCoordinatorError::Backend(error.to_string()))?;
+            .map_err(|error| SqliteAgentCoordinatorError::PermanentBackend(error.to_string()))?;
         let configuration_digest = format!("{:x}", Sha256::digest(&configuration_bytes));
         let execution = NewExecution {
             id: new.execution_id,
@@ -125,25 +134,70 @@ impl SqliteAgentCoordinator {
             let transaction = connection
                 .transaction_with_behavior(TransactionBehavior::Immediate)
                 .map_err(backend)?;
-            insert_new_execution_tx(&transaction, &execution)
-                .map_err(SqliteAgentCoordinatorError::Runtime)?;
-            insert_new_agent_run_tx(&transaction, &agent)
-                .map_err(SqliteAgentCoordinatorError::Agent)?;
-            transaction
-                .execute(
-                    "insert into agent_execution_links (agent_run_id, execution_id) values (?1, ?2)",
-                    params![run_id.to_string(), execution_id.to_string()],
-                )
-                .map_err(backend)?;
+            let existing_link = find_link(&transaction, run_id, execution_id)?;
+            let result = if let Some((linked_run, linked_execution)) = existing_link {
+                if linked_run != run_id || linked_execution != execution_id {
+                    return Err(SqliteAgentCoordinatorError::Conflict(format!(
+                        "requested {run_id}/{execution_id}, existing link is {linked_run}/{linked_execution}"
+                    )));
+                }
+                let existing_execution = get_execution_on_connection(&transaction, execution_id)
+                    .map_err(SqliteAgentCoordinatorError::Runtime)?;
+                let existing_agent = get_run_conn(&transaction, run_id)
+                    .map_err(SqliteAgentCoordinatorError::Agent)?;
+                let initial_entry = load_entries(&transaction, run_id)
+                    .map_err(SqliteAgentCoordinatorError::Agent)?
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| {
+                        SqliteAgentCoordinatorError::Conflict(format!(
+                            "linked Agent run {run_id} has no initial entry"
+                        ))
+                    })?;
+                if existing_execution.kind != execution.kind
+                    || existing_execution.configuration_digest != execution.configuration_digest
+                    || existing_execution.created_at != execution.created_at
+                    || existing_execution.deadline != execution.deadline
+                    || existing_agent.configuration != agent.configuration
+                    || existing_agent.created_at != agent.created_at
+                    || initial_entry != agent.initial_entry
+                {
+                    return Err(SqliteAgentCoordinatorError::Conflict(format!(
+                        "retry inputs do not match existing coordinated Agent run {run_id}/{execution_id}"
+                    )));
+                }
+                CoordinatedAgentRun {
+                    execution: existing_execution,
+                    agent: existing_agent,
+                }
+            } else {
+                if execution_exists(&transaction, execution_id)? || agent_exists(&transaction, run_id)?
+                {
+                    return Err(SqliteAgentCoordinatorError::Conflict(format!(
+                        "execution {execution_id} or Agent run {run_id} already exists without the requested link"
+                    )));
+                }
+                insert_new_execution_tx(&transaction, &execution)
+                    .map_err(SqliteAgentCoordinatorError::Runtime)?;
+                insert_new_agent_run_tx(&transaction, &agent)
+                    .map_err(SqliteAgentCoordinatorError::Agent)?;
+                transaction
+                    .execute(
+                        "insert into agent_execution_links (agent_run_id, execution_id) values (?1, ?2)",
+                        params![run_id.to_string(), execution_id.to_string()],
+                    )
+                    .map_err(backend)?;
+                CoordinatedAgentRun {
+                    execution: get_execution_on_connection(&transaction, execution_id)
+                        .map_err(SqliteAgentCoordinatorError::Runtime)?,
+                    agent: get_run_conn(&transaction, run_id)
+                        .map_err(SqliteAgentCoordinatorError::Agent)?,
+                }
+            };
             transaction.commit().map_err(backend)?;
-            Ok(())
+            Ok(result)
         })
-        .await?;
-
-        Ok(CoordinatedAgentRun {
-            execution: self.runtime_store.get_execution(execution_id).await?,
-            agent: self.agent_store.get_run(run_id).await?,
-        })
+        .await
     }
 
     pub async fn execution_for_agent(
@@ -164,7 +218,7 @@ impl SqliteAgentCoordinator {
                     Uuid::parse_str(&value)
                         .map(ExecutionId::from_uuid)
                         .map_err(|error| {
-                            SqliteAgentCoordinatorError::Backend(format!(
+                            SqliteAgentCoordinatorError::Corrupt(format!(
                                 "invalid execution link id: {error}"
                             ))
                         })
@@ -192,7 +246,7 @@ impl SqliteAgentCoordinator {
                     Uuid::parse_str(&value)
                         .map(AgentRunId::from_uuid)
                         .map_err(|error| {
-                            SqliteAgentCoordinatorError::Backend(format!(
+                            SqliteAgentCoordinatorError::Corrupt(format!(
                                 "invalid Agent run link id: {error}"
                             ))
                         })
@@ -210,21 +264,97 @@ impl SqliteAgentCoordinator {
         let path = Arc::clone(&self.path);
         tokio::task::spawn_blocking(move || {
             let mut connection = Connection::open(path.as_path()).map_err(backend)?;
-            connection
-                .busy_timeout(Duration::from_secs(5))
-                .map_err(backend)?;
-            connection
-                .execute_batch("pragma foreign_keys = on;")
-                .map_err(backend)?;
+            configure_connection(&connection).map_err(|error| {
+                if error.is_transient() {
+                    SqliteAgentCoordinatorError::TransientBackend(error.to_string())
+                } else {
+                    SqliteAgentCoordinatorError::PermanentBackend(error.to_string())
+                }
+            })?;
             f(&mut connection)
         })
         .await
         .map_err(|error| {
-            SqliteAgentCoordinatorError::Backend(format!("sqlite worker join error: {error}"))
+            SqliteAgentCoordinatorError::PermanentBackend(format!(
+                "sqlite worker join error: {error}"
+            ))
         })?
     }
 }
 
 fn backend(error: rusqlite::Error) -> SqliteAgentCoordinatorError {
-    SqliteAgentCoordinatorError::Backend(error.to_string())
+    if is_transient_sqlite_error(&error) {
+        SqliteAgentCoordinatorError::TransientBackend(error.to_string())
+    } else {
+        SqliteAgentCoordinatorError::PermanentBackend(error.to_string())
+    }
+}
+
+fn find_link(
+    connection: &Connection,
+    run_id: AgentRunId,
+    execution_id: ExecutionId,
+) -> Result<Option<(AgentRunId, ExecutionId)>, SqliteAgentCoordinatorError> {
+    let mut statement = connection
+        .prepare("select agent_run_id, execution_id from agent_execution_links where agent_run_id = ?1 or execution_id = ?2")
+        .map_err(backend)?;
+    let rows = statement
+        .query_map(
+            params![run_id.to_string(), execution_id.to_string()],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        )
+        .map_err(backend)?;
+    let mut links = Vec::new();
+    for row in rows {
+        let (run, execution) = row.map_err(backend)?;
+        links.push((
+            Uuid::parse_str(&run)
+                .map(AgentRunId::from_uuid)
+                .map_err(|error| {
+                    SqliteAgentCoordinatorError::Corrupt(format!(
+                        "invalid linked Agent run id: {error}"
+                    ))
+                })?,
+            Uuid::parse_str(&execution)
+                .map(ExecutionId::from_uuid)
+                .map_err(|error| {
+                    SqliteAgentCoordinatorError::Corrupt(format!(
+                        "invalid linked execution id: {error}"
+                    ))
+                })?,
+        ));
+    }
+    match links.as_slice() {
+        [] => Ok(None),
+        [link] => Ok(Some(*link)),
+        _ => Err(SqliteAgentCoordinatorError::Conflict(format!(
+            "requested identifiers {run_id}/{execution_id} resolve to different existing links"
+        ))),
+    }
+}
+
+fn execution_exists(
+    connection: &Connection,
+    execution_id: ExecutionId,
+) -> Result<bool, SqliteAgentCoordinatorError> {
+    connection
+        .query_row(
+            "select exists(select 1 from executions where id = ?1)",
+            [execution_id.to_string()],
+            |row| row.get::<_, bool>(0),
+        )
+        .map_err(backend)
+}
+
+fn agent_exists(
+    connection: &Connection,
+    run_id: AgentRunId,
+) -> Result<bool, SqliteAgentCoordinatorError> {
+    connection
+        .query_row(
+            "select exists(select 1 from agent_runs where id = ?1)",
+            [run_id.to_string()],
+            |row| row.get::<_, bool>(0),
+        )
+        .map_err(backend)
 }

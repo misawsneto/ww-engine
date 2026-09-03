@@ -30,6 +30,20 @@ Findings that must be closed before tool semantics expand the durable model:
 
 This review does not change the accepted sibling-kernel, provider-neutral, recovery-first architecture. It tightens implementation discipline required to satisfy ADR-0003 before the tool/replay and functional-loop slices.
 
+## A003-reviewer cleanup closure — 2026-09-03
+
+Disposition: D018 cleanup gate accepted as complete; G003 may proceed to T012.
+
+- T007: runtime, Agent, and coordinator migrations use one component ledger; configuration/entry/record/event payload versions are explicit and validated; future and gapped versions fail closed.
+- T008: coordinated creation performs all reads before commit, returns the in-transaction result, accepts exact retries, rejects conflicting retries without mutation, and exposes recovery-relevant invalid/conflict/corrupt/transient/permanent failure categories.
+- T009: tool-call arguments have one parsed JSON representation; Agent-owned completion/usage/tool-call types define the disk shape; explicit conversion rejects provider tool results.
+- T010: `finalize_stream` consumes through EOF and gives completion, provider failure, cancellation, malformed protocol, and interrupted EOF one typed interpretation; RecordedProvider conformance uses that production path.
+- T011: physical SQLite setup is shared without semantic leakage; structural Cargo dependency checks supplement semantic guards; RecordedProvider and the process fixture require opt-in test support; canonical records agree.
+
+Additional audit hardening makes runtime inspection and Agent reconstruction read one SQLite snapshot, makes store-level lifecycle patches inseparable from their events, validates persisted event kind/version metadata, and gives every registration for one execution the same cancellation root.
+
+Residual items are deliberately outside D018: artifact/file crash reconciliation and a long-lived SQLite connection pool remain future runtime-hardening work. Neither blocks the current recorded, single-process G003 kernel proof.
+
 ## Planned terminal review focus
 
 - provider-neutral kernel ownership and dependency direction;

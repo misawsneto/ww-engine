@@ -2,8 +2,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fmt;
+use thiserror::Error;
 use uuid::Uuid;
-use ww_agent_provider::{CompletionReason, ModelUsage, ToolCallId};
+use ww_agent_provider::{AssistantMessage, CompletionReason, MessageContent, ModelUsage};
 
 macro_rules! uuid_id {
     ($name:ident) => {
@@ -50,10 +51,52 @@ uuid_id!(LogicalToolCallId);
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentToolCall {
     pub logical_id: LogicalToolCallId,
-    pub provider_call_id: ToolCallId,
+    pub provider_call_id: String,
     pub name: String,
-    pub arguments_json: String,
     pub arguments: Value,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentCompletionReason {
+    Stop,
+    ToolUse,
+    Length,
+}
+
+impl From<CompletionReason> for AgentCompletionReason {
+    fn from(value: CompletionReason) -> Self {
+        match value {
+            CompletionReason::Stop => Self::Stop,
+            CompletionReason::ToolUse => Self::ToolUse,
+            CompletionReason::Length => Self::Length,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AgentUsage {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cache_read_input_tokens: u64,
+    pub cache_write_input_tokens: u64,
+}
+
+impl AgentUsage {
+    pub const fn total_tokens(self) -> u64 {
+        self.input_tokens.saturating_add(self.output_tokens)
+    }
+}
+
+impl From<ModelUsage> for AgentUsage {
+    fn from(value: ModelUsage) -> Self {
+        Self {
+            input_tokens: value.input_tokens,
+            output_tokens: value.output_tokens,
+            cache_read_input_tokens: value.cache_read_input_tokens,
+            cache_write_input_tokens: value.cache_write_input_tokens,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -66,9 +109,49 @@ pub enum AgentAssistantContent {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DurableAssistantMessage {
     pub content: Vec<AgentAssistantContent>,
-    pub stop_reason: CompletionReason,
-    pub usage: Option<ModelUsage>,
+    pub stop_reason: AgentCompletionReason,
+    pub usage: Option<AgentUsage>,
     pub provider_request_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Error, Eq, PartialEq)]
+pub enum DurableMessageConversionError {
+    #[error("provider assistant message contains a tool result")]
+    ToolResultInAssistantMessage,
+}
+
+impl TryFrom<AssistantMessage> for DurableAssistantMessage {
+    type Error = DurableMessageConversionError;
+
+    fn try_from(message: AssistantMessage) -> Result<Self, Self::Error> {
+        let mut content = Vec::with_capacity(message.content.len());
+        for item in message.content {
+            match item {
+                MessageContent::Text { text } => {
+                    content.push(AgentAssistantContent::Text { text });
+                }
+                MessageContent::ToolCall { call } => {
+                    content.push(AgentAssistantContent::ToolCall {
+                        call: AgentToolCall {
+                            logical_id: LogicalToolCallId::new(),
+                            provider_call_id: call.id.to_string(),
+                            name: call.name,
+                            arguments: call.arguments,
+                        },
+                    });
+                }
+                MessageContent::ToolResult { .. } => {
+                    return Err(DurableMessageConversionError::ToolResultInAssistantMessage);
+                }
+            }
+        }
+        Ok(Self {
+            content,
+            stop_reason: message.stop_reason.into(),
+            usage: message.usage.map(Into::into),
+            provider_request_id: message.provider_request_id,
+        })
+    }
 }
 
 impl DurableAssistantMessage {

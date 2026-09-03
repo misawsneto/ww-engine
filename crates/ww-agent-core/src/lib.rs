@@ -3,9 +3,10 @@ mod reducer;
 mod store;
 
 pub use history::{
-    AgentAssistantContent, AgentEntry, AgentEntryData, AgentEntryId, AgentRecord, AgentRecordData,
-    AgentRunId, AgentTerminalResult, AgentToolCall, DurableAssistantMessage, LogicalToolCallId,
-    ModelAttemptId, ModelAttemptInterruptReason, ToolAttemptId,
+    AgentAssistantContent, AgentCompletionReason, AgentEntry, AgentEntryData, AgentEntryId,
+    AgentRecord, AgentRecordData, AgentRunId, AgentTerminalResult, AgentToolCall, AgentUsage,
+    DurableAssistantMessage, DurableMessageConversionError, LogicalToolCallId, ModelAttemptId,
+    ModelAttemptInterruptReason, ToolAttemptId,
 };
 pub use reducer::{
     AgentPhase, AgentRecoveryState, CorruptionError, ModelAttemptState, ModelAttemptStatus,
@@ -14,5 +15,3 @@ pub use reducer::{
 pub use store::{
     AgentAppend, AgentHistorySnapshot, AgentRunRecord, AgentStore, AgentStoreError, NewAgentRun,
 };
-
-pub use ww_agent_provider::{CompletionReason, ModelUsage};

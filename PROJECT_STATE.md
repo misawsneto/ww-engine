@@ -8,11 +8,11 @@
 - G001 architecture baseline: achieved and accepted.
 - G002 shared runtime: achieved after independent owner review acceptance on 2026-09-02; governed by `ADR-0002`.
 - G003 is active under accepted `ADR-0003` and is narrowed to the durable provider-neutral kernel/recovery proof.
-- G003 T002, T003, T004, T005, and T006 are complete and verified.
+- G003 T002 through T011 are complete and verified.
 - T005 proved atomic common-execution + Agent-run creation/linkage and rollback on injected mid-write failure without adding Agent DTOs to the shared `ww-store` semantic API.
 - T006 added the deterministic RecordedProvider conformance harness; the full `main` gate passed at 58/58 tests.
-- D018 is accepted: before tool-contract/replay work continues, G003 Plan v2 executes a bounded durability/hygiene cleanup gate T007–T011.
-- Next engineering slice: T007 durable schema and migration evolution.
+- D018's bounded durability/hygiene gate is complete: component migrations and payload versions fail closed, recovery reads use one snapshot, coordinated creation is idempotent, provider output crosses an explicit durable boundary, lifecycle/event mutations agree, cancellation registration is shared, and CI checks dependency structure.
+- Next engineering slice: T012 tool contract, schema validation, policy, and replay fixtures; it precedes the functional model → tool → model kernel in T013.
 - Proposed following Goal: `G004 — Agent Provider and Surface`; OpenAI protocol, bounded `fs.read`, Agent SDK/CLI; governed by proposed `ADR-0004`.
 - Deterministic OWS Flow kernel follows as G005; restart-safe Flow → Agent integration follows as G006.
 
@@ -43,11 +43,11 @@ T003 Agent history + recovery reducer               complete / verified
 T004 Agent SQLite persistence                       complete / verified
 T005 common/Agent transaction seam                  complete / verified
 T006 recorded provider                              complete / verified
-T007 durable schema + migration evolution           open / NEXT
-T008 idempotent coordination + typed store errors   open
-T009 durable ownership + canonical tool arguments   open
-T010 provider stream finalization path              open
-T011 physical-backend/repository hygiene            open
+T007 durable schema + migration evolution           complete / verified
+T008 idempotent coordination + typed store errors   complete / verified
+T009 durable ownership + canonical tool arguments   complete / verified
+T010 provider stream finalization path              complete / verified
+T011 physical-backend/repository hygiene            complete / verified
 T012 tool policy/replay fixtures                    open
 T013 functional Agent kernel                        open
 T014 lifecycle + cancellation                       open

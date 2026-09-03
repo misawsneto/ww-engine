@@ -9,6 +9,7 @@
 | Q005 | How much Pi-style extension dynamism should exist before a stable plugin ABI or WASI boundary is justified? | open |
 | Q006 | Which A2A version/profile should define remote Agent interoperability when local Agent invocation already works? | open |
 | Q007 | Should Flow timers and event waits be served by one embedded scheduler in the first release or only by a server profile? | open |
+| Q008 | Should the durability and hygiene debt found after T006 be closed before implementing the tool-contract slice? | resolved |
 
 ## Q003 Resolution
 
@@ -17,3 +18,7 @@ G002 contains no general process/filesystem/network sandbox. It proves only the 
 ## Q004 Resolution
 
 ADR-0003 is accepted, so this direction is settled. One physical SQLite database is permitted in embedded mode; common runtime and Agent keep separate logical ownership, tables, and repositories. Commits that must atomically change both models coordinate at the SQLite backend transaction seam, and Agent DTOs stay out of `ww-store`. G003 T004 and T005 implement this direction.
+
+## Q008 Resolution
+
+D018 settles the sequencing question. G003 Plan v2 inserts T007–T011 as a bounded durability/hygiene gate after the recorded provider and before the renumbered tool-contract T012. The gate strengthens existing ADR-0003 persistence, recovery, ownership, and fail-closed guarantees; it does not reopen the accepted Agent/Flow/provider architecture.

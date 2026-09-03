@@ -1,3 +1,10 @@
+mod physical;
+
+pub use physical::{
+    ComponentMigration, SqlitePhysicalError, apply_component_migrations, configure_connection,
+    is_transient_sqlite_error,
+};
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
@@ -5,15 +12,21 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
     sync::Arc,
-    time::Duration,
 };
-use ww_store::{ExecutionMutation, NewExecution, RuntimeStore, StoreError};
+use ww_store::{
+    ExecutionHistorySnapshot, ExecutionMutation, ExecutionPatch, NewExecution, RuntimeStore,
+    StoreError,
+};
 use ww_types::{
     ArtifactId, ArtifactRef, CancelReason, EventId, EventVisibility, ExecutionEvent,
     ExecutionEventData, ExecutionId, ExecutionKind, ExecutionRecord, ExecutionStatus,
 };
 
 const MIGRATION_0001: &str = include_str!("../migrations/0001_runtime.sql");
+const RUNTIME_MIGRATIONS: &[ComponentMigration] = &[ComponentMigration {
+    version: 1,
+    sql: MIGRATION_0001,
+}];
 
 #[derive(Clone, Debug)]
 pub struct SqliteRuntimeStore {
@@ -39,26 +52,19 @@ impl SqliteRuntimeStore {
         let path = Arc::clone(&self.path);
         tokio::task::spawn_blocking(move || {
             let mut connection = Connection::open(path.as_path()).map_err(backend)?;
-            configure_connection(&connection)?;
+            configure_connection(&connection).map_err(physical_backend)?;
             f(&mut connection)
         })
         .await
-        .map_err(|error| StoreError::Backend(format!("sqlite worker join error: {error}")))?
+        .map_err(|error| {
+            StoreError::PermanentBackend(format!("sqlite worker join error: {error}"))
+        })?
     }
 }
 
-fn configure_connection(connection: &Connection) -> Result<(), StoreError> {
-    connection
-        .busy_timeout(Duration::from_secs(5))
-        .map_err(backend)?;
-    connection
-        .execute_batch("pragma foreign_keys = on;")
-        .map_err(backend)?;
-    Ok(())
-}
-
-pub fn migrate_runtime_schema(connection: &Connection) -> Result<(), StoreError> {
-    connection.execute_batch(MIGRATION_0001).map_err(backend)
+pub fn migrate_runtime_schema(connection: &mut Connection) -> Result<(), StoreError> {
+    apply_component_migrations(connection, "runtime", RUNTIME_MIGRATIONS)
+        .map_err(|error| StoreError::Migration(error.to_string()))
 }
 
 pub fn insert_new_execution_tx(
@@ -90,7 +96,7 @@ pub fn insert_new_execution_tx(
                 new.created_at.to_rfc3339(),
                 data.kind(),
                 serde_json::to_string(&data)
-                    .map_err(|error| StoreError::Backend(error.to_string()))?,
+                    .map_err(|error| StoreError::PermanentBackend(error.to_string()))?,
             ],
         )
         .map_err(backend)?;
@@ -98,7 +104,19 @@ pub fn insert_new_execution_tx(
 }
 
 fn backend(error: rusqlite::Error) -> StoreError {
-    StoreError::Backend(error.to_string())
+    if is_transient_sqlite_error(&error) {
+        StoreError::TransientBackend(error.to_string())
+    } else {
+        StoreError::PermanentBackend(error.to_string())
+    }
+}
+
+fn physical_backend(error: SqlitePhysicalError) -> StoreError {
+    if error.is_transient() {
+        StoreError::TransientBackend(error.to_string())
+    } else {
+        StoreError::PermanentBackend(error.to_string())
+    }
 }
 
 fn parse_time(value: String, field: &str) -> Result<DateTime<Utc>, StoreError> {
@@ -125,7 +143,7 @@ fn parse_visibility(value: &str) -> Result<EventVisibility, StoreError> {
     }
 }
 
-fn get_execution_conn(
+pub fn get_execution_on_connection(
     connection: &Connection,
     id: ExecutionId,
 ) -> Result<ExecutionRecord, StoreError> {
@@ -196,11 +214,152 @@ fn get_execution_conn(
     })
 }
 
+fn validate_mutation(
+    current: &ExecutionRecord,
+    mutation: &ExecutionMutation,
+) -> Result<(), StoreError> {
+    let active = matches!(
+        current.status,
+        ExecutionStatus::Running | ExecutionStatus::Waiting
+    );
+    let expected = match &mutation.event {
+        ExecutionEventData::Created { .. } => {
+            return Err(StoreError::Invalid(
+                "execution_created cannot be appended as a mutation".to_owned(),
+            ));
+        }
+        ExecutionEventData::Started
+            if current.status == ExecutionStatus::Pending && !current.cancel_requested =>
+        {
+            ExecutionPatch {
+                status: Some(ExecutionStatus::Running),
+                started_at: Some(mutation.occurred_at),
+                ..ExecutionPatch::default()
+            }
+        }
+        ExecutionEventData::CancelRequested { reason } if !current.status.is_terminal() => {
+            ExecutionPatch {
+                cancel_reason: Some(reason.clone()),
+                ..ExecutionPatch::default()
+            }
+        }
+        ExecutionEventData::Succeeded { result_artifact } if active => ExecutionPatch {
+            status: Some(ExecutionStatus::Succeeded),
+            finished_at: Some(mutation.occurred_at),
+            result_artifact: result_artifact.clone(),
+            ..ExecutionPatch::default()
+        },
+        ExecutionEventData::Failed { error } if active => ExecutionPatch {
+            status: Some(ExecutionStatus::Failed),
+            finished_at: Some(mutation.occurred_at),
+            error: Some(error.clone()),
+            ..ExecutionPatch::default()
+        },
+        ExecutionEventData::Cancelled { reason }
+            if !current.status.is_terminal()
+                && current.cancel_requested
+                && reason == &current.cancel_reason =>
+        {
+            ExecutionPatch {
+                status: Some(ExecutionStatus::Cancelled),
+                finished_at: Some(mutation.occurred_at),
+                ..ExecutionPatch::default()
+            }
+        }
+        ExecutionEventData::TimedOut if active => ExecutionPatch {
+            status: Some(ExecutionStatus::TimedOut),
+            finished_at: Some(mutation.occurred_at),
+            ..ExecutionPatch::default()
+        },
+        ExecutionEventData::RequiresIntervention { .. } if active => ExecutionPatch {
+            status: Some(ExecutionStatus::RequiresIntervention),
+            finished_at: Some(mutation.occurred_at),
+            ..ExecutionPatch::default()
+        },
+        _ => {
+            return Err(StoreError::Invalid(format!(
+                "event {} is invalid while execution is {}",
+                mutation.event.kind(),
+                current.status
+            )));
+        }
+    };
+
+    if mutation.patch != expected {
+        return Err(StoreError::Invalid(format!(
+            "state patch does not match event {}",
+            mutation.event.kind()
+        )));
+    }
+    Ok(())
+}
+
+type ExecutionEventRow = (String, i64, String, String, i64, String, String);
+
+fn decode_execution_event(
+    execution_id: ExecutionId,
+    row: ExecutionEventRow,
+) -> Result<ExecutionEvent, StoreError> {
+    let payload_version = u16::try_from(row.4)
+        .map_err(|_| StoreError::Corrupt("invalid event payload version".to_owned()))?;
+    if payload_version != 1 {
+        return Err(StoreError::UnsupportedVersion {
+            subject: "execution_event".to_owned(),
+            version: u64::from(payload_version),
+        });
+    }
+    let data: ExecutionEventData =
+        serde_json::from_str(&row.6).map_err(|error| StoreError::Corrupt(error.to_string()))?;
+    if row.3 != data.kind() {
+        return Err(StoreError::Corrupt(format!(
+            "execution event kind {} does not match payload kind {}",
+            row.3,
+            data.kind()
+        )));
+    }
+    Ok(ExecutionEvent {
+        id: EventId::from_str(&row.0).map_err(|error| StoreError::Corrupt(error.to_string()))?,
+        execution_id,
+        sequence: u64::try_from(row.1)
+            .map_err(|_| StoreError::Corrupt("negative event sequence".to_owned()))?,
+        occurred_at: parse_time(row.2, "event occurred_at")?,
+        payload_version,
+        visibility: parse_visibility(&row.5)?,
+        data,
+    })
+}
+
+fn load_execution_events(
+    connection: &Connection,
+    id: ExecutionId,
+) -> Result<Vec<ExecutionEvent>, StoreError> {
+    let mut statement = connection
+        .prepare("select id, sequence, occurred_at, kind, payload_version, visibility, payload_json from execution_events where execution_id = ?1 order by sequence asc")
+        .map_err(backend)?;
+    let rows = statement
+        .query_map([id.to_string()], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, String>(6)?,
+            ))
+        })
+        .map_err(backend)?;
+    rows.map(|row| {
+        row.map_err(backend)
+            .and_then(|row| decode_execution_event(id, row))
+    })
+    .collect()
+}
+
 #[async_trait]
 impl RuntimeStore for SqliteRuntimeStore {
     async fn migrate(&self) -> Result<(), StoreError> {
-        self.run(|connection| migrate_runtime_schema(connection))
-            .await
+        self.run(migrate_runtime_schema).await
     }
 
     async fn create_execution(&self, new: NewExecution) -> Result<ExecutionRecord, StoreError> {
@@ -210,14 +369,30 @@ impl RuntimeStore for SqliteRuntimeStore {
                 .map_err(backend)?;
             insert_new_execution_tx(&transaction, &new)?;
             transaction.commit().map_err(backend)?;
-            get_execution_conn(connection, new.id)
+            get_execution_on_connection(connection, new.id)
         })
         .await
     }
 
     async fn get_execution(&self, id: ExecutionId) -> Result<ExecutionRecord, StoreError> {
-        self.run(move |connection| get_execution_conn(connection, id))
+        self.run(move |connection| get_execution_on_connection(connection, id))
             .await
+    }
+
+    async fn load_execution_history(
+        &self,
+        id: ExecutionId,
+    ) -> Result<ExecutionHistorySnapshot, StoreError> {
+        self.run(move |connection| {
+            let transaction = connection
+                .transaction_with_behavior(TransactionBehavior::Deferred)
+                .map_err(backend)?;
+            let record = get_execution_on_connection(&transaction, id)?;
+            let events = load_execution_events(&transaction, id)?;
+            transaction.commit().map_err(backend)?;
+            Ok(ExecutionHistorySnapshot { record, events })
+        })
+        .await
     }
 
     async fn mutate_execution(
@@ -228,7 +403,7 @@ impl RuntimeStore for SqliteRuntimeStore {
             let transaction = connection
                 .transaction_with_behavior(TransactionBehavior::Immediate)
                 .map_err(backend)?;
-            let current = get_execution_conn(&transaction, mutation.execution_id)?;
+            let current = get_execution_on_connection(&transaction, mutation.execution_id)?;
             if current.version != mutation.expected_version {
                 return Err(StoreError::Conflict {
                     id: mutation.execution_id.to_string(),
@@ -236,6 +411,7 @@ impl RuntimeStore for SqliteRuntimeStore {
                     actual: current.version,
                 });
             }
+            validate_mutation(&current, &mutation)?;
 
             let status = mutation.patch.status.map(|value| value.as_str().to_owned());
             let started_at = mutation.patch.started_at.map(|value| value.to_rfc3339());
@@ -244,18 +420,23 @@ impl RuntimeStore for SqliteRuntimeStore {
                 .as_ref()
                 .map(serde_json::to_string)
                 .transpose()
-                .map_err(|error| StoreError::Backend(error.to_string()))?;
+                .map_err(|error| StoreError::PermanentBackend(error.to_string()))?;
             let result_artifact = mutation.patch.result_artifact
                 .as_ref()
                 .map(serde_json::to_string)
                 .transpose()
-                .map_err(|error| StoreError::Backend(error.to_string()))?;
+                .map_err(|error| StoreError::PermanentBackend(error.to_string()))?;
             let error_json = mutation.patch.error
                 .as_ref()
                 .map(serde_json::to_string)
                 .transpose()
-                .map_err(|error| StoreError::Backend(error.to_string()))?;
-            let next_version = current.version + 1;
+                .map_err(|error| StoreError::PermanentBackend(error.to_string()))?;
+            let next_version = current
+                .version
+                .checked_add(1)
+                .ok_or_else(|| {
+                    StoreError::PermanentBackend("execution version overflow".to_owned())
+                })?;
 
             let changed = transaction
                 .execute(
@@ -267,14 +448,15 @@ impl RuntimeStore for SqliteRuntimeStore {
                         cancel_reason,
                         result_artifact,
                         error_json,
-                        i64::try_from(next_version).map_err(|_| StoreError::Backend("execution version overflow".to_owned()))?,
+                        i64::try_from(next_version).map_err(|_| StoreError::PermanentBackend("execution version overflow".to_owned()))?,
                         mutation.execution_id.to_string(),
-                        i64::try_from(mutation.expected_version).map_err(|_| StoreError::Backend("execution version overflow".to_owned()))?,
+                        i64::try_from(mutation.expected_version).map_err(|_| StoreError::PermanentBackend("execution version overflow".to_owned()))?,
                     ],
                 )
                 .map_err(backend)?;
             if changed != 1 {
-                let actual = get_execution_conn(&transaction, mutation.execution_id)?.version;
+                let actual =
+                    get_execution_on_connection(&transaction, mutation.execution_id)?.version;
                 return Err(StoreError::Conflict {
                     id: mutation.execution_id.to_string(),
                     expected: mutation.expected_version,
@@ -289,16 +471,16 @@ impl RuntimeStore for SqliteRuntimeStore {
                     params![
                         mutation.event_id.to_string(),
                         mutation.execution_id.to_string(),
-                        i64::try_from(sequence).map_err(|_| StoreError::Backend("event sequence overflow".to_owned()))?,
+                        i64::try_from(sequence).map_err(|_| StoreError::PermanentBackend("event sequence overflow".to_owned()))?,
                         mutation.occurred_at.to_rfc3339(),
                         mutation.event.kind(),
                         mutation.visibility.as_str(),
-                        serde_json::to_string(&mutation.event).map_err(|error| StoreError::Backend(error.to_string()))?,
+                        serde_json::to_string(&mutation.event).map_err(|error| StoreError::PermanentBackend(error.to_string()))?,
                     ],
                 )
                 .map_err(backend)?;
             transaction.commit().map_err(backend)?;
-            get_execution_conn(connection, mutation.execution_id)
+            get_execution_on_connection(connection, mutation.execution_id)
         }).await
     }
 
@@ -310,23 +492,24 @@ impl RuntimeStore for SqliteRuntimeStore {
     ) -> Result<Vec<ExecutionEvent>, StoreError> {
         self.run(move |connection| {
             let mut statement = connection
-                .prepare("select id, sequence, occurred_at, payload_version, visibility, payload_json from execution_events where execution_id = ?1 and sequence > ?2 order by sequence asc limit ?3")
+                .prepare("select id, sequence, occurred_at, kind, payload_version, visibility, payload_json from execution_events where execution_id = ?1 and sequence > ?2 order by sequence asc limit ?3")
                 .map_err(backend)?;
             let rows = statement
                 .query_map(
                     params![
                         id.to_string(),
-                        i64::try_from(after_sequence).map_err(|_| StoreError::Backend("event sequence overflow".to_owned()))?,
-                        i64::try_from(limit).map_err(|_| StoreError::Backend("event limit overflow".to_owned()))?,
+                        i64::try_from(after_sequence).map_err(|_| StoreError::PermanentBackend("event sequence overflow".to_owned()))?,
+                        i64::try_from(limit).map_err(|_| StoreError::PermanentBackend("event limit overflow".to_owned()))?,
                     ],
                     |row| {
                         Ok((
                             row.get::<_, String>(0)?,
                             row.get::<_, i64>(1)?,
                             row.get::<_, String>(2)?,
-                            row.get::<_, i64>(3)?,
-                            row.get::<_, String>(4)?,
+                            row.get::<_, String>(3)?,
+                            row.get::<_, i64>(4)?,
                             row.get::<_, String>(5)?,
+                            row.get::<_, String>(6)?,
                         ))
                     },
                 )
@@ -334,16 +517,7 @@ impl RuntimeStore for SqliteRuntimeStore {
 
             let mut events = Vec::new();
             for row in rows {
-                let row = row.map_err(backend)?;
-                events.push(ExecutionEvent {
-                    id: EventId::from_str(&row.0).map_err(|error| StoreError::Corrupt(error.to_string()))?,
-                    execution_id: id,
-                    sequence: u64::try_from(row.1).map_err(|_| StoreError::Corrupt("negative event sequence".to_owned()))?,
-                    occurred_at: parse_time(row.2, "event occurred_at")?,
-                    payload_version: u16::try_from(row.3).map_err(|_| StoreError::Corrupt("invalid event payload version".to_owned()))?,
-                    visibility: parse_visibility(&row.4)?,
-                    data: serde_json::from_str(&row.5).map_err(|error| StoreError::Corrupt(error.to_string()))?,
-                });
+                events.push(decode_execution_event(id, row.map_err(backend)?)?);
             }
             Ok(events)
         }).await
@@ -359,7 +533,7 @@ impl RuntimeStore for SqliteRuntimeStore {
                         artifact.id.to_string(),
                         artifact.digest,
                         artifact.media_type,
-                        i64::try_from(artifact.size_bytes).map_err(|_| StoreError::Backend("artifact too large".to_owned()))?,
+                        i64::try_from(artifact.size_bytes).map_err(|_| StoreError::PermanentBackend("artifact too large".to_owned()))?,
                         artifact.storage_uri,
                         created_at,
                     ],

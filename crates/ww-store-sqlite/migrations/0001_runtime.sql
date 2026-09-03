@@ -1,6 +1,3 @@
-pragma foreign_keys = on;
-pragma journal_mode = wal;
-
 create table if not exists executions (
     id                    text primary key,
     kind                  text not null,
@@ -43,5 +40,3 @@ create table if not exists artifacts (
     storage_uri   text not null,
     created_at    text not null
 );
-
-pragma user_version = 1;

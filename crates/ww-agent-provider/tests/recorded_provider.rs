@@ -1,7 +1,9 @@
+#![cfg(feature = "test-support")]
+
 //! G003 T006 — RecordedProvider conformance.
 //!
 //! Every scenario drives the real `ModelProvider` contract and feeds the
-//! resulting normalized events through the real `ResponseAssembler`, so these
+//! resulting normalized events through the production stream finalizer, so these
 //! tests exercise the same path the Agent kernel will take.
 
 use futures_util::StreamExt;
@@ -11,7 +13,7 @@ use ww_agent_provider::{
     AssemblyError, CompletionReason, ExpectedRequest, MessageContent, ModelEvent, ModelEventStream,
     ModelId, ModelMessage, ModelProvider, ModelRequest, ModelResponse, ModelToolSpec, ModelUsage,
     ProviderContext, ProviderError, ProviderFailure, ProviderId, ProviderStarted, RecordedOutcome,
-    RecordedProvider, ResponseAssembler, ToolCall, ToolCallId,
+    RecordedProvider, StreamFinalizationError, ToolCall, ToolCallId, finalize_stream,
 };
 
 fn model() -> ModelId {
@@ -100,25 +102,17 @@ fn stream_err(result: Result<ModelEventStream, ProviderError>) -> ProviderError 
     }
 }
 
-/// Drive one exchange and assemble the stream into a terminal response.
-/// `Ok(None)` means the stream ended without a terminal event.
+/// Drive one exchange through the same fail-closed finalizer used by the kernel.
 async fn drive(
     provider: &RecordedProvider,
     request: ModelRequest,
     context: ProviderContext,
-) -> Result<Option<ModelResponse>, AssemblyError> {
-    let mut stream = provider
+) -> Result<ModelResponse, StreamFinalizationError> {
+    let stream = provider
         .stream(request, context)
         .await
         .expect("scripted stream");
-    let mut assembler = ResponseAssembler::new();
-    while let Some(event) = stream.next().await {
-        let event = event.expect("recorded providers never emit stream errors");
-        if let Some(terminal) = assembler.push(event)? {
-            return Ok(Some(terminal));
-        }
-    }
-    Ok(None)
+    finalize_stream(stream).await
 }
 
 // 1. text-only completion
@@ -143,7 +137,6 @@ async fn text_only_completion() {
 
     let terminal = drive(&provider, request(vec![user("hi")]), ctx)
         .await
-        .expect("assembles")
         .expect("terminal response");
 
     let ModelResponse::Completed { message } = terminal else {
@@ -192,7 +185,6 @@ async fn tool_call_then_final_response() {
     let (ctx, _token) = context();
     let first = drive(&provider, request(vec![user("go")]), ctx)
         .await
-        .expect("assembles")
         .expect("terminal");
     let ModelResponse::Completed { message } = first else {
         panic!("expected completed response")
@@ -220,7 +212,6 @@ async fn tool_call_then_final_response() {
         ctx,
     )
     .await
-    .expect("assembles")
     .expect("terminal");
     assert!(matches!(second, ModelResponse::Completed { .. }));
     provider.verify().expect("script satisfied");
@@ -257,7 +248,6 @@ async fn multiple_tool_calls_preserve_source_order() {
     let (ctx, _token) = context();
     let terminal = drive(&provider, request(vec![user("go")]), ctx)
         .await
-        .expect("assembles")
         .expect("terminal");
     let ModelResponse::Completed { message } = terminal else {
         panic!("expected completed response")
@@ -282,7 +272,6 @@ async fn multiple_tool_calls_preserve_source_order() {
         ctx,
     )
     .await
-    .expect("assembles")
     .expect("terminal");
     provider.verify().expect("script satisfied");
 }
@@ -315,7 +304,6 @@ async fn usage_is_finalized_on_the_response() {
 
     let terminal = drive(&provider, request(vec![user("hi")]), ctx)
         .await
-        .expect("assembles")
         .expect("terminal");
     let ModelResponse::Completed { message } = terminal else {
         panic!("expected completed response")
@@ -341,7 +329,6 @@ async fn provider_declared_failure_is_terminal() {
 
     let terminal = drive(&provider, request(vec![user("hi")]), ctx)
         .await
-        .expect("assembles")
         .expect("terminal");
     let ModelResponse::Failed { failure } = terminal else {
         panic!("expected failed response")
@@ -382,20 +369,19 @@ async fn cancellation_aborts_the_stream_between_events() {
         .stream(request(vec![user("hi")]), ctx)
         .await
         .expect("scripted stream");
-    let mut assembler = ResponseAssembler::new();
-
-    // consume Started, then cancel before the provider yields anything else
-    let first = stream.next().await.expect("started").expect("event");
-    assert!(assembler.push(first).expect("push started").is_none());
-    token.cancel();
-
-    let mut terminal = None;
-    while let Some(event) = stream.next().await {
-        if let Some(response) = assembler.push(event.expect("event")).expect("push") {
-            terminal = Some(response);
+    let cancellation_stream = async_stream::try_stream! {
+        if let Some(first) = stream.next().await {
+            yield first?;
+            token.cancel();
         }
-    }
-    let ModelResponse::Aborted { message } = terminal.expect("aborted terminal") else {
+        while let Some(event) = stream.next().await {
+            yield event?;
+        }
+    };
+    let terminal = finalize_stream(Box::pin(cancellation_stream))
+        .await
+        .expect("aborted terminal");
+    let ModelResponse::Aborted { message } = terminal else {
         panic!("expected aborted response")
     };
     assert_eq!(message.as_deref(), Some("cancelled"));
@@ -427,7 +413,8 @@ async fn length_truncated_tool_call_fails_closed() {
     assert!(
         matches!(
             error,
-            AssemblyError::IncompleteToolCall(_) | AssemblyError::TruncatedToolCalls
+            StreamFinalizationError::Assembly(AssemblyError::IncompleteToolCall(_))
+                | StreamFinalizationError::Assembly(AssemblyError::TruncatedToolCalls)
         ),
         "unexpected error: {error:?}"
     );
@@ -445,12 +432,12 @@ async fn interrupted_attempt_has_no_terminal_event() {
     ]));
     let (ctx, _token) = context();
 
-    let terminal = drive(&provider, request(vec![user("hi")]), ctx)
+    let error = drive(&provider, request(vec![user("hi")]), ctx)
         .await
-        .expect("stream ends cleanly");
-    assert!(
-        terminal.is_none(),
-        "an interrupted attempt must not produce a terminal response"
+        .expect_err("interrupted attempt must fail closed");
+    assert_eq!(
+        error,
+        StreamFinalizationError::Assembly(AssemblyError::UnexpectedEnd)
     );
     provider.verify().expect("script satisfied");
 }
@@ -478,7 +465,6 @@ async fn script_is_deterministic_across_runs() {
         let (ctx, _token) = context();
         drive(&provider, request(vec![user("hi")]), ctx)
             .await
-            .expect("assembles")
             .expect("terminal")
     }
 
@@ -515,7 +501,6 @@ async fn extra_request_beyond_the_script_is_rejected() {
     let (ctx, _token) = context();
     drive(&provider, request(vec![user("hi")]), ctx)
         .await
-        .expect("assembles")
         .expect("terminal");
     assert!(provider.verify().is_ok(), "script should be satisfied here");
 
@@ -539,7 +524,6 @@ async fn unused_script_entries_fail_verification() {
     let (ctx, _token) = context();
     drive(&provider, request(vec![user("hi")]), ctx)
         .await
-        .expect("assembles")
         .expect("terminal");
 
     let error = provider.verify().expect_err("one exchange is unused");
@@ -561,10 +545,7 @@ async fn requests_are_captured_for_assertions() {
         description: "echo".to_owned(),
         input_schema: json!({"type": "object"}),
     }];
-    drive(&provider, req, ctx)
-        .await
-        .expect("assembles")
-        .expect("terminal");
+    drive(&provider, req, ctx).await.expect("terminal");
 
     let captured = provider.requests();
     assert_eq!(captured.len(), 1);

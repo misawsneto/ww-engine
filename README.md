@@ -58,8 +58,8 @@ WorkWeave Orchestration remains a layer above the engine. It owns Goal-, Task-, 
 
 `G003 — Durable Agent Kernel` is active under accepted ADR-0003. G002 is achieved after independent owner review.
 
-G003 remains intentionally limited to the durable provider-neutral kernel/recovery proof. T002 provider protocol/assembler, T003 Agent history/recovery reducer, T004 Agent SQLite persistence, T005 atomic common/Agent SQLite transaction coordination, and T006 RecordedProvider conformance are complete and verified.
+G003 remains intentionally limited to the durable provider-neutral kernel/recovery proof. T002–T006 establish the provider protocol, recovery reducer, Agent persistence, coordinated creation, and RecordedProvider.
 
-D018 introduced **G003 Plan v2** after the A003-reviewer hygiene review. Before tool policy/replay semantics are implemented, T007–T011 close durability debt around schema/migration evolution, idempotent coordinated creation, recovery-relevant storage errors, provider-to-durable ownership, canonical tool arguments, provider-stream finalization, SQLite physical plumbing, structural architecture guards, test-only surfaces, and canonical documentation. T007 is the next engineering slice. The previously planned tool-contract work is now T012 and the functional model → tool → model kernel is T013.
+The D018 durability/hygiene gate in T007–T011 is also verified: durable versions fail closed, recovery reads are snapshot-consistent, coordinated retries are idempotent, provider output has explicit durable conversion and finalization boundaries, lifecycle writes are coherent, and structural CI guards the crate graph. G003 now advances to T012 tool policy/replay fixtures before functional kernel integration in T013.
 
 `G004 — Agent Provider and Surface` remains proposed. It adds the first OpenAI-protocol adapter, bounded `fs.read`, and Rust SDK/CLI surface only after G003 is accepted. Deterministic OWS Flow work begins at G005.

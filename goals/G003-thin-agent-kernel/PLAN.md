@@ -47,7 +47,7 @@ The concrete OpenAI adapter, bounded `fs.read`, SDK projection, and CLI remain i
 3. Define immutable context entries, operational attempt records, and a fail-closed recovery reducer before implementing the loop. **Complete.**
 4. Prove Agent-owned SQLite append/query/reconstruction first, then prove the narrower common/Agent transaction coordination seam separately. **Complete.**
 5. Build a deterministic recorded provider conformance harness that exercises text, tool calls, failure, cancellation, truncation, and interrupted attempts. **Complete.**
-6. Execute the D018 durability/hygiene gate before tool semantics expand the durable model:
+6. Execute the D018 durability/hygiene gate before tool semantics expand the durable model. **Complete.**
    1. add component-owned SQLite migration/version tracking and explicit durable payload/schema versions;
    2. make coordinated creation idempotently retryable after a committed-but-unacknowledged success and introduce recovery-relevant typed store errors;
    3. move provider-to-durable conversion behind an explicit core-owned boundary and establish one authoritative tool-argument representation before validation/hash/replay logic;
@@ -61,7 +61,7 @@ The concrete OpenAI adapter, bounded `fs.read`, SDK projection, and CLI remain i
 
 ## Plan v2 Cleanup Gate
 
-All five cleanup tasks T007–T011 must be complete before T012 begins.
+All five cleanup tasks T007–T011 are complete; T012 may begin.
 
 ### T007 — durable schema and migration evolution
 
@@ -117,6 +117,9 @@ Plan v2 adds one prerequisite to that proof: the durable format and creation bou
 - Stop if a non-replayable started effect can be silently re-executed.
 - Stop if retry/budget counters depend on process-local state rather than durable history.
 - Stop if `ww-agent-core` imports concrete transport, SQLite, filesystem, Flow, or WorkWeave Orchestration types.
+- Stop if a recovery read can combine record, entry, or event versions from different SQLite snapshots.
+- Stop if an older binary can silently accept or rewrite a future component schema version.
+- Stop if one logical execution transition can durably commit a state patch that disagrees with its event.
 - Stop if a Task becomes L-sized under the planning heuristic; split it before implementation.
 
 ## Rollback
