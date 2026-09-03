@@ -14,3 +14,5 @@ pub use reducer::{
 pub use store::{
     AgentAppend, AgentHistorySnapshot, AgentRunRecord, AgentStore, AgentStoreError, NewAgentRun,
 };
+
+pub use ww_agent_provider::{CompletionReason, ModelUsage};

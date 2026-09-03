@@ -4,9 +4,8 @@ use std::{env, path::PathBuf};
 use ww_agent_core::{
     AgentAppend, AgentAssistantContent, AgentEntry, AgentEntryData, AgentEntryId, AgentRecord,
     AgentRecordData, AgentRunId, AgentStore, AgentTerminalResult, DurableAssistantMessage,
-    ModelAttemptId, NewAgentRun, reduce_agent_history,
+    CompletionReason, ModelAttemptId, NewAgentRun, reduce_agent_history,
 };
-use ww_agent_provider::CompletionReason;
 use ww_agent_store_sqlite::SqliteAgentStore;
 
 #[tokio::main]

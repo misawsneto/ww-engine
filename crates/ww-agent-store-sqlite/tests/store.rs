@@ -4,9 +4,8 @@ use tempfile::TempDir;
 use ww_agent_core::{
     AgentAppend, AgentAssistantContent, AgentEntry, AgentEntryData, AgentEntryId, AgentPhase,
     AgentRecord, AgentRecordData, AgentRunId, AgentStore, AgentStoreError, AgentTerminalResult,
-    DurableAssistantMessage, ModelAttemptId, NewAgentRun, reduce_agent_history,
+    CompletionReason, DurableAssistantMessage, ModelAttemptId, NewAgentRun, reduce_agent_history,
 };
-use ww_agent_provider::CompletionReason;
 use ww_agent_store_sqlite::SqliteAgentStore;
 
 async fn migrated_store(temp: &TempDir) -> SqliteAgentStore {
