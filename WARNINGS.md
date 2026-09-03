@@ -13,3 +13,5 @@
 11. Do not let G003 Agent persistence solve atomic coordination by pushing Agent message/provider/tool types into the shared `ww-store` API.
 12. Do not expose unsafe write/process/network tools until replay classification and `RequiresIntervention` recovery are proven with fault injection.
 13. Do not pull G004 OpenAI/fs.read/SDK/CLI work back into G003 for convenience; doing so recreates the oversized Goal that the planning review deliberately split.
+14. Do not verify a task branch against a weaker gate than its merge target. A temporary workflow that omits one `main` check will record Tasks as verified that `main` would reject; a G003 verifier omitting `cargo fmt --all -- --check` did exactly that across T002-T004.
+15. Do not infer Goal or architecture acceptance from branch placement. Work on `main` means the engineering gate passed, not that the Task, Goal, or ADR is accepted.

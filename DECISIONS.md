@@ -17,3 +17,5 @@
 | D013 | Keep the common executor abstraction intentionally thin; engine-specific types remain owned by Agent or Flow. | accepted |
 | D014 | Every Goal must have at least one Goal-referenced ADR before it becomes active; architecture changes during a Goal must amend or supersede the governing ADR before reliance. | accepted |
 | D015 | Split Agent delivery into G003 durable kernel proof and G004 concrete provider/SDK/CLI surface; future Flow Goal numbering shifts accordingly. | accepted |
+| D016 | `main` is the continuously integrated always-green engineering line; intermediate Task work lands on `main` without waiting for terminal Goal acceptance. Merged-to-`main`, Task complete, Goal accepted, and architecture accepted are four separate states. | accepted |
+| D017 | Any task-specific or temporary verification path must execute the complete merge-target CI gate; it may add checks but may never replace or omit target-branch checks. | accepted |

@@ -20,6 +20,8 @@
 - Use immutable upstream source pins for material reference-architecture claims.
 - Separate source-observed, derived, and proposed claims.
 - Capture durable direction in `DECISIONS.md`, uncertainty in `QUESTIONS.md`, active state in `PROJECT_STATE.md`, and Goal-owned work under `goals/`.
+- Land verified Task work on `main` continuously; `main` is the always-green engineering line and a Goal stays active while its completed Tasks are already merged (D016).
+- Run the complete merge-target CI gate on every verification path, temporary ones included (D017).
 - Before any Goal becomes active, create and reference at least one ADR under `docs/adr/`; amend or supersede it before relying on a changed architectural direction.
 - Keep reusable WorkWeave templates and skills independent from product-specific implementation details.
 
