@@ -1,4 +1,4 @@
-# G009 — Durable Storage Evolution and Recovery Hardening
+# G010 — Durable Storage Evolution and Recovery Hardening
 
 ## Statement
 
@@ -55,4 +55,4 @@ See `EVALUATIONS.md`.
 ## Dependencies
 
 - None while proposed. Activation and execution order must be decided after G003 from concrete evidence.
-- G009 is not automatically a prerequisite for G004 or any already reserved Goal.
+- G010 is not automatically a prerequisite for G004 or any already reserved Goal.

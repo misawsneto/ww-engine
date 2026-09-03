@@ -1,6 +1,6 @@
-# G009 Reviews
+# G010 Reviews
 
-No implementation review exists because G009 is proposed only. Activation order must be decided after G003 from concrete evidence.
+No implementation review exists because G010 is proposed only. Activation order must be decided after G003 from concrete evidence.
 
 ## Planned review focus
 

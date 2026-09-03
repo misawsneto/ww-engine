@@ -1,13 +1,13 @@
-# G009 Evaluations
+# G010 Evaluations
 
-All Evaluations are draft while G009 remains proposed.
+All Evaluations are draft while G010 remains proposed.
 
 ## Durable format evolution
 - State: `draft`
 - Mode: `deterministic`
 - Evaluator Mode: `deterministic`
 - Required For Closure Of:
-  - `G009 — Durable Storage Evolution and Recovery Hardening`
+  - `G010 — Durable Storage Evolution and Recovery Hardening`
 
 ### Checks
 
@@ -23,7 +23,7 @@ All Evaluations are draft while G009 remains proposed.
 - Mode: `deterministic`
 - Evaluator Mode: `deterministic`
 - Required For Closure Of:
-  - `G009 — Durable Storage Evolution and Recovery Hardening`
+  - `G010 — Durable Storage Evolution and Recovery Hardening`
 
 ### Checks
 
@@ -39,7 +39,7 @@ All Evaluations are draft while G009 remains proposed.
 - Mode: `deterministic`
 - Evaluator Mode: `deterministic`
 - Required For Closure Of:
-  - `G009 — Durable Storage Evolution and Recovery Hardening`
+  - `G010 — Durable Storage Evolution and Recovery Hardening`
 
 ### Checks
 

@@ -1,10 +1,10 @@
-# G009 Tasks
+# G010 Tasks
 
-These Task IDs are a draft proposal and become stable only if G009 is activated.
+These Task IDs are a draft proposal and become stable only if G010 is activated.
 
 | Task | State | Acceptance | Dependencies |
 | --- | --- | --- | --- |
-| T001 Decide execution order, accept governing ADR, and activate G009 | open | post-G003 evidence records why G009 is scheduled; governing ADR accepted; project state points to active G009 | G003 terminal review |
+| T001 Decide execution order, accept governing ADR, and activate G010 | open | post-G003 evidence records why G010 is scheduled; governing ADR accepted; project state points to active G010 | G003 terminal review |
 | T002 Define component-owned durable version and migration contracts | open | schema and payload ownership/version envelopes are explicit without semantic DTO leakage into shared storage | T001 |
 | T003 Prove known-old upgrades and future-version rejection | open | committed old-state fixtures upgrade deterministically; unknown future versions fail closed without partial mutation | T002 |
 | T004 Make create/ensure idempotent across uncertain acknowledgement | open | retry after committed-but-unacknowledged creation returns the same logical resource without duplicate durable identity | T002 |

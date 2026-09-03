@@ -16,7 +16,7 @@ The proposed Goal separates durable-format and backend evolution from Agent and 
 
 ## Strategy
 
-1. Decide activation order after G003 and accept a governing ADR without making G009 an automatic prerequisite for G004.
+1. Decide activation order after G003 and accept a governing ADR without making G010 an automatic prerequisite for G004.
 2. Inventory component-owned durable schemas and payload envelopes, then define their version and ownership contracts.
 3. Prove migrations from committed known-old fixtures and fail-closed handling of future versions.
 4. Define idempotent create/ensure behavior for committed-but-unacknowledged outcomes.
@@ -31,9 +31,9 @@ The proposed Goal separates durable-format and backend evolution from Agent and 
 - Stop if a migration can partially mutate durable state before rejecting an unsupported version.
 - Stop if create/ensure idempotency depends on process-local memory.
 - Stop if error classification changes Agent, Flow, or Orchestration semantics.
-- Stop if G009 expands into provider, tool, workflow-interpreter, SDK, CLI, TUI, filesystem, or network work.
+- Stop if G010 expands into provider, tool, workflow-interpreter, SDK, CLI, TUI, filesystem, or network work.
 - Stop if activation is justified only by the existence of review findings rather than a concrete scheduling decision.
 
 ## Rollback
 
-Revert G009 implementation while preserving its ADR, fixtures, compatibility evidence, and review findings. Previously accepted Agent and Flow behavior remains authoritative.
+Revert G010 implementation while preserving its ADR, fixtures, compatibility evidence, and review findings. Previously accepted Agent and Flow behavior remains authoritative.

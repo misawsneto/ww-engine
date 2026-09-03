@@ -74,17 +74,17 @@ D019 restores the bounded pre-D018 G003 structure, preserves all D018 evidence, 
 
 | Finding | Disposition | Durable destination |
 | --- | --- | --- |
-| 1. Payload/schema migration evolution | defer to hardening Goal | proposed G009 |
-| 2. Committed-but-unacknowledged create idempotency | defer to hardening Goal | proposed G009; original T011 may still test ambiguous restart behavior at the Agent level |
+| 1. Payload/schema migration evolution | defer to hardening Goal | proposed G010 |
+| 2. Committed-but-unacknowledged create idempotency | defer to hardening Goal | proposed G010; original T011 may still test ambiguous restart behavior at the Agent level |
 | 3. Raw/parsed tool-argument divergence | handle in existing G003 task | original T007 validation/hash/replay contract uses one canonical parsed value |
-| 4. Durable format coupled to adjacent provider DTOs | defer to hardening Goal | proposed G009 |
+| 4. Durable format coupled to adjacent provider DTOs | defer to hardening Goal | proposed G010 |
 | 5. Bypassable provider finalization | handle in existing G003 task | original T008 kernel owns mandatory fail-closed stream consumption |
-| 6. Recovery-oriented storage error taxonomy | defer to hardening Goal | proposed G009 |
-| 7. Repeated physical SQLite plumbing | defer to hardening Goal | proposed G009 |
-| 8. Structural dependency checks | defer to hardening Goal | proposed G009 storage/conformance work may add the narrow structural guards it requires |
+| 6. Recovery-oriented storage error taxonomy | defer to hardening Goal | proposed G010 |
+| 7. Repeated physical SQLite plumbing | defer to hardening Goal | proposed G010 |
+| 8. Structural dependency checks | defer to hardening Goal | proposed G010 storage/conformance work may add the narrow structural guards it requires |
 | 9. Test-surface/document hygiene | discard as a Goal-level blocker | maintain through ordinary fixture and bookkeeping discipline |
 
-The experiment also addressed three adjacent findings. Snapshot-consistent persistence reads defer to proposed G009; lifecycle/event agreement and cancellation-token behavior are implementation constraints of original T009.
+The experiment also addressed three adjacent findings. Snapshot-consistent persistence reads defer to proposed G010; lifecycle/event agreement and cancellation-token behavior are implementation constraints of original T009.
 
 ## Guardrail
 

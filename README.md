@@ -62,4 +62,4 @@ G003 is intentionally limited to the durable provider-neutral kernel/recovery pr
 
 `G004 — Agent Provider and Surface` remains proposed. It adds the first OpenAI-protocol adapter, bounded `fs.read`, and Rust SDK/CLI surface only after G003 is accepted. Deterministic OWS Flow work begins at G005.
 
-`G009 — Durable Storage Evolution and Recovery Hardening` is proposed as a separate, non-blocking home for persistence evolution findings. It is not automatically a prerequisite for G004.
+`G010 — Durable Storage Evolution and Recovery Hardening` is proposed as a separate, non-blocking home for persistence evolution findings. It is not automatically a prerequisite for G004.

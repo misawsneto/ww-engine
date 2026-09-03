@@ -1,4 +1,4 @@
-# G009 Verification
+# G010 Verification
 
 ## Required checks
 
@@ -35,13 +35,13 @@
 
 - [ ] Agent, Flow, and WorkWeave Orchestration semantics are unchanged
 - [ ] component schemas, migrations, row mappings, and durable DTOs remain component-owned
-- [ ] no provider, tool, SDK, CLI, TUI, filesystem, or network capability enters G009
-- [ ] G009 has not become a prerequisite for G004 without a separate evidence-based decision
+- [ ] no provider, tool, SDK, CLI, TUI, filesystem, or network capability enters G010
+- [ ] G010 has not become a prerequisite for G004 without a separate evidence-based decision
 
 ## Required Evaluations
 
-All checks in `EVALUATIONS.md` required for G009 closure must have current passing EvaluationRuns on the reviewed final code basis.
+All checks in `EVALUATIONS.md` required for G010 closure must have current passing EvaluationRuns on the reviewed final code basis.
 
 ## Evidence
 
-- To be recorded only if G009 is activated.
+- To be recorded only if G010 is activated.

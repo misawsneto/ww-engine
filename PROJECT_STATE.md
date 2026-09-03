@@ -13,7 +13,7 @@
 - Next engineering slice: T007 tool contract, schema validation, policy, and replay fixtures; it converges with the completed provider work at T008, the functional model → tool → model kernel.
 - Proposed following Goal: `G004 — Agent Provider and Surface`; OpenAI protocol, bounded `fs.read`, Agent SDK/CLI; governed by proposed `ADR-0004`.
 - Deterministic OWS Flow kernel follows as G005; restart-safe Flow → Agent integration follows as G006.
-- `G009 — Durable Storage Evolution and Recovery Hardening` is proposed as a separate home for non-blocking persistence evolution findings. It is not a prerequisite for G004 unless later evidence activates it for a specific reason.
+- `G010 — Durable Storage Evolution and Recovery Hardening` is proposed as a separate home for non-blocking persistence evolution findings. It is not a prerequisite for G004 unless later evidence activates it for a specific reason.
 
 ## Goal ADR rule
 
@@ -64,6 +64,10 @@ G006 Flow → Agent integration
 G007 Full frozen OWS profile
   ↓
 G008 Local product experience
+  ↓
+G009 Coordinated deployment          reserved
 ```
 
-G009 is proposed outside this sequence. Its activation and execution order will be decided after G003 from concrete requirements rather than inferred from review findings alone.
+`G009 — Coordinated Deployment` is reserved by the original architecture roadmap; D015 shifted it by one when the Agent Provider and Surface Goal was inserted.
+
+G010 is proposed outside this sequence. Its activation and execution order will be decided after G003 from concrete requirements rather than inferred from review findings alone.
