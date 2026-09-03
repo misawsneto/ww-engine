@@ -1,1 +1,1 @@
-verify T004 Agent SQLite persistence after fixture ownership correction
+verify T005 atomic common execution + Agent creation and rollback
