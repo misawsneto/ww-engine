@@ -1,5 +1,6 @@
 mod assembler;
 mod protocol;
+mod recorded;
 
 pub use assembler::{AssemblyError, ResponseAssembler};
 pub use protocol::{
@@ -8,3 +9,4 @@ pub use protocol::{
     ModelToolSpec, ModelUsage, ProviderContext, ProviderError, ProviderFailure, ProviderId,
     ProviderStarted, ToolCall, ToolCallId,
 };
+pub use recorded::{ExpectedRequest, RecordedOutcome, RecordedProvider};

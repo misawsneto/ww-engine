@@ -1043,11 +1043,14 @@ dependencies = [
 name = "ww-agent-provider"
 version = "0.1.0"
 dependencies = [
+ "async-stream",
  "async-trait",
  "futures-core",
+ "futures-util",
  "serde",
  "serde_json",
  "thiserror",
+ "tokio",
  "tokio-util",
 ]
 
