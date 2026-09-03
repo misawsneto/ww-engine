@@ -114,16 +114,24 @@ fn rejects_delta_before_start_and_poisoned_assembler_stays_closed() {
                 delta: "nope".to_owned()
             })
             .unwrap_err(),
-        AssemblyError::EventBeforeStart { event: "text_delta" }
+        AssemblyError::EventBeforeStart {
+            event: "text_delta"
+        }
     );
-    assert_eq!(assembler.push(started()).unwrap_err(), AssemblyError::Poisoned);
+    assert_eq!(
+        assembler.push(started()).unwrap_err(),
+        AssemblyError::Poisoned
+    );
 }
 
 #[test]
 fn rejects_duplicate_started() {
     let mut assembler = ResponseAssembler::new();
     assembler.push(started()).unwrap();
-    assert_eq!(assembler.push(started()).unwrap_err(), AssemblyError::DuplicateStart);
+    assert_eq!(
+        assembler.push(started()).unwrap_err(),
+        AssemblyError::DuplicateStart
+    );
 }
 
 #[test]
@@ -182,7 +190,9 @@ fn rejects_invalid_tool_json_before_terminal_response() {
         })
         .unwrap();
     assert!(matches!(
-        assembler.push(ModelEvent::ToolCallCompleted { id }).unwrap_err(),
+        assembler
+            .push(ModelEvent::ToolCallCompleted { id })
+            .unwrap_err(),
         AssemblyError::InvalidToolArguments(_, _)
     ));
 }
@@ -316,7 +326,10 @@ fn rejects_stream_end_without_terminal_event() {
             delta: "partial".to_owned(),
         })
         .unwrap();
-    assert_eq!(assembler.finish().unwrap_err(), AssemblyError::UnexpectedEnd);
+    assert_eq!(
+        assembler.finish().unwrap_err(),
+        AssemblyError::UnexpectedEnd
+    );
 }
 
 #[test]

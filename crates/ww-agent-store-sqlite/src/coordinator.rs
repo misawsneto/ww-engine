@@ -109,7 +109,7 @@ impl SqliteAgentCoordinator {
             kind: ExecutionKind::new("agent").expect("static Agent execution kind is valid"),
             configuration_digest,
             created_at: new.created_at,
-            deadline: new.deadline.clone(),
+            deadline: new.deadline,
             event_id: EventId::new(),
         };
         let agent = NewAgentRun {

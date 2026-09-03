@@ -6,11 +6,11 @@ Prove that WorkWeave Agent can execute one bounded, restart-safe provider → to
 
 ## State
 
-- proposed
+- active
 
 ## Architecture Decision Records
 
-- `docs/adr/ADR-0003-g003-thin-agent-kernel.md` — proposed; must be accepted before G003 activation.
+- `docs/adr/ADR-0003-g003-thin-agent-kernel.md` — accepted.
 
 ## Boundaries
 

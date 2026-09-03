@@ -1,7 +1,8 @@
 mod coordinator;
 
 pub use coordinator::{
-    CoordinatedAgentRun, NewCoordinatedAgentRun, SqliteAgentCoordinator, SqliteAgentCoordinatorError,
+    CoordinatedAgentRun, NewCoordinatedAgentRun, SqliteAgentCoordinator,
+    SqliteAgentCoordinatorError,
 };
 
 use async_trait::async_trait;
@@ -144,10 +145,7 @@ fn validate_initial_run(new: &NewAgentRun) -> Result<(), AgentStoreError> {
     Ok(())
 }
 
-fn max_ordinal(
-    connection: &Connection,
-    run_id: AgentRunId,
-) -> Result<u64, AgentStoreError> {
+fn max_ordinal(connection: &Connection, run_id: AgentRunId) -> Result<u64, AgentStoreError> {
     let value = connection
         .query_row(
             "select coalesce(max(ordinal), 0) from agent_entries where run_id = ?1",
@@ -158,10 +156,7 @@ fn max_ordinal(
     to_u64(value, "Agent entry ordinal")
 }
 
-fn max_sequence(
-    connection: &Connection,
-    run_id: AgentRunId,
-) -> Result<u64, AgentStoreError> {
+fn max_sequence(connection: &Connection, run_id: AgentRunId) -> Result<u64, AgentStoreError> {
     let value = connection
         .query_row(
             "select coalesce(max(sequence), 0) from agent_records where run_id = ?1",
@@ -178,7 +173,9 @@ fn validate_append(
     current_record_sequence: u64,
 ) -> Result<(), AgentStoreError> {
     if append.entries.is_empty() && append.records.is_empty() {
-        return Err(corrupt("Agent append must contain at least one entry or record"));
+        return Err(corrupt(
+            "Agent append must contain at least one entry or record",
+        ));
     }
 
     for (index, entry) in append.entries.iter().enumerate() {
@@ -219,10 +216,7 @@ fn validate_append(
     Ok(())
 }
 
-fn insert_entry(
-    connection: &Connection,
-    entry: &AgentEntry,
-) -> Result<(), AgentStoreError> {
+fn insert_entry(connection: &Connection, entry: &AgentEntry) -> Result<(), AgentStoreError> {
     connection
         .execute(
             "insert into agent_entries (id, run_id, ordinal, created_at, kind, payload_json) values (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -240,10 +234,7 @@ fn insert_entry(
     Ok(())
 }
 
-fn insert_record(
-    connection: &Connection,
-    record: &AgentRecord,
-) -> Result<(), AgentStoreError> {
+fn insert_record(connection: &Connection, record: &AgentRecord) -> Result<(), AgentStoreError> {
     connection
         .execute(
             "insert into agent_records (run_id, sequence, recorded_at, kind, payload_json) values (?1, ?2, ?3, ?4, ?5)",
@@ -387,7 +378,8 @@ impl AgentStore for SqliteAgentStore {
     }
 
     async fn get_run(&self, id: AgentRunId) -> Result<AgentRunRecord, AgentStoreError> {
-        self.run(move |connection| get_run_conn(connection, id)).await
+        self.run(move |connection| get_run_conn(connection, id))
+            .await
     }
 
     async fn append(&self, append: AgentAppend) -> Result<AgentRunRecord, AgentStoreError> {
@@ -444,10 +436,7 @@ impl AgentStore for SqliteAgentStore {
         .await
     }
 
-    async fn load_history(
-        &self,
-        id: AgentRunId,
-    ) -> Result<AgentHistorySnapshot, AgentStoreError> {
+    async fn load_history(&self, id: AgentRunId) -> Result<AgentHistorySnapshot, AgentStoreError> {
         self.run(move |connection| {
             let run = get_run_conn(connection, id)?;
             let entries = load_entries(connection, id)?;

@@ -7,7 +7,9 @@ use ww_agent_provider::{CompletionReason, ModelUsage, ToolCallId};
 
 macro_rules! uuid_id {
     ($name:ident) => {
-        #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+        #[derive(
+            Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize,
+        )]
         #[serde(transparent)]
         pub struct $name(Uuid);
 
@@ -119,21 +121,12 @@ pub enum ModelAttemptInterruptReason {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum AgentTerminalResult {
-    Succeeded {
-        assistant_entry_id: AgentEntryId,
-    },
-    Failed {
-        code: String,
-        message: String,
-    },
+    Succeeded { assistant_entry_id: AgentEntryId },
+    Failed { code: String, message: String },
     Cancelled,
     TimedOut,
-    BudgetExhausted {
-        limit: String,
-    },
-    RequiresIntervention {
-        reason: String,
-    },
+    BudgetExhausted { limit: String },
+    RequiresIntervention { reason: String },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

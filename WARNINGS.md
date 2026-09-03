@@ -12,3 +12,4 @@
 10. Do not infer Rust types from reference implementation names without validating the required invariants and ownership boundary.
 11. Do not let G003 Agent persistence solve atomic coordination by pushing Agent message/provider/tool types into the shared `ww-store` API.
 12. Do not expose unsafe write/process/network tools until replay classification and `RequiresIntervention` recovery are proven with fault injection.
+13. Do not pull G004 OpenAI/fs.read/SDK/CLI work back into G003 for convenience; doing so recreates the oversized Goal that the planning review deliberately split.

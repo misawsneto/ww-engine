@@ -16,4 +16,4 @@ Rules:
 | --- | --- | --- | --- |
 | [ADR-0001](ADR-0001-g001-execution-architecture.md) | G001 | accepted | One Rust platform, sibling Agent/Flow kernels, Orchestration above |
 | [ADR-0002](ADR-0002-g002-shared-runtime.md) | G002 | accepted | Semantically neutral durable runtime substrate on SQLite |
-| [ADR-0003](ADR-0003-g003-thin-agent-kernel.md) | G003 | proposed | Thin provider-neutral Agent kernel on the shared runtime |
+| [ADR-0003](ADR-0003-g003-thin-agent-kernel.md) | G003 | accepted | Durable provider-neutral Agent kernel on the shared runtime |

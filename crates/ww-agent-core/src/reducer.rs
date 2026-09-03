@@ -80,7 +80,10 @@ pub enum CorruptionError {
     #[error("record sequence {actual} is not expected contiguous sequence {expected}")]
     RecordSequence { expected: u64, actual: u64 },
     #[error("entry or record belongs to run {actual}, expected {expected}")]
-    RunMismatch { expected: AgentRunId, actual: AgentRunId },
+    RunMismatch {
+        expected: AgentRunId,
+        actual: AgentRunId,
+    },
     #[error("duplicate entry id {0}")]
     DuplicateEntryId(AgentEntryId),
     #[error("duplicate model attempt id {0}")]
@@ -96,7 +99,10 @@ pub enum CorruptionError {
     #[error("user input entry appears after model-generated context")]
     UserInputAfterGeneratedContext,
     #[error("record {record} is invalid while recovery phase is {phase:?}")]
-    InvalidRecord { record: &'static str, phase: AgentPhase },
+    InvalidRecord {
+        record: &'static str,
+        phase: AgentPhase,
+    },
     #[error("unknown entry id {0}")]
     UnknownEntry(AgentEntryId),
     #[error("unknown logical tool call id {0}")]
@@ -114,7 +120,9 @@ pub enum CorruptionError {
     },
     #[error("entry {0} is not the next context entry")]
     ContextOrder(AgentEntryId),
-    #[error("tool result entry {entry_id} does not match tool attempt {attempt_id} / call {logical_call_id}")]
+    #[error(
+        "tool result entry {entry_id} does not match tool attempt {attempt_id} / call {logical_call_id}"
+    )]
     ToolResultMismatch {
         entry_id: AgentEntryId,
         attempt_id: ToolAttemptId,
@@ -200,7 +208,9 @@ pub fn reduce_agent_history(
                     .insert(*logical_call_id, entry.id)
                     .is_some()
                 {
-                    return Err(CorruptionError::DuplicateLogicalToolResult(*logical_call_id));
+                    return Err(CorruptionError::DuplicateLogicalToolResult(
+                        *logical_call_id,
+                    ));
                 }
             }
         }
@@ -331,7 +341,8 @@ pub fn reduce_agent_history(
                     state.usage = add_usage(state.usage, usage);
                 }
 
-                state.pending_tool_calls = message.tool_calls().map(|call| call.logical_id).collect();
+                state.pending_tool_calls =
+                    message.tool_calls().map(|call| call.logical_id).collect();
                 current_turn_result_ids.clear();
                 state.phase = if state.pending_tool_calls.is_empty() {
                     AgentPhase::ReadyToCommitResult
@@ -454,7 +465,9 @@ pub fn reduce_agent_history(
                     AgentTerminalResult::Succeeded { assistant_entry_id } => {
                         require_phase(&state, AgentPhase::ReadyToCommitResult, record.data.kind())?;
                         if Some(*assistant_entry_id) != state.current_assistant_entry {
-                            return Err(CorruptionError::TerminalAssistantMismatch(*assistant_entry_id));
+                            return Err(CorruptionError::TerminalAssistantMismatch(
+                                *assistant_entry_id,
+                            ));
                         }
                     }
                     AgentTerminalResult::RequiresIntervention { .. } => {

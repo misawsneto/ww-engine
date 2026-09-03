@@ -62,8 +62,5 @@ pub trait AgentStore: Send + Sync {
 
     async fn append(&self, append: AgentAppend) -> Result<AgentRunRecord, AgentStoreError>;
 
-    async fn load_history(
-        &self,
-        id: AgentRunId,
-    ) -> Result<AgentHistorySnapshot, AgentStoreError>;
+    async fn load_history(&self, id: AgentRunId) -> Result<AgentHistorySnapshot, AgentStoreError>;
 }

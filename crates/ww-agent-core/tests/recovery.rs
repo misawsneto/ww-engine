@@ -4,7 +4,8 @@ use uuid::Uuid;
 use ww_agent_core::{
     AgentAssistantContent, AgentEntry, AgentEntryData, AgentEntryId, AgentPhase, AgentRecord,
     AgentRecordData, AgentRunId, AgentTerminalResult, AgentToolCall, CorruptionError,
-    DurableAssistantMessage, LogicalToolCallId, ModelAttemptId, ToolAttemptId, reduce_agent_history,
+    DurableAssistantMessage, LogicalToolCallId, ModelAttemptId, ToolAttemptId,
+    reduce_agent_history,
 };
 use ww_agent_provider::{CompletionReason, ModelUsage, ToolCallId};
 
@@ -175,18 +176,55 @@ fn one_tool_turn_reduces_to_ready_for_next_model_in_source_order() {
         tool_result(4, 3, logical, tool),
     ];
     let records = vec![
-        record(1, AgentRecordData::ModelAttemptStarted { attempt_id: model, request_ordinal: 1 }),
-        record(2, AgentRecordData::ModelAttemptCompleted { attempt_id: model, assistant_entry_id: entry_id(3) }),
-        record(3, AgentRecordData::ToolAttemptStarted { attempt_id: tool, logical_call_id: logical }),
-        record(4, AgentRecordData::ToolAttemptCompleted { attempt_id: tool, result_entry_id: entry_id(4) }),
-        record(5, AgentRecordData::TurnCommitted { turn_ordinal: 1, assistant_entry_id: entry_id(3), tool_result_entry_ids: vec![entry_id(4)] }),
+        record(
+            1,
+            AgentRecordData::ModelAttemptStarted {
+                attempt_id: model,
+                request_ordinal: 1,
+            },
+        ),
+        record(
+            2,
+            AgentRecordData::ModelAttemptCompleted {
+                attempt_id: model,
+                assistant_entry_id: entry_id(3),
+            },
+        ),
+        record(
+            3,
+            AgentRecordData::ToolAttemptStarted {
+                attempt_id: tool,
+                logical_call_id: logical,
+            },
+        ),
+        record(
+            4,
+            AgentRecordData::ToolAttemptCompleted {
+                attempt_id: tool,
+                result_entry_id: entry_id(4),
+            },
+        ),
+        record(
+            5,
+            AgentRecordData::TurnCommitted {
+                turn_ordinal: 1,
+                assistant_entry_id: entry_id(3),
+                tool_result_entry_ids: vec![entry_id(4)],
+            },
+        ),
     ];
     let state = reduce_agent_history(run_id(), &entries, &records).unwrap();
     assert_eq!(state.phase, AgentPhase::ReadyForModel);
-    assert_eq!(state.context_entry_ids, vec![entry_id(2), entry_id(3), entry_id(4)]);
+    assert_eq!(
+        state.context_entry_ids,
+        vec![entry_id(2), entry_id(3), entry_id(4)]
+    );
     assert_eq!(state.turn_count, 1);
     assert_eq!(state.tool_attempt_count, 1);
-    assert_eq!(state.completed_tool_results.get(&logical), Some(&entry_id(4)));
+    assert_eq!(
+        state.completed_tool_results.get(&logical),
+        Some(&entry_id(4))
+    );
 }
 
 #[test]
@@ -194,8 +232,20 @@ fn interrupted_model_attempt_is_recoverable_as_new_model_boundary() {
     let attempt = model_attempt(10);
     let entries = vec![user(2, 1)];
     let records = vec![
-        record(1, AgentRecordData::ModelAttemptStarted { attempt_id: attempt, request_ordinal: 1 }),
-        record(2, AgentRecordData::ModelAttemptInterrupted { attempt_id: attempt, reason: ww_agent_core::ModelAttemptInterruptReason::RuntimeRestart }),
+        record(
+            1,
+            AgentRecordData::ModelAttemptStarted {
+                attempt_id: attempt,
+                request_ordinal: 1,
+            },
+        ),
+        record(
+            2,
+            AgentRecordData::ModelAttemptInterrupted {
+                attempt_id: attempt,
+                reason: ww_agent_core::ModelAttemptInterruptReason::RuntimeRestart,
+            },
+        ),
     ];
     let state = reduce_agent_history(run_id(), &entries, &records).unwrap();
     assert_eq!(state.phase, AgentPhase::ReadyForModel);
@@ -207,17 +257,29 @@ fn rejects_non_contiguous_entry_ordinal() {
     let entries = vec![user(2, 2)];
     assert_eq!(
         reduce_agent_history(run_id(), &entries, &[]).unwrap_err(),
-        CorruptionError::EntryOrdinal { expected: 1, actual: 2 }
+        CorruptionError::EntryOrdinal {
+            expected: 1,
+            actual: 2
+        }
     );
 }
 
 #[test]
 fn rejects_non_contiguous_record_sequence() {
     let entries = vec![user(2, 1)];
-    let records = vec![record(2, AgentRecordData::ModelAttemptStarted { attempt_id: model_attempt(10), request_ordinal: 1 })];
+    let records = vec![record(
+        2,
+        AgentRecordData::ModelAttemptStarted {
+            attempt_id: model_attempt(10),
+            request_ordinal: 1,
+        },
+    )];
     assert_eq!(
         reduce_agent_history(run_id(), &entries, &records).unwrap_err(),
-        CorruptionError::RecordSequence { expected: 1, actual: 2 }
+        CorruptionError::RecordSequence {
+            expected: 1,
+            actual: 2
+        }
     );
 }
 
@@ -226,8 +288,20 @@ fn rejects_unknown_assistant_entry_reference() {
     let attempt = model_attempt(10);
     let entries = vec![user(2, 1)];
     let records = vec![
-        record(1, AgentRecordData::ModelAttemptStarted { attempt_id: attempt, request_ordinal: 1 }),
-        record(2, AgentRecordData::ModelAttemptCompleted { attempt_id: attempt, assistant_entry_id: entry_id(99) }),
+        record(
+            1,
+            AgentRecordData::ModelAttemptStarted {
+                attempt_id: attempt,
+                request_ordinal: 1,
+            },
+        ),
+        record(
+            2,
+            AgentRecordData::ModelAttemptCompleted {
+                attempt_id: attempt,
+                assistant_entry_id: entry_id(99),
+            },
+        ),
     ];
     assert_eq!(
         reduce_agent_history(run_id(), &entries, &records).unwrap_err(),
@@ -241,12 +315,27 @@ fn rejects_assistant_entry_from_different_model_attempt() {
     let other = model_attempt(11);
     let entries = vec![user(2, 1), assistant_text(3, 2, other)];
     let records = vec![
-        record(1, AgentRecordData::ModelAttemptStarted { attempt_id: active, request_ordinal: 1 }),
-        record(2, AgentRecordData::ModelAttemptCompleted { attempt_id: active, assistant_entry_id: entry_id(3) }),
+        record(
+            1,
+            AgentRecordData::ModelAttemptStarted {
+                attempt_id: active,
+                request_ordinal: 1,
+            },
+        ),
+        record(
+            2,
+            AgentRecordData::ModelAttemptCompleted {
+                attempt_id: active,
+                assistant_entry_id: entry_id(3),
+            },
+        ),
     ];
     assert_eq!(
         reduce_agent_history(run_id(), &entries, &records).unwrap_err(),
-        CorruptionError::AssistantAttemptMismatch { entry_id: entry_id(3), attempt_id: active }
+        CorruptionError::AssistantAttemptMismatch {
+            entry_id: entry_id(3),
+            attempt_id: active
+        }
     );
 }
 
@@ -257,13 +346,34 @@ fn rejects_tool_attempt_that_skips_provider_source_order() {
     let second = call_id(31);
     let entries = vec![user(2, 1), assistant_tool(3, 2, model, &[first, second])];
     let records = vec![
-        record(1, AgentRecordData::ModelAttemptStarted { attempt_id: model, request_ordinal: 1 }),
-        record(2, AgentRecordData::ModelAttemptCompleted { attempt_id: model, assistant_entry_id: entry_id(3) }),
-        record(3, AgentRecordData::ToolAttemptStarted { attempt_id: tool_attempt(20), logical_call_id: second }),
+        record(
+            1,
+            AgentRecordData::ModelAttemptStarted {
+                attempt_id: model,
+                request_ordinal: 1,
+            },
+        ),
+        record(
+            2,
+            AgentRecordData::ModelAttemptCompleted {
+                attempt_id: model,
+                assistant_entry_id: entry_id(3),
+            },
+        ),
+        record(
+            3,
+            AgentRecordData::ToolAttemptStarted {
+                attempt_id: tool_attempt(20),
+                logical_call_id: second,
+            },
+        ),
     ];
     assert_eq!(
         reduce_agent_history(run_id(), &entries, &records).unwrap_err(),
-        CorruptionError::ToolSourceOrder { expected: first, actual: second }
+        CorruptionError::ToolSourceOrder {
+            expected: first,
+            actual: second
+        }
     );
 }
 
@@ -289,10 +399,35 @@ fn rejects_record_after_terminal_result() {
     let attempt = model_attempt(10);
     let entries = vec![user(2, 1), assistant_text(3, 2, attempt)];
     let records = vec![
-        record(1, AgentRecordData::ModelAttemptStarted { attempt_id: attempt, request_ordinal: 1 }),
-        record(2, AgentRecordData::ModelAttemptCompleted { attempt_id: attempt, assistant_entry_id: entry_id(3) }),
-        record(3, AgentRecordData::AgentResultCommitted { result: AgentTerminalResult::Succeeded { assistant_entry_id: entry_id(3) } }),
-        record(4, AgentRecordData::ModelAttemptStarted { attempt_id: model_attempt(11), request_ordinal: 2 }),
+        record(
+            1,
+            AgentRecordData::ModelAttemptStarted {
+                attempt_id: attempt,
+                request_ordinal: 1,
+            },
+        ),
+        record(
+            2,
+            AgentRecordData::ModelAttemptCompleted {
+                attempt_id: attempt,
+                assistant_entry_id: entry_id(3),
+            },
+        ),
+        record(
+            3,
+            AgentRecordData::AgentResultCommitted {
+                result: AgentTerminalResult::Succeeded {
+                    assistant_entry_id: entry_id(3),
+                },
+            },
+        ),
+        record(
+            4,
+            AgentRecordData::ModelAttemptStarted {
+                attempt_id: model_attempt(11),
+                request_ordinal: 2,
+            },
+        ),
     ];
     assert_eq!(
         reduce_agent_history(run_id(), &entries, &records).unwrap_err(),

@@ -3,8 +3,8 @@ use serde_json::json;
 use std::{env, path::PathBuf};
 use ww_agent_core::{
     AgentAppend, AgentAssistantContent, AgentEntry, AgentEntryData, AgentEntryId, AgentRecord,
-    AgentRecordData, AgentRunId, AgentStore, AgentTerminalResult, DurableAssistantMessage,
-    CompletionReason, ModelAttemptId, NewAgentRun, reduce_agent_history,
+    AgentRecordData, AgentRunId, AgentStore, AgentTerminalResult, CompletionReason,
+    DurableAssistantMessage, ModelAttemptId, NewAgentRun, reduce_agent_history,
 };
 use ww_agent_store_sqlite::SqliteAgentStore;
 

@@ -16,3 +16,4 @@
 | D012 | Start embedded with SQLite and preserve storage/transaction boundaries so coordinated PostgreSQL deployment can be added without changing engine semantics. | accepted |
 | D013 | Keep the common executor abstraction intentionally thin; engine-specific types remain owned by Agent or Flow. | accepted |
 | D014 | Every Goal must have at least one Goal-referenced ADR before it becomes active; architecture changes during a Goal must amend or supersede the governing ADR before reliance. | accepted |
+| D015 | Split Agent delivery into G003 durable kernel proof and G004 concrete provider/SDK/CLI surface; future Flow Goal numbering shifts accordingly. | accepted |

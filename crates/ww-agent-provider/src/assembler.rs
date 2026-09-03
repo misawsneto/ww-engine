@@ -157,9 +157,10 @@ impl ResponseAssembler {
                 if tool.completed {
                     return Err(AssemblyError::DuplicateToolCallCompletion(id));
                 }
-                let arguments = serde_json::from_str::<Value>(&tool.arguments_json).map_err(|error| {
-                    AssemblyError::InvalidToolArguments(id.clone(), error.to_string())
-                })?;
+                let arguments =
+                    serde_json::from_str::<Value>(&tool.arguments_json).map_err(|error| {
+                        AssemblyError::InvalidToolArguments(id.clone(), error.to_string())
+                    })?;
                 tool.arguments = Some(arguments);
                 tool.completed = true;
                 Ok(None)

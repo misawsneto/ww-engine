@@ -199,7 +199,8 @@ fn get_execution_conn(
 #[async_trait]
 impl RuntimeStore for SqliteRuntimeStore {
     async fn migrate(&self) -> Result<(), StoreError> {
-        self.run(|connection| migrate_runtime_schema(connection)).await
+        self.run(|connection| migrate_runtime_schema(connection))
+            .await
     }
 
     async fn create_execution(&self, new: NewExecution) -> Result<ExecutionRecord, StoreError> {
@@ -210,7 +211,8 @@ impl RuntimeStore for SqliteRuntimeStore {
             insert_new_execution_tx(&transaction, &new)?;
             transaction.commit().map_err(backend)?;
             get_execution_conn(connection, new.id)
-        }).await
+        })
+        .await
     }
 
     async fn get_execution(&self, id: ExecutionId) -> Result<ExecutionRecord, StoreError> {

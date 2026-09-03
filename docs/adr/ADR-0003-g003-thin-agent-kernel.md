@@ -1,21 +1,30 @@
-# ADR-0003 — Thin WorkWeave Agent kernel
+# ADR-0003 — Durable provider-neutral Agent kernel
 
-- Status: proposed
+- Status: accepted
 - Goal: G003 — Thin Agent Kernel
 - Recorded: 2026-09-02
-- Activation condition: G002 independent review accepted and this ADR changed to `accepted`.
+- Accepted: 2026-09-02 after independent G002 review acceptance.
+
+## Amendment — 2026-09-03 (D015 scope split)
+
+Sections from **Physical crates** onward were written before the G003/G004 split recorded in `DECISIONS.md` D015. Where they assign the concrete provider adapter (`ww-agent-openai`), bounded `fs.read`, and the Agent SDK/CLI surface to G003, those deliverables now belong to G004 under proposed `ADR-0004`. The Context and Kernel boundary sections below are current; read the later sections subject to this amendment.
 
 ## Context
 
-G002 proved the semantically neutral execution substrate. The next dependency is the leaf probabilistic worker that will later be callable from WorkWeave Flow. Pi shows that the valuable Agent core is a small provider-neutral model → tool → model loop, with persistence, policy, recovery, and product surfaces around that loop rather than inside one monolithic session object.
+G002 proved a semantically neutral execution substrate. The next high-risk dependency is not OpenAI connectivity or CLI UX; it is whether a probabilistic model/tool loop can be made durable and restart-safe without leaking provider, tool, or Flow semantics into the shared runtime.
+
+Pi demonstrates that the valuable execution core is small: normalized model streaming, finalized assistant responses, validation/preflight, ordered tool results, and a loop that returns to the provider until terminal. Pi Harness contributes a separate useful idea: immutable context entries plus operational records reduced into recoverable state. WorkWeave should combine those patterns narrowly, not recreate Pi's larger coding-agent session product layer.
+
+The previous G003 draft also included the first concrete provider, `fs.read`, SDK, and CLI. Planning review classified several tasks as independently large and risk-separable. Those product/network deliverables are moved to G004 so G003 can prove durability before consequential or external capabilities exist.
 
 ## Decision
 
 ### Kernel boundary
 
-1. Implement a bounded `AgentRun` as one probabilistic execution primitive backed by one common `ExecutionRecord(kind = agent)`.
-2. Keep the functional model/tool loop independent of CLI, TUI, remote server, WorkWeave Orchestration, and Flow.
-3. G003 has no `ww-flow-*` dependency and no OWS types.
+1. One `AgentRun` is one bounded probabilistic execution bound to one G002 common execution.
+2. `ww-agent-core` owns the functional loop, Agent recovery model, limits, and settlement; it owns no concrete transport, SQLite, filesystem, CLI, Flow, or WorkWeave Orchestration semantics.
+3. G003 has no `ww-flow-*` or OWS dependency.
+4. G003 uses a deterministic `RecordedProvider` only. The first concrete network provider moves to G004.
 
 ### Physical crates
 

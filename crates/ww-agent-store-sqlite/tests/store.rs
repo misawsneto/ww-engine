@@ -103,7 +103,10 @@ async fn create_append_reopen_reconstructs_identical_terminal_state() {
         .expect("append terminal history");
     assert_eq!(updated.version, 2);
 
-    let before = store.load_history(run_id).await.expect("load before reopen");
+    let before = store
+        .load_history(run_id)
+        .await
+        .expect("load before reopen");
     let before_state = reduce_agent_history(run_id, &before.entries, &before.records)
         .expect("reduce before reopen");
     drop(store);
@@ -113,8 +116,8 @@ async fn create_append_reopen_reconstructs_identical_terminal_state() {
         .load_history(run_id)
         .await
         .expect("load after reopen");
-    let after_state = reduce_agent_history(run_id, &after.entries, &after.records)
-        .expect("reduce after reopen");
+    let after_state =
+        reduce_agent_history(run_id, &after.entries, &after.records).expect("reduce after reopen");
 
     assert_eq!(before, after);
     assert_eq!(before_state, after_state);
@@ -167,7 +170,10 @@ async fn stale_expected_version_rejects_without_partial_agent_mutation() {
         }
     ));
 
-    let history = store.load_history(run_id).await.expect("history after conflict");
+    let history = store
+        .load_history(run_id)
+        .await
+        .expect("history after conflict");
     assert_eq!(history.run.version, 2);
     assert_eq!(history.entries.len(), 2);
     assert_eq!(history.records.len(), 3);
@@ -228,7 +234,10 @@ async fn failed_batch_rolls_back_inserted_entries_records_and_version() {
         .expect_err("duplicate primary key must abort batch");
     assert!(matches!(error, AgentStoreError::Backend(_)));
 
-    let history = store.load_history(run_id).await.expect("history after rollback");
+    let history = store
+        .load_history(run_id)
+        .await
+        .expect("history after rollback");
     assert_eq!(history.run.version, 1);
     assert_eq!(history.entries.len(), 1);
     assert!(history.records.is_empty());
@@ -268,7 +277,10 @@ async fn append_rejects_non_contiguous_ordinals_before_mutation() {
         .expect_err("ordinal gap must fail");
     assert!(matches!(error, AgentStoreError::Corrupt(_)));
 
-    let history = store.load_history(run_id).await.expect("history after rejection");
+    let history = store
+        .load_history(run_id)
+        .await
+        .expect("history after rejection");
     assert_eq!(history.run.version, 1);
     assert_eq!(history.entries.len(), 1);
 }

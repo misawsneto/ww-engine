@@ -2,7 +2,9 @@ use chrono::Utc;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
-use ww_agent_core::{AgentEntry, AgentEntryData, AgentEntryId, AgentRunId, AgentStore, NewAgentRun};
+use ww_agent_core::{
+    AgentEntry, AgentEntryData, AgentEntryId, AgentRunId, AgentStore, NewAgentRun,
+};
 use ww_agent_store_sqlite::{
     NewCoordinatedAgentRun, SqliteAgentCoordinator, SqliteAgentCoordinatorError, SqliteAgentStore,
 };
@@ -28,8 +30,8 @@ async fn coordinator(
     let path = temp.path().join("runtime.db");
     let runtime = SqliteRuntimeStore::new(&path);
     let agent = SqliteAgentStore::new(&path);
-    let coordinator = SqliteAgentCoordinator::new(runtime.clone(), agent.clone())
-        .expect("same database path");
+    let coordinator =
+        SqliteAgentCoordinator::new(runtime.clone(), agent.clone()).expect("same database path");
     coordinator.migrate().await.expect("migrate coordinator");
     (coordinator, runtime, agent)
 }
@@ -133,7 +135,10 @@ async fn agent_insert_failure_rolls_back_preceding_common_creation() {
             .expect("link lookup after rollback"),
         None
     );
-    let existing = agent.get_run(run_id).await.expect("existing Agent run remains");
+    let existing = agent
+        .get_run(run_id)
+        .await
+        .expect("existing Agent run remains");
     assert_eq!(existing.version, 1);
 }
 

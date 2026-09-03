@@ -24,7 +24,7 @@ Before adding either execution kernel, WorkWeave needed evidence that a common R
 ## Consequences
 
 - G003 can bind an Agent Run to a common `ExecutionRecord` without making the runtime understand messages, models, providers, or tools.
-- G004 can bind Flow execution to the same substrate without reusing Agent state.
+- G005 can bind Flow execution to the same substrate without reusing Agent state.
 - A shared physical SQLite database is permitted, but logical ownership and engine-specific repositories remain separate.
 - Engine-specific persistence introduced later must coordinate with shared execution/audit state without pushing engine-owned types into `ww-store`.
 

@@ -55,8 +55,12 @@ pub enum MessageRole {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum MessageContent {
-    Text { text: String },
-    ToolCall { call: ToolCall },
+    Text {
+        text: String,
+    },
+    ToolCall {
+        call: ToolCall,
+    },
     ToolResult {
         call_id: ToolCallId,
         tool_name: String,

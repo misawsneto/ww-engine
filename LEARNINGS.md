@@ -13,3 +13,4 @@
 11. G002 showed that comparing a durable current row with a reducer projection from immutable events catches audit/state drift that lifecycle tests alone can miss.
 12. Cancellation needs distinct durable request and terminal settlement phases; accepting a second reason at settlement creates an avoidable source-of-truth conflict.
 13. For G003, share the embedded SQLite file operationally but keep Agent records logically owned by Agent persistence; physical co-location must not become shared semantic ownership.
+14. G003 planning review showed that durability/recovery and concrete provider/filesystem/SDK/CLI integration are independently risky proofs. Keep G003 recovery-first and move concrete provider/product surface to G004 so each Goal remains reviewable at roughly G002 scale.
