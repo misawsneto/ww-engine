@@ -1,13 +1,9 @@
 # ADR-0003 — Durable provider-neutral Agent kernel
 
 - Status: accepted
-- Goal: G003 — Thin Agent Kernel
+- Goal: G003 — Durable Agent Kernel
 - Recorded: 2026-09-02
-- Accepted: 2026-09-02 after independent G002 review acceptance.
-
-## Amendment — 2026-09-03 (D015 scope split)
-
-Sections from **Physical crates** onward were written before the G003/G004 split recorded in `DECISIONS.md` D015. Where they assign the concrete provider adapter (`ww-agent-openai`), bounded `fs.read`, and the Agent SDK/CLI surface to G003, those deliverables now belong to G004 under proposed `ADR-0004`. The Context and Kernel boundary sections below are current; read the later sections subject to this amendment.
+- Activation condition: satisfied on 2026-09-02 after independent G002 approval.
 
 ## Context
 
@@ -28,69 +24,77 @@ The previous G003 draft also included the first concrete provider, `fs.read`, SD
 
 ### Physical crates
 
-Create only boundaries exercised by this Goal:
+Create only exercised boundaries:
 
-- `ww-agent-provider` — normalized provider/model request and streaming contracts plus recorded-provider fixtures.
-- `ww-agent-tools` — tool contracts, registry, JSON-schema validation, effect/replay metadata, and bounded execution.
-- `ww-agent-core` — Agent Run state/recovery model, functional loop, persistence port, limits, and settlement.
-- `ww-agent-store-sqlite` — Agent-specific durable tables/reducer data in the embedded SQLite database.
-- `ww-agent-openai` — first concrete provider adapter.
-- extend `ww-sdk` and `ww-cli`; do not add TUI/server yet.
+- `ww-agent-provider` — normalized provider/model/request/stream protocol and deterministic recorded provider fixtures;
+- `ww-agent-tools` — tool identity/schema/policy/replay contracts plus deterministic/synthetic test fixtures;
+- `ww-agent-core` — Agent entries/records, recovery reducer, functional loop, limits, persistence port, and settlement;
+- `ww-agent-store-sqlite` — Agent-specific embedded persistence and backend transaction coordination.
 
-### Provider model
+Do not create `ww-agent-openai`, `ww-agent-tools-local`, Agent CLI/TUI/server crates or surfaces in G003.
 
-4. Normalize provider output into a stable stream: request started, text deltas, tool-call construction, usage, completion, failure, and cancellation.
-5. Stream deltas are live by default; finalized normalized assistant responses are durable.
-6. Vendor-specific request/response types stop at provider adapters.
-7. CI uses a deterministic recorded provider; the concrete OpenAI adapter is verified with contract fixtures and may have an opt-in live smoke test outside mandatory CI.
+### Provider protocol
+
+5. Normalize provider output into `Started`, text/tool-call deltas, usage, completion, failure, and cancellation events.
+6. Stream assembly is a pure state machine; invalid ordering, duplicate finalization, disconnect-before-finalization, and incomplete/truncated tool calls fail closed.
+7. Finalized normalized assistant responses are durable. Transient deltas are live by default and need not be canonical audit state.
+8. Vendor-specific request/response types may exist only in later concrete adapters.
+
+### Entry/record durability model
+
+9. Context-bearing entries are immutable: user input, finalized assistant message, and model-visible tool result.
+10. Operational records append execution history: model attempt start/interruption/completion, tool attempt start/denial/completion/intervention, turn commit, and Agent result commit.
+11. Retries append new attempts and never rewrite prior attempts into success.
+12. A pure reducer reconstructs `AgentRecoveryState` and fails closed on impossible references/order/duplicate logical results.
 
 ### Tool model
 
-8. A Tool exposes stable identity, JSON input schema, effect classification, execution mode, replay policy, and `execute`.
-9. Validate arguments before policy or execution.
-10. Initial user-visible tools are `fs.read` and one deterministic structured test tool. A synthetic non-replayable test tool exists only for recovery/fault tests.
-11. G003 executes tool calls sequentially. The contract may represent future parallel-safe execution, but parallel scheduling is deferred until ordering/recovery semantics are proven.
-12. Model-visible tool results preserve provider tool-call order.
+13. Tool arguments must be complete valid JSON and pass JSON Schema validation before policy or execution.
+14. A tool has stable identity/version, effect descriptor, replay policy, and async execution contract.
+15. G003 uses only `test.echo` (deterministic replay-safe) and `test.unsafe_once` (synthetic non-replayable fault fixture).
+16. Tool calls execute sequentially in provider source order. One logical tool call may have multiple attempts but at most one committed model-visible result.
+17. Policy denial produces one durable model-visible error result and performs no effect.
 
-### Durability and recovery
+### Persistence and recovery
 
-13. Persist Agent-specific state separately from common execution state even when both use one physical SQLite database.
-14. Agent durable state contains stable context entries and operational records. Model deltas are not required for replay; finalized responses, tool requests/results, usage, and turn settlement are.
-15. Any commit that must atomically change common execution state and Agent state uses one SQLite transaction through a backend coordination seam; do not put Agent types into `ww-store`.
-16. Recovery reduces durable Agent records into an `AgentRecoveryState` and fails closed on impossible history.
-17. An incomplete replay-safe tool may be retried as a new attempt. An incomplete `ReplayPolicy::Never` tool becomes `RequiresIntervention` and is never silently re-executed.
-18. An interrupted model request may create a new attempt when cancellation/deadline/budget policy permits; the interrupted attempt remains auditable.
+18. Agent data is logically separate from common runtime data even in one physical SQLite database.
+19. Agent DTOs do not enter the shared `ww-store` semantic API. Backend-specific transaction coordination may be added only at the SQLite implementation seam.
+20. Before provider I/O, model attempt identity/request digest/provider-model pin/budget reservation are durable.
+21. Before tool effect execution, logical call/tool-version/arguments digest/replay policy/policy decision/attempt start are durable.
+22. A replay-safe incomplete tool attempt may retry as a new audited attempt. `ReplayPolicy::Never` ambiguity is never re-executed and settles to `RequiresIntervention`.
+23. Commit Agent terminal result before or atomically with common terminalization; recovery idempotently repairs Agent-terminal/common-nonterminal state without model/tool replay.
+24. Fault-injection tests cover creation, model start, model finalization, tool start, tool result, turn commit, and terminal-settlement boundaries.
 
-### Limits and settlement
+### Limits and cancellation
 
-19. Enforce deadline, maximum model requests, maximum turns, and maximum tool calls in G003. Normalize token usage when the provider supplies it and stop before the next request when a configured token budget is exhausted.
-20. Cancellation propagates from the G002 durable cancel request to provider and tool cancellation tokens; settlement remains explicit and durable.
-21. A terminal Agent result is committed before the common execution is terminalized, so recovery can idempotently finish a partially settled run.
+25. Enforce deadline, maximum model requests, maximum turns, maximum tool calls, and optional normalized token budgets.
+26. Counters derive from durable history rather than process-local mutable counters.
+27. Durable G002 cancellation propagates to active provider/tool cancellation tokens and terminal settlement remains explicit and auditable.
 
-### Product surface
+### Deferred product/network surface
 
-22. Add Rust SDK and CLI support: `ww agent run`, `ww agent inspect`, and transcript/audit inspection sufficient to debug one bounded run.
-23. Sessions, steering/follow-up queues, compaction, plugins/MCP, write/shell/network tools, multi-provider routing, server APIs, and TUI are explicitly deferred.
+28. Concrete OpenAI transport, bounded `fs.read`, Agent SDK projection, and `ww agent` CLI move to G004.
+29. Sessions, steering/follow-up queues, compaction, parallel tools, MCP, plugins, write/process/network tools, multi-provider routing, server, and TUI remain later.
 
 ## Consequences
 
-- G003 proves the probabilistic worker without becoming a coding-agent product clone.
-- Flow can later invoke Agent through an adapter without importing Agent internals.
-- Recovery semantics are designed before unsafe tools exist in the public tool set.
-- The first provider adapter does not define core Agent types.
-- Shared SQLite storage is operationally simple while preserving separate logical models.
+- G003 becomes approximately one G002-class proof instead of combining durability, network integration, filesystem policy, and product UX.
+- Recovery safety is established before real external/model or filesystem effects are exposed.
+- G004 can validate the kernel by substitution rather than changing kernel semantics.
+- Future Flow invokes the Agent as a bounded execution primitive without importing Agent internals.
 
 ## Rejected alternatives
 
-- Start G003 with a full Pi-style coding-agent session layer.
-- Put provider-specific types into the Agent kernel.
-- Add bash/write/network tools before replay and intervention behavior is proven.
+- Keep OpenAI, `fs.read`, SDK, and CLI inside G003.
+- Start with a full Pi coding-agent/session abstraction.
+- Put provider-specific types into `ww-agent-core`.
+- Add bash/write/network tools before replay/intervention semantics are proven.
 - Persist every stream delta as canonical state.
-- Make an Agent itself a LangGraph/Flow graph.
+- Make Agent execution a Flow/LangGraph graph.
 
 ## Evidence basis
 
-- Pi functional Agent loop and `StreamFn` seams at the pinned Pi revision.
-- Pi tool validation/preflight/result ordering and future Harness entry/record distinction.
-- G002 durable lifecycle, cancellation, event journal, artifact, SDK, and SQLite evidence.
-- `docs/architecture/WORKWEAVE-ENGINE-ARCHITECTURE-DOSSIER.md`, especially sections 10, 12, 15, 31.4–31.5, and 34.2.
+- Pinned Pi production Agent loop, tool validation/preflight/result-ordering seams, and provider-neutral `StreamFn` architecture.
+- Pinned Pi Harness reducer/entry-record concepts as a future-architecture reference, not production behavior.
+- G002 durable lifecycle/cancellation/event/SQLite evidence.
+- `docs/architecture/WORKWEAVE-ENGINE-ARCHITECTURE-DOSSIER.md`, especially sections 6, 10, 12, 14–17, 31.4–31.5, and implementation sequence.

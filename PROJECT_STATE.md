@@ -4,14 +4,15 @@
 
 - Product: WorkWeave Engine.
 - Language: Rust.
-- Active Goal: `G003 — Thin Agent Kernel`.
+- Active Goal: `G003 — Durable Agent Kernel`.
 - G001 architecture baseline: achieved and accepted.
-- Architecture thesis: one shared Rust runtime substrate with two sibling execution kernels added in later Goals.
-- G002 is achieved after independent review acceptance on 2026-09-02; its governing ADR is `ADR-0002`.
-- G003 is active and narrowed to the durable provider-neutral kernel/recovery proof under accepted `ADR-0003`.
-- Proposed following Goal: `G004 — Agent Provider and Surface`; it adds the first OpenAI-protocol adapter, bounded `fs.read`, and Agent SDK/CLI under proposed `ADR-0004`.
-- G004 activation requires G003 terminal acceptance and ADR-0004 transition from `proposed` to `accepted`.
-- Deterministic OWS Flow kernel work follows as G005; restart-safe Flow → Agent integration follows as G006.
+- G002 shared runtime: achieved after independent owner review acceptance on 2026-09-02; governed by `ADR-0002`.
+- G003 is active under accepted `ADR-0003` and is narrowed to the durable provider-neutral kernel/recovery proof.
+- G003 T002, T003, T004, and T005 are complete and verified.
+- T005 proved atomic common-execution + Agent-run creation/linkage and rollback on injected mid-write failure without adding Agent DTOs to the shared `ww-store` semantic API.
+- Next engineering slices: T006 RecordedProvider conformance and T007 tool policy/replay fixtures; they converge at T008, the functional model → tool → model kernel.
+- Proposed following Goal: `G004 — Agent Provider and Surface`; OpenAI protocol, bounded `fs.read`, Agent SDK/CLI; governed by proposed `ADR-0004`.
+- Deterministic OWS Flow kernel follows as G005; restart-safe Flow → Agent integration follows as G006.
 
 ## Goal ADR rule
 
@@ -27,18 +28,33 @@ Every Goal must reference at least one ADR before activation. G001/G002 ADRs wer
 
 ## G002 achieved boundary
 
-Executable acceptance is complete. Final reviewed implementation code head `9ea9d58f4dcafa2f5d5073beb6be65b7ab690bcc` is covered by CI run `33646651848` through evidence commit `bb2cb831fe42342afcfc93cf7e8757a9206c1947`. Format, architecture boundaries, clippy with warnings denied, full tests, real process-boundary lifecycle, cursor reconnect, optimistic conflict rejection, two-phase durable cancellation, projection consistency, and artifact dedupe all pass.
+Final reviewed implementation code head `9ea9d58f4dcafa2f5d5073beb6be65b7ab690bcc` is covered by CI run `33646651848` through evidence commit `bb2cb831fe42342afcfc93cf7e8757a9206c1947`. The project owner independently reviewed and approved G002 on 2026-09-02.
 
-The architecture review found and resolved a cancellation/audit consistency defect before Agent work began. The project owner/user independently reviewed and accepted G002 on 2026-09-02. G002 is achieved.
+## G003 execution status
+
+```text
+T001 activation/bookkeeping              complete
+T002 provider protocol/assembler          complete / verified
+T003 Agent history + recovery reducer     complete / verified
+T004 Agent SQLite persistence             complete / verified
+T005 common/Agent transaction seam        complete / verified
+T006 recorded provider                    open
+T007 tool policy/replay fixtures          open
+T008 functional Agent kernel              open
+T009 lifecycle + cancellation             open
+T010 durable limits                       open
+T011 crash/restart matrix                 open
+T012 evaluations + terminal review        open
+```
 
 ## Planned implementation sequence
 
 ```text
 G002 Shared Runtime                 achieved
   ↓
-G003 Durable Agent Kernel           ACTIVE — recorded provider/tools; recovery first
+G003 Durable Agent Kernel           ACTIVE
   ↓
-G004 Agent Provider and Surface     OpenAI protocol + fs.read + SDK/CLI
+G004 Agent Provider and Surface
   ↓
 G005 Deterministic OWS Flow Kernel
   ↓
@@ -48,7 +64,3 @@ G007 Full frozen OWS profile
   ↓
 G008 Local product experience
 ```
-
-## G003 progress
-
-T001 activation/bookkeeping, T002 provider protocol/assembler, T003 durable history and recovery reducer, and T004 Agent SQLite persistence are complete and verified. T005 common/Agent transaction coordination is complete. T006 onward remain open.
