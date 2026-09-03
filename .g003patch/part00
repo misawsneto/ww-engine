@@ -1,0 +1,270 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index a1e5a29..2050716 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -32,6 +32,7 @@
+ ## Now / next
+ 
+ - Now — G002 — engineering acceptance is complete; independent architecture/implementation review T010 is pending.
+-- Next — G003 — proposed thin probabilistic Agent kernel; Goal packet and ADR-0003 are drafted, not active.
+-- Then — G004/G005 — deterministic OWS Flow kernel followed immediately by restart-safe Flow-to-Agent integration.
++- Next — G003 — proposed durable provider-neutral Agent kernel; recorded provider/tool fixtures and recovery proof only; ADR-0003 drafted, not active.
++- Then — G004 — proposed first concrete Agent provider/read-only tool/SDK/CLI surface; ADR-0004 drafted, not active.
++- Then — G005/G006 — deterministic OWS Flow kernel followed by restart-safe Flow-to-Agent integration.
+ - Later — broaden OWS coverage, providers, policy/sandboxing, remote execution, server/TUI depth, and plugins without weakening the sibling-kernel boundary.
+diff --git a/Cargo.toml b/Cargo.toml
+index b829e18..113a9b4 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -1,6 +1,7 @@
+ [workspace]
+ resolver = "2"
+ members = [
++  "crates/ww-agent-provider",
+   "crates/ww-types",
+   "crates/ww-store",
+   "crates/ww-store-sqlite",
+diff --git a/DECISIONS.md b/DECISIONS.md
+index ab970d1..a15ab64 100644
+--- a/DECISIONS.md
++++ b/DECISIONS.md
+@@ -16,3 +16,4 @@
+ | D012 | Start embedded with SQLite and preserve storage/transaction boundaries so coordinated PostgreSQL deployment can be added without changing engine semantics. | accepted |
+ | D013 | Keep the common executor abstraction intentionally thin; engine-specific types remain owned by Agent or Flow. | accepted |
+ | D014 | Every Goal must have at least one Goal-referenced ADR before it becomes active; architecture changes during a Goal must amend or supersede the governing ADR before reliance. | accepted |
++| D015 | Split Agent delivery into G003 durable kernel proof and G004 concrete provider/SDK/CLI surface; future Flow Goal numbering shifts accordingly. | accepted |
+diff --git a/LEARNINGS.md b/LEARNINGS.md
+index 475e899..c36b007 100644
+--- a/LEARNINGS.md
++++ b/LEARNINGS.md
+@@ -13,3 +13,4 @@
+ 11. G002 showed that comparing a durable current row with a reducer projection from immutable events catches audit/state drift that lifecycle tests alone can miss.
+ 12. Cancellation needs distinct durable request and terminal settlement phases; accepting a second reason at settlement creates an avoidable source-of-truth conflict.
+ 13. For G003, share the embedded SQLite file operationally but keep Agent records logically owned by Agent persistence; physical co-location must not become shared semantic ownership.
++14. G003 planning review showed that durability/recovery and concrete provider/filesystem/SDK/CLI integration are independently risky proofs. Keep G003 recovery-first and move concrete provider/product surface to G004 so each Goal remains reviewable at roughly G002 scale.
+diff --git a/PROJECT_STATE.md b/PROJECT_STATE.md
+index 0580c01..724dc84 100644
+--- a/PROJECT_STATE.md
++++ b/PROJECT_STATE.md
+@@ -4,13 +4,14 @@
+ 
+ - Product: WorkWeave Engine.
+ - Language: Rust.
+-- Active Goal: `G002 — Shared Runtime Walking Skeleton` (engineering acceptance complete; independent review T010 pending).
++- Active Goal: `G003 — Thin Agent Kernel`.
+ - G001 architecture baseline: achieved and accepted.
+ - Architecture thesis: one shared Rust runtime substrate with two sibling execution kernels added in later Goals.
+-- G002 executable boundary is complete and its governing ADR is `ADR-0002`.
+-- Proposed next Goal: `G003 — Thin Agent Kernel`; its complete Goal packet and `ADR-0003` are drafted but not active.
+-- G003 activation requires G002 independent review acceptance and ADR-0003 transition from `proposed` to `accepted`.
+-- Flow kernel work follows the thin Agent Goal; the first integrated milestone remains restart-safe `Flow → Agent → Tool → Flow`.
++- G002 is achieved after independent review acceptance on 2026-09-02; its governing ADR is `ADR-0002`.
++- G003 is active and narrowed to the durable provider-neutral kernel/recovery proof under accepted `ADR-0003`.
++- Proposed following Goal: `G004 — Agent Provider and Surface`; it adds the first OpenAI-protocol adapter, bounded `fs.read`, and Agent SDK/CLI under proposed `ADR-0004`.
++- G004 activation requires G003 terminal acceptance and ADR-0004 transition from `proposed` to `accepted`.
++- Deterministic OWS Flow kernel work follows as G005; restart-safe Flow → Agent integration follows as G006.
+ 
+ ## Goal ADR rule
+ 
+@@ -24,8 +25,26 @@ Every Goal must reference at least one ADR before activation. G001/G002 ADRs wer
+ - LangGraph reference revision: `11ee185999b86bfea2d8c0e69cef9a5e37acf686`.
+ - Engine architecture baseline: `docs/architecture/WORKWEAVE-ENGINE-ARCHITECTURE-DOSSIER.md`.
+ 
+-## G002 acceptance boundary
++## G002 achieved boundary
+ 
+ Executable acceptance is complete. Final reviewed implementation code head `9ea9d58f4dcafa2f5d5073beb6be65b7ab690bcc` is covered by CI run `33646651848` through evidence commit `bb2cb831fe42342afcfc93cf7e8757a9206c1947`. Format, architecture boundaries, clippy with warnings denied, full tests, real process-boundary lifecycle, cursor reconnect, optimistic conflict rejection, two-phase durable cancellation, projection consistency, and artifact dedupe all pass.
+ 
+-The architecture review found and resolved a cancellation/audit consistency defect before Agent work began. G002 remains active only for T010 independent architecture/implementation review. Do not activate G003 until T010 is accepted or that governance requirement is explicitly changed.
++The architecture review found and resolved a cancellation/audit consistency defect before Agent work began. The project owner/user independently reviewed and accepted G002 on 2026-09-02. G002 is achieved.
++
++## Planned implementation sequence
++
++```text
++G002 Shared Runtime                 achieved
++  ↓
++G003 Durable Agent Kernel           ACTIVE — recorded provider/tools; recovery first
++  ↓
++G004 Agent Provider and Surface     OpenAI protocol + fs.read + SDK/CLI
++  ↓
++G005 Deterministic OWS Flow Kernel
++  ↓
++G006 Flow → Agent integration
++  ↓
++G007 Full frozen OWS profile
++  ↓
++G008 Local product experience
++```
+diff --git a/QUESTIONS.md b/QUESTIONS.md
+index 219c84f..d79cb60 100644
+--- a/QUESTIONS.md
++++ b/QUESTIONS.md
+@@ -12,7 +12,7 @@
+ 
+ ## Q003 Resolution
+ 
+-G002 contains no general process/filesystem/network sandbox. It proves only the neutral execution substrate and local artifact boundary. G003 introduces minimal tool allow/deny, schema validation, replay classification, and bounded `fs.read`; write/process/network sandboxing remains later hardening and must not be inferred from the G003 policy layer.
++G002 contains no general process/filesystem/network sandbox. It proves only the neutral execution substrate and local artifact boundary. G003 introduces only tool allow/deny, schema validation, replay classification, and deterministic/synthetic tool fixtures. G004 adds bounded `fs.read`. Write/process/network sandboxing remains later hardening and must not be inferred from either Goal's narrow policy layer.
+ 
+ ## Q004 Proposed direction
+ 
+diff --git a/README.md b/README.md
+index 48c4499..5bffc38 100644
+--- a/README.md
++++ b/README.md
+@@ -56,6 +56,8 @@ WorkWeave Orchestration remains a layer above the engine. It owns Goal-, Task-,
+ 
+ ## Current Goal
+ 
+-`G002 — Shared Runtime Walking Skeleton` is engineering-complete and awaiting independent review T010. Its runtime/SQLite/cancellation/audit acceptance suite is green.
++`G002 — Shared Runtime Walking Skeleton` is achieved after independent review acceptance. Its runtime/SQLite/cancellation/audit acceptance suite is green.
+ 
+-`G003 — Thin Agent Kernel` is fully drafted but remains **proposed**. It will activate only after G002 review acceptance and ADR-0003 acceptance. G003 proves one bounded provider → tool → provider Agent Run before WorkWeave Flow is implemented.
++`G003 — Thin Agent Kernel` is **active** under accepted ADR-0003. It proves the durable provider-neutral kernel/recovery model using recorded provider/tool fixtures before network-provider or product-surface work.
++
++`G004 — Agent Provider and Surface` is also drafted as the next bounded Goal. It adds the first OpenAI-protocol adapter, bounded `fs.read`, and Rust SDK/CLI surface after the kernel is accepted. Deterministic OWS Flow work therefore begins at G005.
+diff --git a/WARNINGS.md b/WARNINGS.md
+index d58aaae..8ee7c2a 100644
+--- a/WARNINGS.md
++++ b/WARNINGS.md
+@@ -12,3 +12,4 @@
+ 10. Do not infer Rust types from reference implementation names without validating the required invariants and ownership boundary.
+ 11. Do not let G003 Agent persistence solve atomic coordination by pushing Agent message/provider/tool types into the shared `ww-store` API.
+ 12. Do not expose unsafe write/process/network tools until replay classification and `RequiresIntervention` recovery are proven with fault injection.
++13. Do not pull G004 OpenAI/fs.read/SDK/CLI work back into G003 for convenience; doing so recreates the oversized Goal that the planning review deliberately split.
+diff --git a/crates/ww-agent-provider/Cargo.toml b/crates/ww-agent-provider/Cargo.toml
+new file mode 100644
+index 0000000..d2a981f
+--- /dev/null
++++ b/crates/ww-agent-provider/Cargo.toml
+@@ -0,0 +1,13 @@
++[package]
++name = "ww-agent-provider"
++version.workspace = true
++edition.workspace = true
++rust-version.workspace = true
++
++[dependencies]
++async-trait.workspace = true
++futures-core.workspace = true
++serde.workspace = true
++serde_json.workspace = true
++thiserror.workspace = true
++tokio-util.workspace = true
+diff --git a/crates/ww-agent-provider/src/assembler.rs b/crates/ww-agent-provider/src/assembler.rs
+new file mode 100644
+index 0000000..0005364
+--- /dev/null
++++ b/crates/ww-agent-provider/src/assembler.rs
+@@ -0,0 +1,267 @@
++use crate::{
++    AssistantMessage, CompletionReason, MessageContent, ModelEvent, ModelResponse, ModelUsage,
++    ProviderStarted, ToolCall, ToolCallId,
++};
++use serde_json::Value;
++use std::collections::HashMap;
++use thiserror::Error;
++
++#[derive(Debug, Error, Eq, PartialEq)]
++pub enum AssemblyError {
++    #[error("provider stream event {event} arrived before Started")]
++    EventBeforeStart { event: &'static str },
++    #[error("provider stream emitted Started more than once")]
++    DuplicateStart,
++    #[error("provider stream emitted an event after terminal response")]
++    EventAfterTerminal,
++    #[error("provider stream ended without a terminal event")]
++    UnexpectedEnd,
++    #[error("tool call id {0} is duplicated in one assistant response")]
++    DuplicateToolCallId(ToolCallId),
++    #[error("tool call id {0} is unknown")]
++    UnknownToolCall(ToolCallId),
++    #[error("tool call id {0} received argument data after completion")]
++    ToolCallAlreadyCompleted(ToolCallId),
++    #[error("tool call id {0} completed more than once")]
++    DuplicateToolCallCompletion(ToolCallId),
++    #[error("tool call id {0} has invalid JSON arguments: {1}")]
++    InvalidToolArguments(ToolCallId, String),
++    #[error("terminal response arrived while tool call id {0} was incomplete")]
++    IncompleteToolCall(ToolCallId),
++    #[error("length-truncated response contains tool calls and is not executable")]
++    TruncatedToolCalls,
++    #[error("tool_use completion reason requires at least one completed tool call")]
++    ToolUseWithoutToolCall,
++    #[error("stop completion reason cannot contain tool calls")]
++    StopWithToolCall,
++    #[error("usage counters regressed within one provider response")]
++    UsageRegression,
++    #[error("response assembler is poisoned by a previous protocol error")]
++    Poisoned,
++}
++
++#[derive(Clone, Debug)]
++struct ToolCallAssembly {
++    id: ToolCallId,
++    name: String,
++    arguments_json: String,
++    completed: bool,
++    arguments: Option<Value>,
++}
++
++#[derive(Clone, Debug)]
++struct StreamingState {
++    started: ProviderStarted,
++    text: String,
++    tool_calls: Vec<ToolCallAssembly>,
++    tool_indexes: HashMap<ToolCallId, usize>,
++    usage: Option<ModelUsage>,
++}
++
++#[derive(Clone, Debug, Default)]
++enum State {
++    #[default]
++    AwaitingStart,
++    Streaming(StreamingState),
++    Terminal(ModelResponse),
++    Poisoned,
++}
++
++#[derive(Clone, Debug, Default)]
++pub struct ResponseAssembler {
++    state: State,
++}
++
++impl ResponseAssembler {
++    pub fn new() -> Self {
++        Self::default()
++    }
++
++    pub fn push(&mut self, event: ModelEvent) -> Result<Option<ModelResponse>, AssemblyError> {
++        let result = self.push_inner(event);
++        if result.is_err() {
++            self.state = State::Poisoned;
++        }
++        result
++    }
++
++    pub fn finish(self) -> Result<ModelResponse, AssemblyError> {
++        match self.state {
++            State::Terminal(response) => Ok(response),
++            State::Poisoned => Err(AssemblyError::Poisoned),
++            State::AwaitingStart | State::Streaming(_) => Err(AssemblyError::UnexpectedEnd),
++        }
++    }
++
++    fn push_inner(&mut self, event: ModelEvent) -> Result<Option<ModelResponse>, AssemblyError> {
++        if matches!(&self.state, State::Poisoned) {
++            return Err(AssemblyError::Poisoned);
++        }
++        if matches!(&self.state, State::Terminal(_)) {
++            return Err(AssemblyError::EventAfterTerminal);
++        }
++
++        if let ModelEvent::Started { started } = &event {
++            match &self.state {
++                State::AwaitingStart => {}
++                State::Streaming(_) => return Err(AssemblyError::DuplicateStart),
++                State::Terminal(_) => return Err(AssemblyError::EventAfterTerminal),
++                State::Poisoned => return Err(AssemblyError::Poisoned),
++            }
++            self.state = State::Streaming(StreamingState {
