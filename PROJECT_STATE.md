@@ -8,11 +8,12 @@
 - G001 architecture baseline: achieved and accepted.
 - G002 shared runtime: achieved after independent owner review acceptance on 2026-09-02; governed by `ADR-0002`.
 - G003 is active under accepted `ADR-0003` and is narrowed to the durable provider-neutral kernel/recovery proof.
-- G003 T002, T003, T004, and T005 are complete and verified.
+- G003 T002 through T006 are complete and verified.
 - T005 proved atomic common-execution + Agent-run creation/linkage and rollback on injected mid-write failure without adding Agent DTOs to the shared `ww-store` semantic API.
-- Next engineering slices: T006 RecordedProvider conformance and T007 tool policy/replay fixtures; they converge at T008, the functional model → tool → model kernel.
+- Next engineering slice: T007 tool contract, schema validation, policy, and replay fixtures; it converges with the completed provider work at T008, the functional model → tool → model kernel.
 - Proposed following Goal: `G004 — Agent Provider and Surface`; OpenAI protocol, bounded `fs.read`, Agent SDK/CLI; governed by proposed `ADR-0004`.
 - Deterministic OWS Flow kernel follows as G005; restart-safe Flow → Agent integration follows as G006.
+- `G009 — Durable Storage Evolution and Recovery Hardening` is proposed as a separate home for non-blocking persistence evolution findings. It is not a prerequisite for G004 unless later evidence activates it for a specific reason.
 
 ## Goal ADR rule
 
@@ -38,7 +39,7 @@ T002 provider protocol/assembler          complete / verified
 T003 Agent history + recovery reducer     complete / verified
 T004 Agent SQLite persistence             complete / verified
 T005 common/Agent transaction seam        complete / verified
-T006 recorded provider                    open
+T006 recorded provider                    complete / verified
 T007 tool policy/replay fixtures          open
 T008 functional Agent kernel              open
 T009 lifecycle + cancellation             open
@@ -64,3 +65,5 @@ G007 Full frozen OWS profile
   ↓
 G008 Local product experience
 ```
+
+G009 is proposed outside this sequence. Its activation and execution order will be decided after G003 from concrete requirements rather than inferred from review findings alone.

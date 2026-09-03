@@ -15,3 +15,4 @@
 13. Do not pull G004 OpenAI/fs.read/SDK/CLI work back into G003 for convenience; doing so recreates the oversized Goal that the planning review deliberately split.
 14. Do not verify a task branch against a weaker gate than its merge target. A temporary workflow that omits one `main` check will record Tasks as verified that `main` would reject; a G003 verifier omitting `cargo fmt --all -- --check` did exactly that across T002-T004.
 15. Do not infer Goal or architecture acceptance from branch placement. Work on `main` means the engineering gate passed, not that the Task, Goal, or ADR is accepted.
+16. Do not insert a cleanup gate into an active Goal unless a finding violates the Goal's accepted architecture, makes an existing acceptance criterion impossible, or triggers an explicit Stop Condition. Otherwise record and classify the finding, map it to an existing Task when naturally required, or defer it to a future Goal.

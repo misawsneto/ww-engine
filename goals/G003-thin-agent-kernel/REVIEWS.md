@@ -12,9 +12,13 @@ Verified slices:
 
 Current checkpoint:
 
-- T005 common/Agent SQLite transaction coordination is complete and verified on consolidation commit `69f4ab7ecbed731d40a695dafcf487d62645b695`. The full merge-target-equivalent gate passed: rustfmt, five architecture-boundary checks, clippy with `--locked -D warnings`, and 44/44 tests.
+- T006 RecordedProvider conformance is complete and verified. The full `main` gate passed on Rust 1.98.0: rustfmt, five architecture-boundary checks, clippy with `--locked -D warnings`, and 58/58 tests.
 - T005 remains scoped only to atomic common-execution + Agent-run creation/linkage and rollback on injected half-write failure. Terminal repair remains owned by T009.
-- T006 RecordedProvider conformance and T007 tool policy/replay fixtures are the next open implementation slices.
+- T007 tool contract, schema validation, policy, and replay fixtures is the next open implementation slice.
+
+## D018 experiment disposition — 2026-09-03
+
+D018 introduced a durability-hygiene cleanup gate after T006. The implementation produced useful evidence, but review found that inserting and renumbering Tasks changed the accepted G003 structure without an existing acceptance criterion or Stop Condition requiring the interruption. D019 therefore superseded D018, and the D018-era implementation was ordinarily reverted without rewriting history. The canonical G003 sequence remains T001–T012, with T007 next. Technical findings are mapped either to an existing G003 Task or proposed G009; the full evidence and disposition remain in `docs/memories/recall/D018-DURABILITY-HYGIENE-RETROSPECTIVE-2026-09-03.md`.
 
 ## Planned terminal review focus
 

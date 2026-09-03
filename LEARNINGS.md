@@ -14,3 +14,5 @@
 12. Cancellation needs distinct durable request and terminal settlement phases; accepting a second reason at settlement creates an avoidable source-of-truth conflict.
 13. For G003, share the embedded SQLite file operationally but keep Agent records logically owned by Agent persistence; physical co-location must not become shared semantic ownership.
 14. G003 planning review showed that durability/recovery and concrete provider/filesystem/SDK/CLI integration are independently risky proofs. Keep G003 recovery-first and move concrete provider/product surface to G004 so each Goal remains reviewable at roughly G002 scale.
+15. Valid technical findings do not imply that the proposed sequencing or remediation is correct. Classify each finding against accepted architecture, acceptance criteria, and Stop Conditions before allowing it to interrupt an active Goal.
+16. Active Goal Task IDs are stable records. Map constraints naturally required for current acceptance into their existing Tasks; place non-blocking hardening in a later Goal instead of inserting Tasks and renumbering used IDs.
