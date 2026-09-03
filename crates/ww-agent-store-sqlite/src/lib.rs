@@ -1,3 +1,9 @@
+mod coordinator;
+
+pub use coordinator::{
+    CoordinatedAgentRun, NewCoordinatedAgentRun, SqliteAgentCoordinator, SqliteAgentCoordinatorError,
+};
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
@@ -340,6 +346,26 @@ fn load_records(
     Ok(records)
 }
 
+pub(crate) fn insert_new_agent_run_tx(
+    transaction: &rusqlite::Transaction<'_>,
+    new: &NewAgentRun,
+) -> Result<(), AgentStoreError> {
+    validate_initial_run(new)?;
+    transaction
+        .execute(
+            "insert into agent_runs (id, configuration_json, created_at, version) values (?1, ?2, ?3, 1)",
+            params![
+                new.id.to_string(),
+                serde_json::to_string(&new.configuration)
+                    .map_err(|error| AgentStoreError::Backend(error.to_string()))?,
+                new.created_at.to_rfc3339(),
+            ],
+        )
+        .map_err(backend)?;
+    insert_entry(transaction, &new.initial_entry)?;
+    Ok(())
+}
+
 #[async_trait]
 impl AgentStore for SqliteAgentStore {
     async fn migrate(&self) -> Result<(), AgentStoreError> {
@@ -353,18 +379,7 @@ impl AgentStore for SqliteAgentStore {
             let transaction = connection
                 .transaction_with_behavior(TransactionBehavior::Immediate)
                 .map_err(backend)?;
-            transaction
-                .execute(
-                    "insert into agent_runs (id, configuration_json, created_at, version) values (?1, ?2, ?3, 1)",
-                    params![
-                        new.id.to_string(),
-                        serde_json::to_string(&new.configuration)
-                            .map_err(|error| AgentStoreError::Backend(error.to_string()))?,
-                        new.created_at.to_rfc3339(),
-                    ],
-                )
-                .map_err(backend)?;
-            insert_entry(&transaction, &new.initial_entry)?;
+            insert_new_agent_run_tx(&transaction, &new)?;
             transaction.commit().map_err(backend)?;
             get_run_conn(connection, new.id)
         })
