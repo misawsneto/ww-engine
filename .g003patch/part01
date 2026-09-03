@@ -1,0 +1,420 @@
++                started: started.clone(),
++                text: String::new(),
++                tool_calls: Vec::new(),
++                tool_indexes: HashMap::new(),
++                usage: None,
++            });
++            return Ok(None);
++        }
++
++        let event_name = event.kind();
++        let State::Streaming(state) = &mut self.state else {
++            return Err(AssemblyError::EventBeforeStart { event: event_name });
++        };
++
++        match event {
++            ModelEvent::Started { .. } => unreachable!("Started handled above"),
++            ModelEvent::TextDelta { delta } => {
++                state.text.push_str(&delta);
++                Ok(None)
++            }
++            ModelEvent::ToolCallStarted { id, name } => {
++                if state.tool_indexes.contains_key(&id) {
++                    return Err(AssemblyError::DuplicateToolCallId(id));
++                }
++                let index = state.tool_calls.len();
++                state.tool_indexes.insert(id.clone(), index);
++                state.tool_calls.push(ToolCallAssembly {
++                    id,
++                    name,
++                    arguments_json: String::new(),
++                    completed: false,
++                    arguments: None,
++                });
++                Ok(None)
++            }
++            ModelEvent::ToolCallArgumentsDelta { id, delta } => {
++                let tool = tool_mut(state, &id)?;
++                if tool.completed {
++                    return Err(AssemblyError::ToolCallAlreadyCompleted(id));
++                }
++                tool.arguments_json.push_str(&delta);
++                Ok(None)
++            }
++            ModelEvent::ToolCallCompleted { id } => {
++                let tool = tool_mut(state, &id)?;
++                if tool.completed {
++                    return Err(AssemblyError::DuplicateToolCallCompletion(id));
++                }
++                let arguments = serde_json::from_str::<Value>(&tool.arguments_json)
++                    .map_err(|error| AssemblyError::InvalidToolArguments(id.clone(), error.to_string()))?;
++                tool.arguments = Some(arguments);
++                tool.completed = true;
++                Ok(None)
++            }
++            ModelEvent::Usage { usage } => {
++                if let Some(previous) = state.usage
++                    && !usage.dominates(previous)
++                {
++                    return Err(AssemblyError::UsageRegression);
++                }
++                state.usage = Some(usage);
++                Ok(None)
++            }
++            ModelEvent::Completed { reason } => self.complete_success(reason),
++            ModelEvent::Failed { failure } => self.complete_terminal(ModelResponse::Failed { failure }),
++            ModelEvent::Aborted { message } => self.complete_terminal(ModelResponse::Aborted { message }),
++        }
++    }
++
++    fn complete_success(
++        &mut self,
++        reason: CompletionReason,
++    ) -> Result<Option<ModelResponse>, AssemblyError> {
++        let State::Streaming(state) = &self.state else {
++            unreachable!("completion requires streaming state")
++        };
++
++        if let Some(incomplete) = state.tool_calls.iter().find(|tool| !tool.completed) {
++            return Err(AssemblyError::IncompleteToolCall(incomplete.id.clone()));
++        }
++
++        if reason == CompletionReason::Length && !state.tool_calls.is_empty() {
++            return Err(AssemblyError::TruncatedToolCalls);
++        }
++        if reason == CompletionReason::ToolUse && state.tool_calls.is_empty() {
++            return Err(AssemblyError::ToolUseWithoutToolCall);
++        }
++        if reason == CompletionReason::Stop && !state.tool_calls.is_empty() {
++            return Err(AssemblyError::StopWithToolCall);
++        }
++
++        let mut content = Vec::new();
++        if !state.text.is_empty() {
++            content.push(MessageContent::Text {
++                text: state.text.clone(),
++            });
++        }
++        for tool in &state.tool_calls {
++            content.push(MessageContent::ToolCall {
++                call: ToolCall {
++                    id: tool.id.clone(),
++                    name: tool.name.clone(),
++                    arguments_json: tool.arguments_json.clone(),
++                    arguments: tool
++                        .arguments
++                        .clone()
++                        .expect("completed tool call has parsed arguments"),
++                },
++            });
++        }
++
++        let response = ModelResponse::Completed {
++            message: AssistantMessage {
++                content,
++                stop_reason: reason,
++                usage: state.usage,
++                provider_request_id: state.started.request_id.clone(),
++            },
++        };
++        self.complete_terminal(response)
++    }
++
++    fn complete_terminal(
++        &mut self,
++        response: ModelResponse,
++    ) -> Result<Option<ModelResponse>, AssemblyError> {
++        self.state = State::Terminal(response.clone());
++        Ok(Some(response))
++    }
++}
++
++impl ModelEvent {
++    const fn kind(&self) -> &'static str {
++        match self {
++            Self::Started { .. } => "started",
++            Self::TextDelta { .. } => "text_delta",
++            Self::ToolCallStarted { .. } => "tool_call_started",
++            Self::ToolCallArgumentsDelta { .. } => "tool_call_arguments_delta",
++            Self::ToolCallCompleted { .. } => "tool_call_completed",
++            Self::Usage { .. } => "usage",
++            Self::Completed { .. } => "completed",
++            Self::Failed { .. } => "failed",
++            Self::Aborted { .. } => "aborted",
++        }
++    }
++}
++
++fn tool_mut<'a>(
++    state: &'a mut StreamingState,
++    id: &ToolCallId,
++) -> Result<&'a mut ToolCallAssembly, AssemblyError> {
++    let Some(index) = state.tool_indexes.get(id).copied() else {
++        return Err(AssemblyError::UnknownToolCall(id.clone()));
++    };
++    Ok(&mut state.tool_calls[index])
++}
+diff --git a/crates/ww-agent-provider/src/lib.rs b/crates/ww-agent-provider/src/lib.rs
+new file mode 100644
+index 0000000..f0ca8ba
+--- /dev/null
++++ b/crates/ww-agent-provider/src/lib.rs
+@@ -0,0 +1,10 @@
++mod assembler;
++mod protocol;
++
++pub use assembler::{AssemblyError, ResponseAssembler};
++pub use protocol::{
++    AssistantMessage, CompletionReason, MessageContent, MessageRole, ModelCapabilities, ModelEvent,
++    ModelEventStream, ModelId, ModelMessage, ModelProvider, ModelRequest, ModelResponse, ModelToolSpec,
++    ModelUsage, ProviderContext, ProviderError, ProviderFailure, ProviderId, ProviderStarted,
++    ToolCall, ToolCallId,
++};
+diff --git a/crates/ww-agent-provider/src/protocol.rs b/crates/ww-agent-provider/src/protocol.rs
+new file mode 100644
+index 0000000..a244338
+--- /dev/null
++++ b/crates/ww-agent-provider/src/protocol.rs
+@@ -0,0 +1,213 @@
++use async_trait::async_trait;
++use futures_core::Stream;
++use serde::{Deserialize, Serialize};
++use serde_json::Value;
++use std::{fmt, pin::Pin};
++use thiserror::Error;
++use tokio_util::sync::CancellationToken;
++
++macro_rules! string_id {
++    ($name:ident, $label:literal) => {
++        #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
++        #[serde(transparent)]
++        pub struct $name(String);
++
++        impl $name {
++            pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
++                let value = value.into();
++                if value.trim().is_empty() {
++                    return Err(concat!($label, " must not be empty"));
++                }
++                Ok(Self(value))
++            }
++
++            pub fn as_str(&self) -> &str {
++                &self.0
++            }
++        }
++
++        impl fmt::Display for $name {
++            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++                f.write_str(&self.0)
++            }
++        }
++    };
++}
++
++string_id!(ProviderId, "provider id");
++string_id!(ModelId, "model id");
++string_id!(ToolCallId, "tool call id");
++
++#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
++pub struct ModelCapabilities {
++    pub tool_calls: bool,
++    pub usage: bool,
++}
++
++#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
++#[serde(rename_all = "snake_case")]
++pub enum MessageRole {
++    User,
++    Assistant,
++    Tool,
++}
++
++#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
++#[serde(tag = "type", rename_all = "snake_case")]
++pub enum MessageContent {
++    Text { text: String },
++    ToolCall { call: ToolCall },
++    ToolResult {
++        call_id: ToolCallId,
++        tool_name: String,
++        content: Value,
++        is_error: bool,
++    },
++}
++
++#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
++pub struct ModelMessage {
++    pub role: MessageRole,
++    pub content: Vec<MessageContent>,
++}
++
++#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
++pub struct ModelToolSpec {
++    pub name: String,
++    pub description: String,
++    pub input_schema: Value,
++}
++
++#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
++pub struct ModelRequest {
++    pub model: ModelId,
++    pub system_prompt: Option<String>,
++    pub messages: Vec<ModelMessage>,
++    pub tools: Vec<ModelToolSpec>,
++}
++
++#[derive(Clone, Debug)]
++pub struct ProviderContext {
++    pub cancellation: CancellationToken,
++}
++
++#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
++pub struct ProviderStarted {
++    pub request_id: Option<String>,
++}
++
++#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
++#[serde(rename_all = "snake_case")]
++pub enum CompletionReason {
++    Stop,
++    ToolUse,
++    Length,
++}
++
++#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
++pub struct ModelUsage {
++    pub input_tokens: u64,
++    pub output_tokens: u64,
++    pub cache_read_input_tokens: u64,
++    pub cache_write_input_tokens: u64,
++}
++
++impl ModelUsage {
++    pub const fn total_tokens(self) -> u64 {
++        self.input_tokens.saturating_add(self.output_tokens)
++    }
++
++    pub(crate) const fn dominates(self, previous: Self) -> bool {
++        self.input_tokens >= previous.input_tokens
++            && self.output_tokens >= previous.output_tokens
++            && self.cache_read_input_tokens >= previous.cache_read_input_tokens
++            && self.cache_write_input_tokens >= previous.cache_write_input_tokens
++    }
++}
++
++#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
++pub struct ToolCall {
++    pub id: ToolCallId,
++    pub name: String,
++    pub arguments_json: String,
++    pub arguments: Value,
++}
++
++#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
++pub struct AssistantMessage {
++    pub content: Vec<MessageContent>,
++    pub stop_reason: CompletionReason,
++    pub usage: Option<ModelUsage>,
++    pub provider_request_id: Option<String>,
++}
++
++impl AssistantMessage {
++    pub fn tool_calls(&self) -> impl Iterator<Item = &ToolCall> {
++        self.content.iter().filter_map(|content| match content {
++            MessageContent::ToolCall { call } => Some(call),
++            _ => None,
++        })
++    }
++}
++
++#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
++pub struct ProviderFailure {
++    pub code: String,
++    pub message: String,
++    pub retryable: bool,
++}
++
++impl ProviderFailure {
++    pub fn new(code: impl Into<String>, message: impl Into<String>, retryable: bool) -> Self {
++        Self {
++            code: code.into(),
++            message: message.into(),
++            retryable,
++        }
++    }
++}
++
++#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
++#[serde(tag = "type", rename_all = "snake_case")]
++pub enum ModelResponse {
++    Completed { message: AssistantMessage },
++    Failed { failure: ProviderFailure },
++    Aborted { message: Option<String> },
++}
++
++#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
++#[serde(tag = "type", rename_all = "snake_case")]
++pub enum ModelEvent {
++    Started { started: ProviderStarted },
++    TextDelta { delta: String },
++    ToolCallStarted { id: ToolCallId, name: String },
++    ToolCallArgumentsDelta { id: ToolCallId, delta: String },
++    ToolCallCompleted { id: ToolCallId },
++    Usage { usage: ModelUsage },
++    Completed { reason: CompletionReason },
++    Failed { failure: ProviderFailure },
++    Aborted { message: Option<String> },
++}
++
++pub type ModelEventStream = Pin<Box<dyn Stream<Item = Result<ModelEvent, ProviderError>> + Send>>;
++
++#[derive(Clone, Debug, Error, Eq, PartialEq)]
++pub enum ProviderError {
++    #[error("provider rejected request: {0}")]
++    Request(String),
++    #[error("provider transport failed before a normalized stream was available: {0}")]
++    Transport(String),
++}
++
++#[async_trait]
++pub trait ModelProvider: Send + Sync {
++    fn id(&self) -> ProviderId;
++
++    fn capabilities(&self, model: &ModelId) -> ModelCapabilities;
++
++    async fn stream(
++        &self,
++        request: ModelRequest,
++        context: ProviderContext,
++    ) -> Result<ModelEventStream, ProviderError>;
++}
+diff --git a/crates/ww-agent-provider/tests/assembler.rs b/crates/ww-agent-provider/tests/assembler.rs
+new file mode 100644
+index 0000000..3bc3de4
+--- /dev/null
++++ b/crates/ww-agent-provider/tests/assembler.rs
+@@ -0,0 +1,370 @@
++use serde_json::json;
++use ww_agent_provider::{
++    AssemblyError, CompletionReason, MessageContent, ModelEvent, ModelResponse, ModelUsage,
++    ProviderFailure, ProviderStarted, ResponseAssembler, ToolCallId,
++};
++
++fn started() -> ModelEvent {
++    ModelEvent::Started {
++        started: ProviderStarted {
++            request_id: Some("req-1".to_owned()),
++        },
++    }
++}
++
++fn call_id(value: &str) -> ToolCallId {
++    ToolCallId::new(value).unwrap()
++}
++
++#[test]
++fn assembles_text_response() {
++    let mut assembler = ResponseAssembler::new();
++    assert_eq!(assembler.push(started()).unwrap(), None);
++    assembler
