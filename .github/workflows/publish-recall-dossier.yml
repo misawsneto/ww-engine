@@ -1,0 +1,52 @@
+name: Publish Recall Dossier
+
+on:
+  push:
+    branches: [dossier-recall-publish]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout staging branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct and verify dossier
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .bootstrap/dossier.part00 \
+              .bootstrap/dossier.part01 \
+              .bootstrap/dossier.part02 \
+              .bootstrap/dossier.part03 \
+              .bootstrap/dossier.part04 \
+              .bootstrap/dossier.part05 \
+              .bootstrap/dossier.part06 \
+              .bootstrap/dossier.part07 \
+            | base64 --decode | gzip --decompress > "$RUNNER_TEMP/dossier.md"
+          echo "5b17b9f9cb92410fdf24aa79d0bb667d5a92e1887ef0712b56533616b5dd080b  $RUNNER_TEMP/dossier.md" | sha256sum --check
+
+      - name: Commit dossier to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$RUNNER_TEMP/dossier.md" "$RUNNER_TEMP/dossier-copy.md"
+          git fetch origin main
+          git checkout -B main origin/main
+          mkdir -p docs/memories/recall
+          cp "$RUNNER_TEMP/dossier-copy.md" docs/memories/recall/workweave-engine-chronological-dossier-2026-09-03.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/memories/recall/workweave-engine-chronological-dossier-2026-09-03.md
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'Dossier already present; no commit needed.'
+          else
+            git commit -m 'docs: add chronological WorkWeave Engine recall dossier'
+            git push origin HEAD:main
+          fi
