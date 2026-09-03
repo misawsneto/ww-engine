@@ -25,7 +25,9 @@ jobs:
               .bootstrap/dossier.part02 \
               .bootstrap/dossier.part03 \
               .bootstrap/dossier.part04 \
-              .bootstrap/dossier.part05 \
+              .bootstrap/dossier.part05a \
+              .bootstrap/dossier.part05b \
+              .bootstrap/dossier.part05c \
               .bootstrap/dossier.part06 \
               .bootstrap/dossier.part07 \
             | base64 --decode | gzip --decompress > "$RUNNER_TEMP/dossier.md"
