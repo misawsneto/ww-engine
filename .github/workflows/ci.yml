@@ -32,11 +32,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # shared runtime stays free of Agent and Flow semantics
           ! grep -R -n -E 'Agent|FlowToken|OWS|provider|tool.loop' crates/ww-types crates/ww-store crates/ww-store-sqlite crates/ww-runtime
           ! grep -R -n -E 'ww-store|rusqlite' crates/ww-cli/src crates/ww-cli/Cargo.toml
+          # provider contracts stay free of runtime, storage, and transport
+          ! grep -R -n -E 'ww-runtime|ww-store|rusqlite|reqwest|ww-flow|OWS' crates/ww-agent-provider/Cargo.toml crates/ww-agent-provider/src
+          # Agent core owns no concrete transport, storage, or CLI
+          ! grep -R -n -E 'rusqlite|reqwest|clap' crates/ww-agent-core/Cargo.toml crates/ww-agent-core/src
+          # no Agent crate depends on Flow or OWS
+          ! grep -R -n -E 'ww-flow|OWS' crates/ww-agent-core crates/ww-agent-provider crates/ww-agent-store-sqlite
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
       - name: Test
-        run: cargo test --workspace --all-features
+        run: cargo test --workspace --all-features --locked

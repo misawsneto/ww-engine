@@ -57,6 +57,46 @@ fn configure_connection(connection: &Connection) -> Result<(), StoreError> {
     Ok(())
 }
 
+pub fn migrate_runtime_schema(connection: &Connection) -> Result<(), StoreError> {
+    connection.execute_batch(MIGRATION_0001).map_err(backend)
+}
+
+pub fn insert_new_execution_tx(
+    transaction: &rusqlite::Transaction<'_>,
+    new: &NewExecution,
+) -> Result<(), StoreError> {
+    transaction
+        .execute(
+            "insert into executions (id, kind, status, configuration_digest, created_at, deadline, version) values (?1, ?2, 'pending', ?3, ?4, ?5, 1)",
+            params![
+                new.id.to_string(),
+                new.kind.as_str(),
+                new.configuration_digest.as_str(),
+                new.created_at.to_rfc3339(),
+                new.deadline.as_ref().map(|value| value.to_rfc3339()),
+            ],
+        )
+        .map_err(backend)?;
+    let data = ExecutionEventData::Created {
+        kind: new.kind.clone(),
+        configuration_digest: new.configuration_digest.clone(),
+    };
+    transaction
+        .execute(
+            "insert into execution_events (id, execution_id, sequence, occurred_at, kind, payload_version, visibility, payload_json) values (?1, ?2, 1, ?3, ?4, 1, 'public', ?5)",
+            params![
+                new.event_id.to_string(),
+                new.id.to_string(),
+                new.created_at.to_rfc3339(),
+                data.kind(),
+                serde_json::to_string(&data)
+                    .map_err(|error| StoreError::Backend(error.to_string()))?,
+            ],
+        )
+        .map_err(backend)?;
+    Ok(())
+}
+
 fn backend(error: rusqlite::Error) -> StoreError {
     StoreError::Backend(error.to_string())
 }
@@ -159,7 +199,7 @@ fn get_execution_conn(
 #[async_trait]
 impl RuntimeStore for SqliteRuntimeStore {
     async fn migrate(&self) -> Result<(), StoreError> {
-        self.run(|connection| connection.execute_batch(MIGRATION_0001).map_err(backend))
+        self.run(|connection| migrate_runtime_schema(connection))
             .await
     }
 
@@ -168,37 +208,11 @@ impl RuntimeStore for SqliteRuntimeStore {
             let transaction = connection
                 .transaction_with_behavior(TransactionBehavior::Immediate)
                 .map_err(backend)?;
-            transaction
-                .execute(
-                    "insert into executions (id, kind, status, configuration_digest, created_at, deadline, version) values (?1, ?2, 'pending', ?3, ?4, ?5, 1)",
-                    params![
-                        new.id.to_string(),
-                        new.kind.as_str(),
-                        new.configuration_digest,
-                        new.created_at.to_rfc3339(),
-                        new.deadline.map(|value| value.to_rfc3339()),
-                    ],
-                )
-                .map_err(backend)?;
-            let data = ExecutionEventData::Created {
-                kind: new.kind,
-                configuration_digest: new.configuration_digest,
-            };
-            transaction
-                .execute(
-                    "insert into execution_events (id, execution_id, sequence, occurred_at, kind, payload_version, visibility, payload_json) values (?1, ?2, 1, ?3, ?4, 1, 'public', ?5)",
-                    params![
-                        new.event_id.to_string(),
-                        new.id.to_string(),
-                        new.created_at.to_rfc3339(),
-                        data.kind(),
-                        serde_json::to_string(&data).map_err(|error| StoreError::Backend(error.to_string()))?,
-                    ],
-                )
-                .map_err(backend)?;
+            insert_new_execution_tx(&transaction, &new)?;
             transaction.commit().map_err(backend)?;
             get_execution_conn(connection, new.id)
-        }).await
+        })
+        .await
     }
 
     async fn get_execution(&self, id: ExecutionId) -> Result<ExecutionRecord, StoreError> {

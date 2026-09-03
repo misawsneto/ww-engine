@@ -1,0 +1,14 @@
+[package]
+name = "ww-agent-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+ww-agent-provider = { path = "../ww-agent-provider" }

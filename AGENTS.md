@@ -31,7 +31,7 @@
 
 ## Now / next
 
-- Now — G002 — engineering acceptance is complete; independent architecture/implementation review T010 is pending.
-- Next — G003 — proposed thin probabilistic Agent kernel; Goal packet and ADR-0003 are drafted, not active.
-- Then — G004/G005 — deterministic OWS Flow kernel followed immediately by restart-safe Flow-to-Agent integration.
+- Now — G003 — active durable provider-neutral Agent kernel under accepted ADR-0003; recorded provider/tool fixtures and recovery proof only.
+- Then — G004 — proposed first concrete Agent provider/read-only tool/SDK/CLI surface; ADR-0004 drafted, not active.
+- Then — G005/G006 — deterministic OWS Flow kernel followed by restart-safe Flow-to-Agent integration.
 - Later — broaden OWS coverage, providers, policy/sandboxing, remote execution, server/TUI depth, and plugins without weakening the sibling-kernel boundary.

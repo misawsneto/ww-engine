@@ -1027,6 +1027,50 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
+name = "ww-agent-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "uuid",
+ "ww-agent-provider",
+]
+
+[[package]]
+name = "ww-agent-provider"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "futures-core",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio-util",
+]
+
+[[package]]
+name = "ww-agent-store-sqlite"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "rusqlite",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "uuid",
+ "ww-agent-core",
+ "ww-store",
+ "ww-store-sqlite",
+ "ww-types",
+]
+
+[[package]]
 name = "ww-cli"
 version = "0.1.0"
 dependencies = [
@@ -1034,6 +1078,7 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "ww-sdk",
  "ww-types",

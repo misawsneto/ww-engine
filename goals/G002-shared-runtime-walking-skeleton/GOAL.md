@@ -6,7 +6,7 @@ Prove that WorkWeave Engine has a durable, inspectable Rust execution substrate 
 
 ## State
 
-- active
+- achieved
 
 ## Architecture Decision Records
 

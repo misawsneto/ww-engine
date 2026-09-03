@@ -1,0 +1,22 @@
+[package]
+name = "ww-agent-store-sqlite"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+chrono.workspace = true
+rusqlite.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+ww-agent-core = { path = "../ww-agent-core" }
+ww-types = { path = "../ww-types" }
+ww-store-sqlite = { path = "../ww-store-sqlite" }
+ww-store = { path = "../ww-store" }
+
+[dev-dependencies]
+tempfile.workspace = true

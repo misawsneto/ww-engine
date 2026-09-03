@@ -1,6 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
+  "crates/ww-agent-core",
+  "crates/ww-agent-provider",
+  "crates/ww-agent-store-sqlite",
   "crates/ww-types",
   "crates/ww-store",
   "crates/ww-store-sqlite",
