@@ -17,6 +17,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Regenerate lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.98.0 --profile minimal
+          rustup default 1.98.0
+          cargo generate-lockfile
+
       - name: Package checkout
         shell: bash
         run: |
