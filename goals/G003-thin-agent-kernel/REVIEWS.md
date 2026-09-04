@@ -6,7 +6,7 @@ State: active. No terminal G003 review has occurred.
 
 Verified slices:
 
-- T002 provider-neutral protocol and pure stream assembler: provider boundary, clippy, and workspace tests passed; 15 assembler/conformance tests passed.
+- T002 provider-neutral protocol and pure stream assembler: provider boundary, clippy and workspace tests passed; 15 assembler/conformance tests passed.
 - T003 durable Agent entries/operational records and pure recovery reducer: clippy and workspace tests passed; 11 recovery/corruption tests passed.
 - T004 Agent-owned SQLite persistence/reconstruction: clippy and workspace tests passed, including rollback/reopen/version-conflict and real OS-process restart reconstruction.
 
@@ -24,7 +24,9 @@ D018 introduced a durability-hygiene cleanup gate after T006. The implementation
 
 State: candidate Goal packet published; requester approval pending. G003 remains under `REPLAN_LOCK`, so implementation work is still forbidden.
 
-D021 authorized a reference-grounded precision pass before T007 without changing the Goal boundary, accepted ADR-0003, completed T001–T006 semantics, or used Task identities. The lock was published at `999170f895b4a4ecc72615e48b6cd4efba87473e`; the candidate packet was published at `403fd72b30ec8afe11112803d5ee06e17217e6d4`.
+D021 authorized a reference-grounded precision pass before T007 without changing the Goal boundary, accepted ADR-0003, completed T001–T006 semantics, or used Task identities. The lock was published at `999170f895b4a4ecc72615e48b6cd4efba87473e`; the initial candidate packet was published at `403fd72b30ec8afe11112803d5ee06e17217e6d4`; the reviewed candidate basis is `4f49c15c45af544bc8df14a8cbb690c33ec8d38a`.
+
+The review correction at `4f49c15c45af544bc8df14a8cbb690c33ec8d38a` preserves the existing T003 meaning of `ToolAttemptStarted` and `turn_count`. It introduces an explicit prospective `ToolEffectStarted` ambiguity marker for T007/T011 and a separate completed-model-turn budget counter for T010, avoiding retroactive reinterpretation of completed durable-state semantics.
 
 Method and evidence basis:
 
@@ -41,7 +43,7 @@ Refined records:
 - `VERIFICATION.md` adds stable Task-scoped checks for tool safety, kernel execution, lifecycle/cancellation, limits, recovery, and final review while retaining T002–T006 evidence;
 - `EVALUATIONS.md` defines exact deterministic procedures, expected results, and EvaluationRun evidence fields.
 
-Key candidate refinements include an offline non-coercing Draft 2020-12 schema profile, one authoritative parsed argument value, deterministic argument/request digests, stable tool/attempt/reserved-result identities, durable pre-effect classification and policy, sequential source-order execution, mandatory provider-stream EOF finalization, explicit lifecycle/cancellation and limit boundaries, and a distinct-process F1–F8 restart matrix.
+Key candidate refinements include an offline non-coercing Draft 2020-12 schema profile, one authoritative parsed argument value, deterministic argument/request digests, stable tool/attempt/reserved-result identities, distinct durable handling/effect-start boundaries, durable pre-effect classification and policy, sequential source-order execution, mandatory provider-stream EOF finalization, explicit lifecycle/cancellation and limit boundaries, and a distinct-process F1–F8 restart matrix.
 
 Deliberately deferred rather than added to G003: generic durable-format migration infrastructure, cross-adapter storage hardening, approval-bearing policy, idempotency-key replay, parallel tools, concrete providers, filesystem/process/network capabilities, SDK/CLI/TUI/server surfaces, and Flow/Orchestration semantics.
 
