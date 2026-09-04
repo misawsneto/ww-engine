@@ -5,7 +5,7 @@ description: Refine an existing WorkWeave Goal specification and downstream plan
 
 # ww-refine-goal
 
-**Status:** draft — requester approval required before use.
+**Status:** approved
 
 ## Purpose
 
