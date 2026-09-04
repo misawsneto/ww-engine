@@ -1,5 +1,10 @@
 # AGENTS.md
 
+## G003 REPLAN_LOCK
+> only specification or planning related mutations allowed.
+- goal: G003
+- decision: D021
+
 ## Purpose
 
 - Build WorkWeave Engine as one Rust execution platform with independent Agent and Flow kernels.
