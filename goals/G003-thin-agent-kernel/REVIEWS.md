@@ -84,6 +84,12 @@ The actor-identifier question from the dry run was already resolved separately a
 
 D022 changes only the open T007 implementation contract and question/evidence bookkeeping. `SPEC v2`, `PLAN v2`, ADR-0003, the G003 Goal boundary, completed T001–T006 semantics, and Task identifiers remain unchanged.
 
+### Verification and unlock
+
+D022 lock commit: `a5152d33412fa36d5da15a3de34412e5a9393986`.
+
+Refinement commit `7e458c2bb87d4bfc94d64ce80d7afeb580cfbcf7` passed hosted CI run `33898841197` on its exact head: Format, architecture boundaries, locked Clippy, and full workspace tests all succeeded. The requester had already authorized the domain-neutral hardening in the D022 instruction, so the verification satisfies the unlock condition. The subsequent bookkeeping commit removes only the D022 `REPLAN_LOCK`; G003 stays active and T007 remains the next implementation Task under the hardened contract.
+
 ## Planned terminal review focus
 
 - provider-neutral kernel ownership and dependency direction;

@@ -13,8 +13,11 @@
 - D021 refinement is complete and requester-approved: `SPEC v2`, `PLAN v2`, open T007–T012 detail, Verification, and Evaluations are the accepted planning basis.
 - The four final D021 boundary clarifications are accepted: common deadline authority, usage-observable token limits, all-or-none logical tool-call batch admission, and distinct ordinary-tool-error/cancellation/invariant semantics.
 - Approval-reconciliation commit `2cde0a9ceb7abf448bed57cd363065dce5494a22` passed the complete hosted D017 gate in run `33881904717`.
-- The D021 `REPLAN_LOCK` is removed. G003 implementation may resume.
-- T007 is the next engineering slice: tool contract, schema validation, policy, replay fixtures, and durable preparation metadata; it converges with the completed provider work at T008, the functional model → tool → model kernel.
+- D022 T007 dry-run hardening is complete and requester-approved. It is domain-model neutral and leaves `SPEC v2`, `PLAN v2`, ADR-0003, the Goal boundary, completed T001–T006, and Task IDs unchanged.
+- D022 makes the open T007 implementation contract explicit: one production `ww-agent-tools::prepare_tool_call` seam, canonical preparation nomenclature, effect/replay-aware policy conformance, nested canonical-byte proof, and resolved failure-stage placement under Q008.
+- D022 refinement commit `7e458c2bb87d4bfc94d64ce80d7afeb580cfbcf7` passed the complete hosted D017 gate in run `33898841197`.
+- The D022 `REPLAN_LOCK` is removed. G003 implementation may resume.
+- T007 is the next engineering slice: tool contract, schema validation, policy, replay fixtures, durable preparation metadata, and the D022 preparation-seam/conformance requirements; it converges with the completed provider work at T008, the functional model → tool → model kernel.
 - Current implementation orientation: `goals/G003-thin-agent-kernel/HANDOFF.md`.
 - Proposed following Goal: `G004 — Agent Provider and Surface`; OpenAI protocol, bounded `fs.read`, Agent SDK/CLI; governed by proposed `ADR-0004`.
 - Deterministic OWS Flow kernel follows as G005; restart-safe Flow → Agent integration follows as G006.
@@ -31,7 +34,7 @@ Every Goal must reference at least one ADR before activation. G001/G002 ADRs wer
 - OWS specification revision: `2dd2c84170d5f3e05d58e913e9ca298dcf8d543a`.
 - LangGraph reference revision: `11ee185999b86bfea2d8c0e69cef9a5e37acf686`.
 - Engine architecture baseline: `docs/architecture/WORKWEAVE-ENGINE-ARCHITECTURE-DOSSIER.md`.
-- Refinement method: approved `docs/skills/ww-refine-goal/SKILL.md`, introduced by D020 and invoked for G003 by D021.
+- Refinement method: approved `docs/skills/ww-refine-goal/SKILL.md`, introduced by D020 and invoked for G003 by D021 and D022.
 
 ## G002 achieved boundary
 
@@ -46,7 +49,7 @@ T003 Agent history + recovery reducer     complete / verified
 T004 Agent SQLite persistence             complete / verified
 T005 common/Agent transaction seam        complete / verified
 T006 recorded provider                    complete / verified
-T007 tool policy/replay fixtures          open / NEXT
+T007 tool policy/replay fixtures          open / NEXT / D022-hardened
 T008 functional Agent kernel              open
 T009 lifecycle + cancellation             open
 T010 durable limits                       open
@@ -64,9 +67,11 @@ GOAL unchanged
 SPEC v2              approved under D021
 PLAN v2              approved, based on SPEC v2
 TASKS T007-T012      refined, IDs unchanged, approved
+T007                  additional D022 hard requirements approved
 VERIFICATION         requirement-traceable v2 approved
 EVALUATIONS          executable v2 approved
 HANDOFF.md            current builder orientation
+Q008                  resolved for A004-builder
 requester approval   complete 2026-09-04
 REPLAN_LOCK           none
 next Task             T007
