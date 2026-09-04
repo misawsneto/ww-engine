@@ -42,6 +42,7 @@ A passing run becomes stale when relevant code or the check contract changes.
 - Expected:
   - valid streams finalize exactly once;
   - kernel drains to EOF and calls `finish`;
+  - an outer provider-dispatch error and an in-stream failure both create typed attempt failures with no assistant entry or effect;
   - every invalid stream has one typed failure and zero effects.
 
 ### `provider-boundary`
@@ -55,6 +56,7 @@ A passing run becomes stale when relevant code or the check contract changes.
 - Expected:
   - no vendor transport/request/response type crosses into Agent core;
   - no HTTP/credential dependency exists in G003;
+  - tool request/context types contain no Agent-owned operational identity and create no tools→core dependency;
   - recorded and later concrete providers remain substitutable at the normalized seam.
 
 ## Tool preparation and policy conformance
@@ -72,11 +74,12 @@ A passing run becomes stale when relevant code or the check contract changes.
 - Procedure:
   1. instrument validation, classification, policy, and execute calls;
   2. exercise valid, invalid, malformed-schema, external-ref, unknown-tool, allow, and deny cases;
-  3. inspect counters and stable error output.
+  3. inspect counters, stable error output, and final attempt taxonomy.
 - Expected:
   - order is validate → classify → policy → execute;
   - invalid/unknown/denied paths execute zero effects;
   - denial and validation errors are model-visible, typed, and deterministic;
+  - resolve/validation/classification failures are Rejected and only policy failure is Denied;
   - no argument coercion occurs.
 
 ### `replay-metadata`
@@ -107,10 +110,12 @@ A passing run becomes stale when relevant code or the check contract changes.
 - Procedure:
   1. persist canonical histories for every recovery phase;
   2. reopen in a new process and compare projections;
-  3. run all `V-T007` reducer corruption fixtures.
+  3. run all `V-T007` reducer corruption fixtures;
+  4. race two versioned append decisions and make the losing driver reload/reduce.
 - Expected:
   - valid projections are identical;
   - impossible histories fail closed;
+  - an optimistic loser performs no provider/tool work from stale state;
   - no next action depends on process-local state.
 
 ### `replay-safety`
@@ -193,12 +198,14 @@ A passing run becomes stale when relevant code or the check contract changes.
   1. block provider and safe/Never tools;
   2. cancel or expire deadline;
   3. run exact boundary and `limit + 1` cases;
-  4. reopen terminal histories.
+  4. combine cancel, deadline, budget exhaustion, and Never ambiguity in the same reduced states;
+  5. reopen terminal histories.
 - Expected:
   - active child token receives cancellation;
   - no operation beyond a limit launches;
   - token limit stops before next provider call;
   - Never ambiguity requires intervention;
+  - simultaneous conditions select the same SPEC §9.6 disposition before and after reopen;
   - terminal state is durable and common/Agent-consistent.
 
 ## Recovery fault matrix
@@ -214,14 +221,16 @@ A passing run becomes stale when relevant code or the check contract changes.
 - Covers: every ambiguity-sensitive commit/effect boundary in SPEC §11.
 - Subjects: test-only process fixture, SQLite state, RecordedProvider journal, unsafe-effect probe.
 - Procedure:
-  1. execute F1–F8 in distinct process restarts;
+  1. execute F1–F8 in distinct process restarts, including F2 before the first provider event and after transient partial deltas;
   2. capture before/after history and counters;
-  3. restart a second time;
-  4. compare with the matrix expected action.
+  3. run a competing-resumer case against one versioned snapshot;
+  4. restart a second time;
+  5. compare with the matrix expected action.
 - Expected:
   - every state follows exactly its specified repair/intervention action;
   - no duplicate logical result;
   - no Never replay;
+  - no partial stream becomes a durable assistant entry and no stale resumer launches external work;
   - second restart is effect/result/terminal-event idempotent.
 
 ## Terminal architecture review
@@ -238,8 +247,9 @@ A passing run becomes stale when relevant code or the check contract changes.
 - Procedure:
   1. inspect Cargo graph and source imports;
   2. inspect public APIs and durable records;
-  3. map SPEC requirement families to Verification/Evaluation evidence;
-  4. run permanent gate on exact commit.
+  3. trace T007–T012 to SPEC §4's observed evidence, adopted WorkWeave behavior, and explicit deviations;
+  4. map SPEC requirement families to Verification/Evaluation evidence;
+  5. run permanent gate on exact commit.
 - Expected:
   - Agent/Flow state machines remain independent;
   - common runtime is semantically neutral;

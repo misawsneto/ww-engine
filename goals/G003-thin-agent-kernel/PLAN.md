@@ -42,6 +42,19 @@ T007 tool contract + durable preparation ─────────────
 
 No T008 implementation begins until T007 is complete and verified.
 
+### 2.1 Design-lineage rule
+
+Each open Task implements a WorkWeave contract, not a reference-project clone:
+
+- T007 translates Pi's validate/preflight/result ordering plus Harness source-index/reserved-result reduction into a provider-independent tool contract.
+- T008 translates Pi's injected `StreamFn` and small `runLoop` into a durable functional driver over WorkWeave ports.
+- T009 combines Pi's propagated abort signal with G002's durable-request-before-live-signal lifecycle.
+- T010 applies the dossier's reserve-before-work budget rule using durable Agent records instead of Pi callback-local state.
+- T011 applies Harness corruption/reduction discipline and LangGraph checkpoint/pending-write lessons without adopting graph execution or unsafe node re-execution.
+- T012 proves those adaptations behaviorally; it does not require source or API parity with Pi, Harness, or LangGraph.
+
+The exact immutable source paths and preserve/adapt/reject decisions are recorded in SPEC §4. Implementation reviews MUST cite the SPEC requirement being satisfied rather than appeal directly to an upstream implementation.
+
 ## 3. Implementation strategy
 
 ### Phase A — T007 tool safety and replay contract
@@ -74,6 +87,7 @@ Deliver:
 
 - crate added with permitted dependencies only;
 - `ToolId`, `ToolVersion`, `ToolIdentity`, `ToolSpec`;
+- tools-owned request/context types that contain no Agent run/call/attempt/entry identity;
 - Draft 2020-12 schema validation with `jsonschema 0.52.1`, default features disabled;
 - external-reference rejection;
 - non-coercing deterministic validation errors.
@@ -123,6 +137,7 @@ Deliver:
 - durable call classification/preparation snapshot;
 - reserved result identity;
 - explicit `ToolEffectStarted`, effect-output, and interrupted-attempt state;
+- distinct `ToolAttemptRejected` preparation failure and `ToolAttemptDenied` policy failure;
 - reducer support for executable, denied/rejected, completed, interrupted, and intervention states;
 - corruption tests for changed replay/policy, duplicate result, wrong reserved ID, and source-order violations.
 
@@ -158,6 +173,8 @@ Deliver:
 - deterministic request construction from durable entries;
 - request digest/pin record;
 - one production stream-drain/finalize path;
+- normalized outer provider-dispatch failure with no assistant/effect;
+- versioned snapshot → reduce → expected-version append mutation cycle;
 - immutable assistant persistence or typed interruption.
 
 #### T008 work unit B — sequential tool loop and terminal result
@@ -212,6 +229,7 @@ Deliver:
 - one-to-one link validation;
 - pending start, running resume, pre-start cancellation;
 - provider/tool token propagation;
+- cancellation recheck immediately before `ToolEffectStarted` plus fixed recovery precedence;
 - Agent-terminal/common-nonterminal idempotent repair;
 - never-replayable cancellation ambiguity becomes intervention.
 
@@ -269,6 +287,7 @@ Likely files:
 Deliver:
 
 - named F1–F8 failpoints;
+- F2 pre-event and transient-partial-delta subcases;
 - seed/resume/inspect process commands;
 - test-only durable unsafe-effect probe;
 - no public CLI/SDK surface.
@@ -351,13 +370,17 @@ Two agents MUST NOT concurrently edit the same durable record vocabulary or Task
 | --- | --- | --- |
 | T007 grows into generic policy/sandbox infrastructure | high | G003 Allow/Deny + synthetic effects only; defer approvals/real capabilities |
 | schema validator imports network/filesystem | high | `jsonschema 0.52.1`, `default-features = false`, explicit external-ref rejection |
+| tool contract acquires Agent-owned IDs and creates a dependency cycle | high | keep run/logical-call/attempt/entry IDs in core; tool request is execution-only and tools-owned |
 | raw and parsed arguments diverge semantically | high | parsed `Value` is sole authority; deterministic digest from it |
+| preparation rejection is mislabeled as policy denial | medium | add `ToolAttemptRejected`; reserve `ToolAttemptDenied` for an actual Deny decision |
 | durable pre-effect data is incomplete or handling start is confused with effect start | high | explicit `ToolEffectStarted`; `V-T007` asserts every required field and marker exist before fixture probe invocation |
 | kernel stops reading after terminal event | high | drain stream to EOF, then `finish()` |
 | safe retry creates duplicate logical result | high | reserved result ID + reducer uniqueness + F4/F6 tests |
 | Never effect is replayed after ambiguous crash | critical | replay pin and `ToolEffectStarted` durable before invocation; F5 effect counter remains one |
 | cancellation maps unsafe ambiguity to Cancelled | high | Never + started + no result maps to intervention |
 | limits use process-local counters | high | derive all counters from records and entries |
+| stale concurrent driver launches work from a rejected append | critical | expected-version append must commit before I/O; on conflict discard decision, reload and reduce |
+| cancel/deadline masks unsafe ambiguity | critical | fixed recovery precedence with Never ambiguity ahead of cancel/deadline/budget |
 | Goal expands into G004/G010 work | high | D021 lock, explicit exclusions, existing Stop Conditions |
 | Task/file scope becomes too large | medium | use internal work units; ~5 files is a strong signal, not a hard gate |
 

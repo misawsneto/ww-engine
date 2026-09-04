@@ -79,6 +79,8 @@ The checked gate records completed evidence through T006. Every later Task closu
 - [ ] `V-T007-27` reducer rejects wrong reserved result ID, effect on denied call, duplicate classification/result, and source-order violation
 - [ ] `V-T007-28` Agent history reconstructs the same tool state after SQLite reopen
 - [ ] `V-T007-29` `ww-agent-tools` imports no runtime/store/SQLite/filesystem/process/network/Flow/Orchestration dependency
+- [ ] `V-T007-30` `ww-agent-tools` public request/context types contain no Agent run/logical-call/attempt/entry identity and no core dependency
+- [ ] `V-T007-31` Resolve/Validate/Classify no-effect attempts end as Rejected while only policy Deny ends as Denied
 
 Focused evidence:
 
@@ -111,6 +113,8 @@ cargo test -p ww-agent-core --test recovery --locked
 - [ ] `V-T008-15` RecordedProvider model→test.echo→model run commits expected successful Agent result
 - [ ] `V-T008-16` Length completion is audited but not successful
 - [ ] `V-T008-17` kernel imports no concrete provider transport, SQLite, filesystem/process/network, Flow/OWS, CLI/TUI/server, or Orchestration type
+- [ ] `V-T008-18` outer provider-dispatch error commits one typed failed/interrupted attempt and creates no assistant entry/effect/automatic retry
+- [ ] `V-T008-19` stale expected-version append launches no external work; reload/reduction observes and follows the winning durable state
 
 Focused evidence:
 
@@ -133,6 +137,8 @@ cargo test -p ww-agent-provider --test recorded_provider --locked
 - [ ] `V-T009-10` Agent terminal dispositions map to matching common statuses
 - [ ] `V-T009-11` Agent-terminal/common-nonterminal repair is idempotent and calls provider/tool zero times
 - [ ] `V-T009-12` shared runtime API contains no Agent DTO or semantic type
+- [ ] `V-T009-13` cancellation durable before the final pre-effect check prevents `ToolEffectStarted` and invocation; cancellation after effect start obeys replay ambiguity
+- [ ] `V-T009-14` identical conflicting conditions before/after reopen select the same disposition under SPEC §9.6 precedence
 
 Focused evidence:
 
@@ -158,6 +164,7 @@ cargo test -p ww-agent-store-sqlite --test coordinator --locked
 - [ ] `V-T010-12` BudgetExhausted and TimedOut are distinct audited Agent/common terminal outcomes
 - [ ] `V-T010-13` Never ambiguity settles intervention rather than falsely timing out/cancelling
 - [ ] `V-T010-14` no limit decision depends on process-local counters
+- [ ] `V-T010-15` simultaneous cancellation/deadline/budget observations resolve deterministically before and after reopen
 
 Focused evidence:
 
@@ -179,6 +186,8 @@ cargo test -p ww-runtime --locked
 - [ ] `V-T011-09` F1–F8 resume in a distinct OS process using the same SQLite database
 - [ ] `V-T011-10` second restart after every repair adds no effect, logical result, or duplicate terminal event
 - [ ] `V-T011-11` impossible history outside the matrix fails closed
+- [ ] `V-T011-12` F2 pre-event and transient-partial-delta process losses both leave no durable assistant entry and follow the same permitted retry rule
+- [ ] `V-T011-13` two competing resume drivers cannot both authorize provider/tool work; the stale writer reloads without external invocation
 
 Focused evidence:
 
@@ -197,6 +206,7 @@ cargo test -p ww-agent-store-sqlite --test recovery_matrix --locked
 - [ ] `V-T012-07` residual findings are classified without automatically changing the active roadmap
 - [ ] `V-T012-08` no G003 Stop Condition remains active
 - [ ] `V-T012-09` requester explicitly accepts or rejects G003; acceptance is not inferred from branch placement
+- [ ] `V-T012-10` terminal review traces each open Task to SPEC §4 reference evidence, WorkWeave adaptation, and rejected/deferred behavior
 
 ## Architecture boundary checks for final review
 

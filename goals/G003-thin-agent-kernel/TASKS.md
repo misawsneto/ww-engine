@@ -26,6 +26,8 @@
 
 **Description:** Add the provider-independent tool subsystem and the Agent durable metadata required to decide whether a finalized model tool call can execute, must return a no-effect error, can be replayed safely, or requires intervention after ambiguity.
 
+**Design basis:** Pi production establishes resolve → validate → preflight → execute → normalized-result ordering and source-ordered result emission. Pi Harness establishes assistant-entry/source-index linkage, reserved result identity, attempt continuity, and fail-closed reduction. WorkWeave keeps those seams, adds durable effect/replay/policy state, and rejects Pi argument coercion, parallel execution, postflight mutation, and Harness product/lane machinery.
+
 ### Work units
 
 1. Tool identity, Draft 2020-12 schema profile, and compiled validator.
@@ -37,6 +39,7 @@
 ### Acceptance criteria
 
 - [ ] `ww-agent-tools` exists with the dependency direction in SPEC §5.1.
+- [ ] `ww-agent-tools` public request/context types contain no Agent-owned run, logical-call, attempt, or entry ID and require no core dependency.
 - [ ] Registry rejects duplicate IDs and malformed/external-reference schemas before a run.
 - [ ] Validation accepts/rejects the exact parsed `Value`; it never coerces or injects defaults.
 - [ ] Invalid arguments invoke policy zero times and tool execution zero times.
@@ -46,6 +49,7 @@
 - [ ] `test.echo` is deterministic and `Safe`; `test.unsafe_once` is synthetic and `Never`.
 - [ ] Durable history contains the required tool pin, digest, effect, replay, policy, source position, attempt ID, reserved result ID, and explicit effect-start marker before an allowed invocation.
 - [ ] No-effect settlements contain no effect-start/effect-completion record; reducer reconstructs executable/no-effect/completed/interrupted/intervention states and rejects the SPEC §7.6 corrupt cases.
+- [ ] Resolve/Validate/Classify failures end in `ToolAttemptRejected`; only a durable policy Deny ends in `ToolAttemptDenied`.
 - [ ] No concrete capability, approval workflow, parallel scheduling, or T008 kernel loop is added.
 
 ### Verification
@@ -66,6 +70,8 @@ cargo test --workspace --all-features --locked
 
 **Description:** Implement the smallest real durable Agent loop over the completed provider, tool, and store ports. Prove text-only and one-tool round trips without common lifecycle integration or product surface.
 
+**Design basis:** Pi's injected `StreamFn` and small `runLoop` prove the provider/loop separation and alternating assistant/tool-result structure. WorkWeave adapts the loop to immutable entries, operational records, expected-version appends, and recovery-derived next actions; it does not import Pi's stateful Agent façade, queues, hooks, or product session behavior.
+
 ### Work units
 
 1. Typed run configuration, deterministic context/request builder, and model-attempt preparation.
@@ -78,6 +84,7 @@ cargo test --workspace --all-features --locked
 - [ ] Kernel dependencies are injected and no database/provider transport is constructed inside core.
 - [ ] Request content derives only from typed configuration and ordered durable entries.
 - [ ] Provider/model/request digest attempt state is durable before provider I/O.
+- [ ] An outer provider-dispatch error creates one typed failed/interrupted attempt and no assistant entry, tool preparation, or automatic retry.
 - [ ] Every stream is consumed through EOF and `ResponseAssembler::finish`; interrupted or malformed streams create no assistant entry or effect.
 - [ ] Finalized assistant entry commits before any requested tool effect.
 - [ ] Logical call IDs are allocated once in source order and then recovered from the durable assistant entry.
@@ -86,6 +93,7 @@ cargo test --workspace --all-features --locked
 - [ ] A turn commits only after all results are durable/model-visible.
 - [ ] Text-only and `model → test.echo → model` runs commit the expected terminal Agent result.
 - [ ] `Length` does not produce a successful Agent result.
+- [ ] Every mutation decision derives from one versioned snapshot; an optimistic conflict discards the stale decision and launches no provider/tool work before reload/reduction.
 - [ ] No lifecycle, limits, crash matrix, public SDK/CLI, or concrete provider work is pulled forward.
 
 ### Verification
@@ -105,6 +113,8 @@ cargo test -p ww-agent-tools --locked
 
 **Description:** Bind the functional kernel to the existing G002 execution lifecycle without moving Agent semantics into the shared runtime.
 
+**Design basis:** Pi propagates one abort signal through model/tool work. G002 makes cancellation a durable request followed by live delivery. WorkWeave composes those ideas through one execution root and child tokens, while refusing to interpret cancellation as proof that a started Never effect did not occur.
+
 ### Work units
 
 1. Generic common-runtime cancellation/terminal primitives already implied by declared statuses.
@@ -120,11 +130,13 @@ cargo test -p ww-agent-tools --locked
 - [ ] Repeated registrations share one root cancellation and consumers cannot cancel sibling work.
 - [ ] Cancellation before launch invokes no provider/tool.
 - [ ] Cancellation reaches active provider and safe tool tokens.
+- [ ] Cancellation is rechecked immediately before `ToolEffectStarted`; a request already durable at that point prevents both marker and invocation.
 - [ ] Never-replayable started/no-result cancellation settles `RequiresIntervention`, not falsely `Cancelled`.
 - [ ] Durable completed results survive later cancellation and are repaired/committed.
 - [ ] Agent terminal results map to the matching common status.
 - [ ] Terminal repair is idempotent and never contacts provider/tool.
 - [ ] Shared runtime contains no Agent DTO or message/tool semantics.
+- [ ] Corruption, existing terminal state, Never ambiguity, cancel, deadline, and budget use the fixed SPEC §9.6 precedence.
 
 ### Verification
 
@@ -142,6 +154,8 @@ cargo test -p ww-agent-store-sqlite --test coordinator --locked
 ## T010 — Durable deadlines and execution budgets
 
 **Description:** Make every provider/tool launch conditional on limit decisions reconstructed from durable history.
+
+**Design basis:** The WorkWeave architecture dossier requires reservation before expensive work and reconciliation from durable usage. Pi's stop-after-turn callback identifies a useful decision boundary but remains process-local; G003 replaces that discretion with typed pure decisions over reduced durable state.
 
 ### Work units
 
@@ -163,6 +177,7 @@ cargo test -p ww-agent-store-sqlite --test coordinator --locked
 - [ ] reaching/exceeding token limit stops before the next model request.
 - [ ] BudgetExhausted and TimedOut are audited Agent/common terminal outcomes.
 - [ ] Never ambiguity outranks timeout/cancel when effect outcome is unknown.
+- [ ] Simultaneous cancel/deadline/budget observations produce the same terminal disposition before and after reopen according to SPEC §9.6.
 
 ### Verification
 
@@ -180,6 +195,8 @@ cargo test -p ww-runtime --locked
 
 **Description:** Prove the durability thesis in distinct processes using named fault boundaries and observable provider/effect counters.
 
+**Design basis:** Pi Harness reduces entries plus operational records and rejects contradictory histories. LangGraph demonstrates checkpoint-keyed resume and pending-write reconstruction, while its interrupt contract explicitly re-executes node logic from the start. G003 adopts durable reconstruction and pending-result repair but permits re-execution only when WorkWeave's recorded replay policy says `Safe`.
+
 ### Work units
 
 1. Test-only F1–F8 fault injector and process driver.
@@ -192,6 +209,7 @@ cargo test -p ww-runtime --locked
 - [ ] Every F1–F8 state in SPEC §11 is constructed at the exact boundary.
 - [ ] Resume occurs in a new OS process against the same SQLite database.
 - [ ] F2 creates a distinct model attempt only when permitted.
+- [ ] F2 covers both process loss before the first provider event and after transient partial deltas; neither produces a durable assistant entry.
 - [ ] F3 performs zero additional provider calls before pending tool/terminal handling.
 - [ ] F4 with durable Safe `ToolEffectStarted` and no effect result retries with a new attempt and one logical result.
 - [ ] F5 with durable Never `ToolEffectStarted` and no effect result leaves the effect probe exactly one and settles RequiresIntervention.
@@ -200,6 +218,7 @@ cargo test -p ww-runtime --locked
 - [ ] F8 terminalizes common execution once without provider/tool work.
 - [ ] A second restart is a no-op for effects, logical results, and terminal events.
 - [ ] corrupt histories outside the repair matrix fail closed.
+- [ ] two competing resume attempts cannot both authorize external work; the losing expected-version append reloads/reduces without provider/tool invocation.
 
 ### Verification
 
@@ -216,6 +235,8 @@ cargo test -p ww-agent-store-sqlite --test recovery_matrix --locked
 
 **Description:** Pin the exact final code state, execute every required deterministic Evaluation, and independently review the resulting architecture and recovery behavior.
 
+**Design basis:** The approved refinement method adapts Addy Osmani's explicit specification/plan/acceptance discipline. Reference parity is behavioral: review proves the selected Pi/Harness/LangGraph lessons and WorkWeave deviations, not package layout or API compatibility.
+
 ### Acceptance criteria
 
 - [ ] Every check in `EVALUATIONS.md` has a current passing EvaluationRun appended under that check.
@@ -224,6 +245,7 @@ cargo test -p ww-agent-store-sqlite --test recovery_matrix --locked
 - [ ] Review confirms no concrete provider/filesystem/process/network/product/Flow/Orchestration scope.
 - [ ] Review confirms no duplicate logical result or silent Never replay path.
 - [ ] Review confirms common/Agent terminal consistency and idempotent repair.
+- [ ] Review traces every open Task to SPEC §4's observed evidence, WorkWeave adaptation, and explicit rejected/deferred behavior.
 - [ ] Review records residual findings without automatically adding prerequisite work.
 - [ ] No G003 Stop Condition remains triggered.
 - [ ] Goal acceptance is explicitly requested from the human owner; it is not inferred from `main`.
