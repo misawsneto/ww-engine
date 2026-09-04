@@ -56,6 +56,34 @@ The approval-reconciliation commit `2cde0a9ceb7abf448bed57cd363065dce5494a22` in
 
 Hosted CI run `33881904717` succeeded on exact approval-reconciliation head `2cde0a9ceb7abf448bed57cd363065dce5494a22`: Format, architecture boundaries, locked Clippy, and full workspace tests all passed. That satisfies the D021 unlock condition. The G003 `REPLAN_LOCK` is removed in the subsequent bookkeeping change; G003 remains active and T007 is implementation-ready.
 
+## D022 T007 dry-run hardening — 2026-09-04
+
+The requester asked for a deeper review of `artifacts/A004-builder-T007-claude-opus-5-dryrun-01.md` against the accepted architecture, especially Pi production and Pi Harness, and authorized a `ww-refine-goal` pass only if the resulting hardening required no domain-model change.
+
+### Domain-model assessment
+
+No domain-model change is required.
+
+The accepted model already contains the relevant semantics: stable tool identity/version, exact parsed arguments, `EffectDescriptor`, `ReplayPolicy`, `PolicyDecision`, `ToolPreparationDisposition`, `ToolPreparationStage`, Agent-owned logical-call/attempt/result identities, `ToolCallPrepared`, `ToolEffectStarted`, effect completion, rejected/denied/completed/interrupted/intervention attempt outcomes, and one model-visible result per logical call. D022 introduces no new entity, state, relationship, lifecycle, authority, or durable record variant.
+
+The hardening is an implementation-architecture clarification inside ADR-0003:
+
+- make Pi's distinct preparation seam explicit as one production `ww-agent-tools::prepare_tool_call` boundary rather than leaving T008 to recompose registry/schema/effect/replay/policy logic;
+- keep Agent IDs and durable wrapping in `ww-agent-core`, so the seam does not acquire Agent-domain ownership;
+- require an effect/replay-aware policy conformance fixture so the existing policy input is behaviorally proved rather than merely present in types;
+- harden canonicalization proof against the current `serde_json::Map` ordering false-green by asserting deterministic nested canonical bytes, not digest equality alone;
+- resolve A004's remaining `failed_at` question without adding a new field or record.
+
+This follows Pi's production `prepareToolCall` separation and Harness's durable source/result correlation while retaining WorkWeave's stronger commit-before-effect and replay-intervention semantics. It does not import Pi queues, hooks, parallel execution, session façade, or Harness lanes.
+
+### Q008 resolution
+
+`Q008` records the dry-run question on behalf of `A004-builder`. For policy denial, `failed_at: Policy` lives in `ToolCallPrepared::NoEffect` with `PolicyDecision::Deny`; the existing `ToolAttemptDenied { attempt_id, result_entry_id }` shape remains unchanged. Resolve/Validate/Classify failures continue to use `ToolAttemptRejected.failed_at`.
+
+The actor-identifier question from the dry run was already resolved separately as `A004-builder` in commit `c0c684d580d1e24bb746b7c46b1c7aaa4119639e`.
+
+D022 changes only the open T007 implementation contract and question/evidence bookkeeping. `SPEC v2`, `PLAN v2`, ADR-0003, the G003 Goal boundary, completed T001–T006 semantics, and Task identifiers remain unchanged.
+
 ## Planned terminal review focus
 
 - provider-neutral kernel ownership and dependency direction;
