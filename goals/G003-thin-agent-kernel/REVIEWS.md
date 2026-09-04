@@ -49,6 +49,21 @@ Deliberately deferred rather than added to G003: generic durable-format migratio
 
 No implementation source, dependency, lockfile, or completed Task evidence was changed by this candidate. The requester must approve or reject the complete refined packet before the lock can be removed and T007 implementation can resume.
 
+### D021 reference-grounding amendment — 2026-09-04
+
+The requester asked for the open Tasks and specifications to correlate more directly with the architectural and design principles observed throughout the reference investigation. Commit `a901b987d267e968207f2dfc241e6246e938c9be` deepens the candidate without changing its Goal boundary, canonical T001–T012 sequence, completed T001–T006 semantics, or implementation state.
+
+The amendment makes the design lineage operational for every open Task:
+
+- T007 now distinguishes tools-owned execution inputs from Agent-owned durable identities, preventing a `ww-agent-tools` → `ww-agent-core` dependency cycle while retaining Pi's validate/preflight/ordered-result seams and Harness's durable correlation evidence in core;
+- T007 also separates resolve/validate/classify rejection from an actual centralized policy denial, preserving a useful failure taxonomy instead of overloading `ToolAttemptDenied`;
+- T008 covers both Pi-style in-stream failure and the existing Rust provider port's outer dispatch error, and requires each mutation/external-work decision to be authorized by one committed expected-version transition;
+- T009/T010 define the last pre-effect cancellation check and a stable recovery precedence so cancellation, deadline, or budget state cannot erase a started Never-effect ambiguity;
+- T011 expands F2 to process loss before any event and after non-durable partial deltas, and requires a competing stale resumer to launch no external work;
+- T012 requires explicit evidence of what was observed, adopted, adapted, rejected, or deferred from Pi production, Pi Harness, LangGraph, OWS, and the WorkWeave dossier.
+
+The amended `SPEC.md`, `PLAN.md`, `TASKS.md`, `VERIFICATION.md`, and `EVALUATIONS.md` remain specification/planning-only changes permitted by the active `REPLAN_LOCK`. No dependency, source, lockfile, migration, Task identity, or completed evidence changed. Requester approval remains pending.
+
 ## Planned terminal review focus
 
 - provider-neutral kernel ownership and dependency direction;
