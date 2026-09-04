@@ -1,6 +1,6 @@
 # T007 Execution Dry Run
 
-- Actor: `A003-builder`
+- Actor: `A004-builder`
 - Task: `G003 / T007 — tool contract, schema validation, policy, replay fixtures`
 - Model: `claude-opus-5`
 - Sequence: `01`
@@ -753,7 +753,7 @@ None. Two items need an answer before Step C. Section 19 lists them.
    lives in `ToolCallPrepared::NoEffect` and that `ToolAttemptDenied` keeps its
    current two fields.
 
-2. **Actor identifier.** This file uses `A003-builder`. Only `A003-reviewer` appears in
-   commit history. No document defines a builder actor ID. Confirm the value.
+This question does not block Step A or Step B. It affects Step C only.
 
-Neither question blocks Step A or Step B. Both affect Step C only.
+Resolved. The builder actor identifier is `A004-builder`. The requester confirmed the
+value on 2026-09-04. This file and its name use that identifier.
