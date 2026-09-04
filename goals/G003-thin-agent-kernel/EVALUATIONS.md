@@ -1,77 +1,247 @@
 # G003 Evaluations
 
+- Version: `v2`
+- Approval: `pending requester approval under D021`
+- Specification basis: `G003 SPEC v2`
+- All EvaluationRuns required for closure must execute on the exact final reviewed commit.
+
+## EvaluationRun record
+
+For each check, record:
+
+```markdown
+### EvaluationRun: <stable-id>
+- Check: <check id/name>
+- Commit: <full SHA>
+- Date: <ISO date/time>
+- Mode: deterministic
+- Command/fixture: <exact command and fixture>
+- Result: pass | fail
+- Evidence: <test/log/review location>
+- Notes: <only material interpretation>
+```
+
+A passing run becomes stale when relevant code or the check contract changes.
+
 ## Agent protocol conformance
+
 - State: `active`
 - Mode: `deterministic`
 - Evaluator Mode: `deterministic`
 - Required For Closure Of:
   - `G003 — Durable Agent Kernel`
 
-### Checks
+### `stream-ordering`
 
-#### stream-ordering
-- Covers: `Provider-neutral stream protocol`
-- Subjects: `ww-agent-provider normalized event types and stream assembler`
-- Criteria: `Valid recorded streams finalize exactly once and illegal ordering, duplicate finalization, disconnect-before-finalization, and truncated/incomplete tool calls fail closed.`
-- Procedure: `Run recorded provider stream fixtures and malformed-stream property/table tests against the pure assembler.`
-- Expected: `All valid fixtures finalize to the expected normalized response; every invalid fixture returns a typed protocol/assembly failure and exposes no executable tool call.`
+- Covers: normalized provider protocol and mandatory kernel finalization.
+- Subjects: `ww-agent-provider` assembler, RecordedProvider, T008 stream consumer.
+- Procedure:
+  1. run valid text/tool/usage/failure/cancellation fixtures;
+  2. run delta-before-start, duplicate terminal, post-terminal, unexpected EOF, invalid JSON, incomplete tool, and length-truncated tool fixtures;
+  3. assert no invalid fixture creates an assistant entry or invokes a tool.
+- Expected:
+  - valid streams finalize exactly once;
+  - kernel drains to EOF and calls `finish`;
+  - every invalid stream has one typed failure and zero effects.
 
-#### provider-boundary
-- Covers: `Provider neutrality`
-- Subjects: `ww-agent-provider and ww-agent-core public types/dependencies`
-- Criteria: `Vendor transport/request/response types do not cross into ww-agent-core.`
-- Procedure: `Compile contract fixtures and run dependency/source boundary checks.`
-- Expected: `Only normalized WorkWeave provider types are visible to the kernel.`
+### `provider-boundary`
+
+- Covers: provider neutrality.
+- Subjects: provider/core/tools dependencies and public types.
+- Procedure:
+  1. run source/dependency boundary checks;
+  2. compile RecordedProvider against the same ModelProvider contract used by the kernel;
+  3. inspect final crate graph during T012.
+- Expected:
+  - no vendor transport/request/response type crosses into Agent core;
+  - no HTTP/credential dependency exists in G003;
+  - recorded and later concrete providers remain substitutable at the normalized seam.
+
+## Tool preparation and policy conformance
+
+- State: `active`
+- Mode: `deterministic`
+- Evaluator Mode: `deterministic`
+- Required For Closure Of:
+  - `G003 — Durable Agent Kernel`
+
+### `schema-policy-ordering`
+
+- Covers: exact arguments, schema, effect/replay, and policy ordering.
+- Subjects: `ww-agent-tools` registry/validator/policy/fixtures.
+- Procedure:
+  1. instrument validation, classification, policy, and execute calls;
+  2. exercise valid, invalid, malformed-schema, external-ref, unknown-tool, allow, and deny cases;
+  3. inspect counters and stable error output.
+- Expected:
+  - order is validate → classify → policy → execute;
+  - invalid/unknown/denied paths execute zero effects;
+  - denial and validation errors are model-visible, typed, and deterministic;
+  - no argument coercion occurs.
+
+### `replay-metadata`
+
+- Covers: durable preparation identity.
+- Subjects: Agent records/reducer and fixture probes.
+- Procedure:
+  1. prepare Safe and Never calls;
+  2. inspect history immediately before effect launch;
+  3. reopen SQLite and reduce the same history.
+- Expected:
+  - source position, provider call ID, logical/attempt/reserved-result identities, pinned tool/version, argument digest, effect, replay, and policy are durable;
+  - reopened reduction is identical;
+  - changed replay/policy or reserved result is rejected.
 
 ## Agent durable recovery safety
+
 - State: `active`
 - Mode: `deterministic`
 - Evaluator Mode: `deterministic`
 - Required For Closure Of:
   - `G003 — Durable Agent Kernel`
 
-### Checks
+### `recovery-reduction`
 
-#### recovery-reduction
-- Covers: `Restart reconstruction`
-- Subjects: `Agent entries, operational records, SQLite persistence, AgentRecoveryState reducer`
-- Criteria: `The same durable history reconstructs the same AgentRecoveryState after reopen/process restart, while impossible history fails closed.`
-- Procedure: `Persist canonical histories, reopen in new processes, compare projections, and run corruption fixtures for invalid references/order/finalization.`
-- Expected: `Valid projections are identical; corrupt histories return typed corruption failures.`
+- Covers: restart reconstruction and corrupt-history behavior.
+- Subjects: entries, records, SQLite store, AgentRecoveryState reducer.
+- Procedure:
+  1. persist canonical histories for every recovery phase;
+  2. reopen in a new process and compare projections;
+  3. run all `V-T007` reducer corruption fixtures.
+- Expected:
+  - valid projections are identical;
+  - impossible histories fail closed;
+  - no next action depends on process-local state.
 
-#### replay-safety
-- Covers: `Tool effect recovery`
-- Subjects: `ReplayPolicy, tool attempts, model-visible tool-result entries`
-- Criteria: `Replay-safe ambiguity creates a distinct retry attempt with one logical result; non-replayable ambiguity never executes again and requires intervention.`
-- Procedure: `Fault after tool-attempt start for safe and non-replayable fixtures, restart, and inspect attempts/effects/results.`
-- Expected: `No logical call has more than one committed model-visible result; non-replayable fixture effect count does not increase after restart.`
+### `replay-safety`
 
-#### settlement-repair
-- Covers: `Agent/common terminal consistency`
-- Subjects: `Agent terminal result and G002 ExecutionRecord`
-- Criteria: `A durable Agent terminal result with non-terminal common execution is repaired idempotently without provider/tool replay.`
-- Procedure: `Fault between Agent result commit and common terminalization, restart twice, and inspect state/event history.`
-- Expected: `Common terminal state is applied once and no model/tool attempt is duplicated.`
+- Covers: Safe versus Never effect ambiguity.
+- Subjects: `test.echo`, `test.unsafe_once`, attempts, reserved result identity.
+- Procedure:
+  1. fault after effect-start for Safe and Never;
+  2. restart twice;
+  3. inspect attempt history, effect probe, and model-visible results.
+- Expected:
+  - Safe creates a distinct retry attempt and one logical result;
+  - Never effect count remains one and restart settles RequiresIntervention;
+  - second restart creates no additional effect/result.
+
+### `settlement-repair`
+
+- Covers: Agent/common terminal consistency.
+- Subjects: Agent terminal result and G002 ExecutionRecord.
+- Procedure:
+  1. fault after Agent result commit and before common terminalization;
+  2. restart twice;
+  3. inspect common events and provider/tool counters.
+- Expected:
+  - common terminal state is applied once;
+  - provider/tool are not invoked;
+  - Agent/common dispositions match.
 
 ## Agent kernel execution conformance
+
 - State: `active`
 - Mode: `deterministic`
 - Evaluator Mode: `deterministic`
 - Required For Closure Of:
   - `G003 — Durable Agent Kernel`
 
-### Checks
+### `text-only`
 
-#### model-tool-model
-- Covers: `Probabilistic worker loop under recorded inputs`
-- Subjects: `ww-agent-core kernel, RecordedProvider, deterministic tool fixture`
-- Criteria: `One recorded provider run requests one tool, receives one ordered model-visible result, and produces the expected terminal Agent result.`
-- Procedure: `Execute the real kernel against pinned recorded provider/tool fixtures.`
-- Expected: `One logical tool call/result exists; final context and result match the fixture contract.`
+- Covers: minimum functional terminal run.
+- Subjects: real kernel, RecordedProvider, AgentStore.
+- Procedure: execute one user input against a recorded Stop response, reopen, and inspect.
+- Expected:
+  - one model request/assistant entry/result;
+  - successful Agent terminal result;
+  - no tool attempt;
+  - identical reopened state.
 
-#### cancellation-limits
-- Covers: `Bounded execution`
-- Subjects: `G002 cancellation seam and AgentLimits`
-- Criteria: `Cancellation, deadline, model-request, turn, tool-call, and normalized token limits terminate at defined boundaries and remain auditable.`
-- Procedure: `Run deterministic fixtures that block provider/tool work or exceed each configured limit.`
-- Expected: `Each case reaches its defined terminal disposition without launching an operation beyond the limit/cancel boundary.`
+### `model-tool-model`
+
+- Covers: primary G003 walking skeleton.
+- Subjects: real kernel, RecordedProvider, `test.echo`, policy, persistence.
+- Procedure:
+  1. first response requests one echo call;
+  2. execute/commit result;
+  3. assert second request contains the ordered tool result;
+  4. final response stops;
+  5. reopen and inspect.
+- Expected:
+  - one logical call and one model-visible result;
+  - two model requests in order;
+  - expected final output/result;
+  - all durable boundaries present.
+
+### `denial-and-tool-error`
+
+- Covers: model-visible no-effect/error behavior.
+- Subjects: policy denial, invalid args, unknown tool, fixture error.
+- Procedure: run one case of each through the real kernel.
+- Expected:
+  - zero effect for invalid/unknown/denied;
+  - exactly one error result per call;
+  - next provider request sees the error in source order;
+  - tool execution error is audited and model-visible.
+
+### `cancellation-limits`
+
+- Covers: bounded execution.
+- Subjects: common cancellation, deadline, model/turn/tool/token limits.
+- Procedure:
+  1. block provider and safe/Never tools;
+  2. cancel or expire deadline;
+  3. run exact boundary and `limit + 1` cases;
+  4. reopen terminal histories.
+- Expected:
+  - active child token receives cancellation;
+  - no operation beyond a limit launches;
+  - token limit stops before next provider call;
+  - Never ambiguity requires intervention;
+  - terminal state is durable and common/Agent-consistent.
+
+## Recovery fault matrix
+
+- State: `active`
+- Mode: `deterministic`
+- Evaluator Mode: `deterministic`
+- Required For Closure Of:
+  - `G003 — Durable Agent Kernel`
+
+### `fault-boundaries-F1-F8`
+
+- Covers: every ambiguity-sensitive commit/effect boundary in SPEC §11.
+- Subjects: test-only process fixture, SQLite state, RecordedProvider journal, unsafe-effect probe.
+- Procedure:
+  1. execute F1–F8 in distinct process restarts;
+  2. capture before/after history and counters;
+  3. restart a second time;
+  4. compare with the matrix expected action.
+- Expected:
+  - every state follows exactly its specified repair/intervention action;
+  - no duplicate logical result;
+  - no Never replay;
+  - second restart is effect/result/terminal-event idempotent.
+
+## Terminal architecture review
+
+- State: `active`
+- Mode: `review`
+- Evaluator Mode: `deterministic evidence + independent review`
+- Required For Closure Of:
+  - `G003 — Durable Agent Kernel`
+
+### `architecture-and-scope`
+
+- Covers: ADR-0003 ownership and exclusions.
+- Procedure:
+  1. inspect Cargo graph and source imports;
+  2. inspect public APIs and durable records;
+  3. map SPEC requirement families to Verification/Evaluation evidence;
+  4. run permanent gate on exact commit.
+- Expected:
+  - Agent/Flow state machines remain independent;
+  - common runtime is semantically neutral;
+  - no concrete transport/capability/product/Orchestration scope entered;
+  - no blocking Stop Condition or unverified normative requirement remains.
