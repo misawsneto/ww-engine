@@ -43,7 +43,7 @@ Refined records:
 
 Deliberately deferred rather than added to G003: generic durable-format migration infrastructure, cross-adapter storage hardening, approval-bearing policy, idempotency-key replay, parallel tools, concrete providers, filesystem/process/network capabilities, SDK/CLI/TUI/server surfaces, and Flow/Orchestration semantics.
 
-### Requester approval — 2026-09-04
+### Requester approval and unlock — 2026-09-04
 
 The requester explicitly approved the complete refined packet and all four final boundary recommendations:
 
@@ -52,11 +52,9 @@ The requester explicitly approved the complete refined packet and all four final
 3. `max_tool_calls` counts logical model-requested calls and admits a finalized multi-call batch all-or-none before any call executes;
 4. an ordinary returned `ToolExecutionError` becomes one durable model-visible error result, while cancellation and panic/impossible invariant failure remain distinct paths.
 
-These clarifications are incorporated into SPEC/PLAN/TASKS/VERIFICATION/EVALUATIONS v2. They do not change the Goal boundary or Task identities.
+The approval-reconciliation commit `2cde0a9ceb7abf448bed57cd363065dce5494a22` incorporates those clarifications into SPEC/PLAN/TASKS/VERIFICATION/EVALUATIONS v2 and adds the current Goal-owned implementation orientation at `goals/G003-thin-agent-kernel/HANDOFF.md`. Historical handoffs under `docs/memories/recall/` remain evidence only.
 
-A current Goal-owned implementation orientation is now `goals/G003-thin-agent-kernel/HANDOFF.md`. Historical handoffs under `docs/memories/recall/` remain evidence only.
-
-The candidate head `63c8f5cd7e9223b0614e4b9dbce39bc884c831fd` already passed hosted CI run `33879580352`. The approval-reconciliation commit must also pass the complete permanent gate on its exact head before `REPLAN_LOCK` is removed. Until that verification completes, implementation remains blocked.
+Hosted CI run `33881904717` succeeded on exact approval-reconciliation head `2cde0a9ceb7abf448bed57cd363065dce5494a22`: Format, architecture boundaries, locked Clippy, and full workspace tests all passed. That satisfies the D021 unlock condition. The G003 `REPLAN_LOCK` is removed in the subsequent bookkeeping change; G003 remains active and T007 is implementation-ready.
 
 ## Planned terminal review focus
 

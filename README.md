@@ -51,11 +51,11 @@ The Flow kernel owns OWS flow-definition loading, bindings, guards, actions, tok
 
 G003 is intentionally limited to the durable provider-neutral kernel/recovery proof using recorded provider/tool fixtures. T002 provider protocol/assembler, T003 Agent history/recovery reducer, T004 Agent SQLite persistence, T005 atomic common/Agent SQLite transaction coordination, and T006 RecordedProvider conformance are verified.
 
-D021's refined G003 `SPEC v2`, `PLAN v2`, open T007–T012 acceptance, Verification, and Evaluations are now requester-approved. The four final refinements are also settled: the common execution owns the canonical deadline; token limits require normalized usage observability; logical tool-call batches are admitted all-or-none against `max_tool_calls`; and ordinary tool execution errors remain distinct from cancellation/panic/invariant failure.
+D021's refined G003 `SPEC v2`, `PLAN v2`, open T007–T012 acceptance, Verification, and Evaluations are requester-approved. The four final refinements are settled: the common execution owns the canonical deadline; token limits require normalized usage observability; logical tool-call batches are admitted all-or-none against `max_tool_calls`; and ordinary tool execution errors remain distinct from cancellation/panic/invariant failure.
 
-The current builder orientation is `goals/G003-thin-agent-kernel/HANDOFF.md`.
+Approval-reconciliation commit `2cde0a9ceb7abf448bed57cd363065dce5494a22` passed hosted CI run `33881904717`, so the D021 `REPLAN_LOCK` has been removed.
 
-The G003 `REPLAN_LOCK` remains only until the approval-reconciliation head passes the complete permanent D017 gate. T007 remains the next implementation slice and may begin immediately after that verified unlock.
+The current builder orientation is `goals/G003-thin-agent-kernel/HANDOFF.md`. T007 tool contract, schema validation, policy, replay fixtures, and durable preparation metadata is ready to implement next.
 
 `G004 — Agent Provider and Surface` remains proposed. It adds the first OpenAI-protocol adapter, bounded `fs.read`, and Rust SDK/CLI surface only after G003 is accepted. Deterministic OWS Flow work begins at G005.
 

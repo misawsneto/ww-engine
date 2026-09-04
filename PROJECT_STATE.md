@@ -10,10 +10,11 @@
 - G003 is active under accepted `ADR-0003` and remains narrowed to the durable provider-neutral kernel/recovery proof.
 - G003 T002 through T006 are complete and verified.
 - T005 proved atomic common-execution + Agent-run creation/linkage and rollback on injected mid-write failure without adding Agent DTOs to the shared `ww-store` semantic API.
-- D021 refinement is requester-approved: `SPEC v2`, `PLAN v2`, open T007–T012 detail, Verification, and Evaluations are now the accepted planning basis.
+- D021 refinement is complete and requester-approved: `SPEC v2`, `PLAN v2`, open T007–T012 detail, Verification, and Evaluations are the accepted planning basis.
 - The four final D021 boundary clarifications are accepted: common deadline authority, usage-observable token limits, all-or-none logical tool-call batch admission, and distinct ordinary-tool-error/cancellation/invariant semantics.
-- G003 remains temporarily under `REPLAN_LOCK` only until the exact approval-reconciliation head passes the complete permanent D017 gate. The Goal state remains active and implementation is still blocked while the lock exists.
-- T007 remains the next engineering slice after unlock: tool contract, schema validation, policy, and replay fixtures; it converges with the completed provider work at T008, the functional model → tool → model kernel.
+- Approval-reconciliation commit `2cde0a9ceb7abf448bed57cd363065dce5494a22` passed the complete hosted D017 gate in run `33881904717`.
+- The D021 `REPLAN_LOCK` is removed. G003 implementation may resume.
+- T007 is the next engineering slice: tool contract, schema validation, policy, replay fixtures, and durable preparation metadata; it converges with the completed provider work at T008, the functional model → tool → model kernel.
 - Current implementation orientation: `goals/G003-thin-agent-kernel/HANDOFF.md`.
 - Proposed following Goal: `G004 — Agent Provider and Surface`; OpenAI protocol, bounded `fs.read`, Agent SDK/CLI; governed by proposed `ADR-0004`.
 - Deterministic OWS Flow kernel follows as G005; restart-safe Flow → Agent integration follows as G006.
@@ -45,15 +46,15 @@ T003 Agent history + recovery reducer     complete / verified
 T004 Agent SQLite persistence             complete / verified
 T005 common/Agent transaction seam        complete / verified
 T006 recorded provider                    complete / verified
-T007 tool policy/replay fixtures          open / REPLAN_LOCK pending exact-head gate
-T008 functional Agent kernel              open / REPLAN_LOCK pending exact-head gate
-T009 lifecycle + cancellation             open / REPLAN_LOCK pending exact-head gate
-T010 durable limits                       open / REPLAN_LOCK pending exact-head gate
-T011 crash/restart matrix                 open / REPLAN_LOCK pending exact-head gate
-T012 evaluations + terminal review        open / REPLAN_LOCK pending exact-head gate
+T007 tool policy/replay fixtures          open / NEXT
+T008 functional Agent kernel              open
+T009 lifecycle + cancellation             open
+T010 durable limits                       open
+T011 crash/restart matrix                 open
+T012 evaluations + terminal review        open
 ```
 
-The Task IDs, meanings, and dependencies remain the original G003 sequence. The lock changes only whether implementation may proceed while the approved planning basis completes its final verification gate.
+The Task IDs, meanings, and dependency order remain the original G003 sequence.
 
 ## Current G003 planning basis
 
@@ -67,7 +68,8 @@ VERIFICATION         requirement-traceable v2 approved
 EVALUATIONS          executable v2 approved
 HANDOFF.md            current builder orientation
 requester approval   complete 2026-09-04
-REPLAN_LOCK           active only pending exact-head D017 verification
+REPLAN_LOCK           none
+next Task             T007
 ```
 
 ## Planned implementation sequence
@@ -75,8 +77,8 @@ REPLAN_LOCK           active only pending exact-head D017 verification
 ```text
 G002 Shared Runtime                 achieved
   ↓
-G003 Durable Agent Kernel           ACTIVE / temporary REPLAN_LOCK
-  ↓ after exact-head gate and unlock
+G003 Durable Agent Kernel           ACTIVE — T007 next
+  ↓
 G004 Agent Provider and Surface
   ↓
 G005 Deterministic OWS Flow Kernel

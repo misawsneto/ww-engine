@@ -1,10 +1,5 @@
 # AGENTS.md
 
-## G003 REPLAN_LOCK
-> only specification or planning related mutations allowed.
-- goal: G003
-- decision: D021
-
 ## Purpose
 
 - Build WorkWeave Engine as one Rust execution platform with independent Agent and Flow kernels.
@@ -38,7 +33,7 @@
 
 ## Now / next
 
-- Now — G003 — active durable provider-neutral Agent kernel under accepted ADR-0003; recorded provider/tool fixtures and recovery proof only.
+- Now — G003 — active durable provider-neutral Agent kernel under accepted ADR-0003; T007 is the next implementation slice under approved SPEC/PLAN v2 and `goals/G003-thin-agent-kernel/HANDOFF.md`.
 - Then — G004 — proposed first concrete Agent provider/read-only tool/SDK/CLI surface; ADR-0004 drafted, not active.
 - Then — G005/G006 — deterministic OWS Flow kernel followed by restart-safe Flow-to-Agent integration.
 - Later — broaden OWS coverage, providers, policy/sandboxing, remote execution, server/TUI depth, and plugins without weakening the sibling-kernel boundary.
