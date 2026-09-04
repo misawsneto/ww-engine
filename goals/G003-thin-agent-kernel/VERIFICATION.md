@@ -70,9 +70,9 @@ The checked gate records completed evidence through T006. Every later Task closu
 
 ### Durable preparation and reducer
 
-- [ ] `V-T007-21` pre-effect durable state contains source position, provider call ID, pinned tool/version, arguments digest, effect, replay, policy, attempt ID, and reserved result ID
-- [ ] `V-T007-22` allowed effect is not invoked until the pre-effect append commits
-- [ ] `V-T007-23` unknown/invalid/classification/denied paths each produce one no-effect audited result with stable code
+- [ ] `V-T007-21` pre-effect durable state contains source position, provider call ID, pinned tool/version, arguments digest, effect, replay, policy, attempt ID, reserved result ID, and `ToolEffectStarted`
+- [ ] `V-T007-22` allowed effect is not invoked until the pre-effect append containing `ToolEffectStarted` commits
+- [ ] `V-T007-23` unknown/invalid/classification/denied paths each produce one no-effect audited result with stable code and no effect-start/effect-completion record
 - [ ] `V-T007-24` durable effect output can exist before model-visible result for later repair
 - [ ] `V-T007-25` interrupted safe and intervention Never attempts are distinct states
 - [ ] `V-T007-26` reducer rejects changed replay/policy across attempts
@@ -146,7 +146,7 @@ cargo test -p ww-agent-store-sqlite --test coordinator --locked
 
 - [ ] `V-T010-01` zero count limit rejects configuration
 - [ ] `V-T010-02` model-request count includes every durable attempt start
-- [ ] `V-T010-03` turn count includes every durable `ModelAttemptCompleted`, including terminal assistant responses
+- [ ] `V-T010-03` a distinct completed-model-turn count includes every durable `ModelAttemptCompleted`, including terminal assistant responses, while T003 `turn_count` remains `TurnCommitted` count
 - [ ] `V-T010-04` tool-call count includes every durable handling/execution attempt
 - [ ] `V-T010-05` counts reconstruct identically after reopen
 - [ ] `V-T010-06` operation at the limit is allowed only if reserved; operation `limit + 1` is never launched
@@ -171,8 +171,8 @@ cargo test -p ww-runtime --locked
 - [ ] `V-T011-F1` restart after creation commit continues existing run once
 - [ ] `V-T011-F2` restart after model start appends interruption/new attempt only when permitted
 - [ ] `V-T011-F3` restart after model finalization makes zero provider calls before pending tool/terminal handling
-- [ ] `V-T011-F4` Safe started/no-result creates a new attempt and one logical result
-- [ ] `V-T011-F5` Never effect-observed/no-result performs zero re-execution and settles RequiresIntervention
+- [ ] `V-T011-F4` Safe `ToolEffectStarted`/no effect result creates a new attempt and one logical result
+- [ ] `V-T011-F5` Never `ToolEffectStarted`/no effect result performs zero re-execution and settles RequiresIntervention
 - [ ] `V-T011-F6` effect output/no model-visible entry appends exactly the reserved entry without execution
 - [ ] `V-T011-F7` all results/no turn appends one TurnCommitted without provider/tool work
 - [ ] `V-T011-F8` Agent terminal/common nonterminal terminalizes common once without provider/tool work
@@ -188,7 +188,7 @@ cargo test -p ww-agent-store-sqlite --test recovery_matrix --locked
 
 ## V-T012 — Evaluation and terminal review
 
-- [ ] `V-T012-01` every active check in `EVALUATIONS.md` has a passing current EvaluationRun
+- [ ] `V-T012-01` every active check in `EVALUATIONS.md` has a passing current EvaluationRun appended under that check
 - [ ] `V-T012-02` each EvaluationRun pins exact commit, command/fixture, date, mode, result, and evidence
 - [ ] `V-T012-03` permanent gate passes locally and in hosted CI on exact reviewed commit
 - [ ] `V-T012-04` terminal review maps every SPEC requirement family to evidence

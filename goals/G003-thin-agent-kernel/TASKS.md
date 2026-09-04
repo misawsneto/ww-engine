@@ -44,8 +44,8 @@
 - [ ] Effect/replay classification occurs after validation and before policy.
 - [ ] Policy denial invokes the effect zero times and yields one `policy_denied` model-visible result.
 - [ ] `test.echo` is deterministic and `Safe`; `test.unsafe_once` is synthetic and `Never`.
-- [ ] Durable history contains the required tool pin, digest, effect, replay, policy, source position, attempt ID, and reserved result ID before an allowed effect.
-- [ ] Reducer reconstructs executable/no-effect/completed/interrupted/intervention states and rejects the SPEC §7.6 corrupt cases.
+- [ ] Durable history contains the required tool pin, digest, effect, replay, policy, source position, attempt ID, reserved result ID, and explicit effect-start marker before an allowed invocation.
+- [ ] No-effect settlements contain no effect-start/effect-completion record; reducer reconstructs executable/no-effect/completed/interrupted/intervention states and rejects the SPEC §7.6 corrupt cases.
 - [ ] No concrete capability, approval workflow, parallel scheduling, or T008 kernel loop is added.
 
 ### Verification
@@ -154,7 +154,7 @@ cargo test -p ww-agent-store-sqlite --test coordinator --locked
 
 - [ ] Count limits are positive and typed; effective deadline is deterministic.
 - [ ] model requests count durable model attempt starts.
-- [ ] turns count durable `ModelAttemptCompleted` records, including terminal assistant responses.
+- [ ] `max_turns` uses a distinct durable completed-model-turn count from `ModelAttemptCompleted`; the existing T003 `turn_count` remains the count of `TurnCommitted` records.
 - [ ] tool calls count durable tool attempt starts, including retries/no-effect attempts.
 - [ ] counters reconstruct identically after reopen.
 - [ ] provider/tool work is never launched as operation `limit + 1`.
@@ -193,8 +193,8 @@ cargo test -p ww-runtime --locked
 - [ ] Resume occurs in a new OS process against the same SQLite database.
 - [ ] F2 creates a distinct model attempt only when permitted.
 - [ ] F3 performs zero additional provider calls before pending tool/terminal handling.
-- [ ] F4 safely retries with a new attempt and one logical result.
-- [ ] F5 effect probe remains exactly one and result is RequiresIntervention.
+- [ ] F4 with durable Safe `ToolEffectStarted` and no effect result retries with a new attempt and one logical result.
+- [ ] F5 with durable Never `ToolEffectStarted` and no effect result leaves the effect probe exactly one and settles RequiresIntervention.
 - [ ] F6 repairs the reserved model-visible result without effect re-execution.
 - [ ] F7 appends one turn commit without provider/tool work.
 - [ ] F8 terminalizes common execution once without provider/tool work.
@@ -218,7 +218,7 @@ cargo test -p ww-agent-store-sqlite --test recovery_matrix --locked
 
 ### Acceptance criteria
 
-- [ ] Every check in `EVALUATIONS.md` has a current passing EvaluationRun.
+- [ ] Every check in `EVALUATIONS.md` has a current passing EvaluationRun appended under that check.
 - [ ] Every SPEC requirement family maps to passing Verification evidence.
 - [ ] Exact reviewed commit passes the permanent gate and hosted CI.
 - [ ] Review confirms no concrete provider/filesystem/process/network/product/Flow/Orchestration scope.

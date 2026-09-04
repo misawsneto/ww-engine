@@ -122,7 +122,7 @@ Deliver:
 
 - durable call classification/preparation snapshot;
 - reserved result identity;
-- tool effect-output and interrupted-attempt state;
+- explicit `ToolEffectStarted`, effect-output, and interrupted-attempt state;
 - reducer support for executable, denied/rejected, completed, interrupted, and intervention states;
 - corruption tests for changed replay/policy, duplicate result, wrong reserved ID, and source-order violations.
 
@@ -352,10 +352,10 @@ Two agents MUST NOT concurrently edit the same durable record vocabulary or Task
 | T007 grows into generic policy/sandbox infrastructure | high | G003 Allow/Deny + synthetic effects only; defer approvals/real capabilities |
 | schema validator imports network/filesystem | high | `jsonschema 0.52.1`, `default-features = false`, explicit external-ref rejection |
 | raw and parsed arguments diverge semantically | high | parsed `Value` is sole authority; deterministic digest from it |
-| durable pre-effect data is incomplete | high | `V-T007` asserts every required field exists before fixture probe invocation |
+| durable pre-effect data is incomplete or handling start is confused with effect start | high | explicit `ToolEffectStarted`; `V-T007` asserts every required field and marker exist before fixture probe invocation |
 | kernel stops reading after terminal event | high | drain stream to EOF, then `finish()` |
 | safe retry creates duplicate logical result | high | reserved result ID + reducer uniqueness + F4/F6 tests |
-| Never effect is replayed after ambiguous crash | critical | replay pin durable before effect; F5 effect counter remains one |
+| Never effect is replayed after ambiguous crash | critical | replay pin and `ToolEffectStarted` durable before invocation; F5 effect counter remains one |
 | cancellation maps unsafe ambiguity to Cancelled | high | Never + started + no result maps to intervention |
 | limits use process-local counters | high | derive all counters from records and entries |
 | Goal expands into G004/G010 work | high | D021 lock, explicit exclusions, existing Stop Conditions |

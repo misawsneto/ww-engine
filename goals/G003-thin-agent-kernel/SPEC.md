@@ -131,7 +131,8 @@ G003 MUST NOT add:
 9. Every tool call is handled sequentially in provider source order.
 10. Provider-declared failure does not trigger an automatic transient-retry policy in G003. Crash recovery may create a new audited attempt when the recovery matrix permits.
 11. A text response finalized with `CompletionReason::Length` is durable for audit but does not count as a successful Agent result.
-12. No open architectural question blocks this candidate. Requester approval of the complete packet settles these refinements.
+12. G003 has no released durable-data compatibility promise. T007–T011 may add Agent record variants and update fixtures needed by the accepted proof; same-code reopen/restart remains mandatory, while known-old schema/payload migration belongs to proposed G010.
+13. No open architectural question blocks this candidate. Requester approval of the complete packet settles these refinements.
 
 ## 4. Reference-derived architecture
 
@@ -274,6 +275,17 @@ pub struct ToolOutput {
 pub struct ToolExecutionError {
     pub code: String,
     pub message: String,
+}
+
+pub struct ToolRequest {
+    pub logical_call_id: LogicalToolCallId,
+    pub attempt_id: ToolAttemptId,
+    pub identity: ToolIdentity,
+    pub arguments: serde_json::Value,
+}
+
+pub struct ToolContext {
+    pub cancellation: tokio_util::sync::CancellationToken,
 }
 
 #[async_trait::async_trait]
@@ -423,48 +435,111 @@ For each provider tool call, the Agent allocates once and persists:
 
 The logical ID is generated once when the finalized assistant entry is created. Recovery reads it from that entry; it is never regenerated from provider output.
 
-### 7.2 Required durable information
+### 7.2 Required durable information and records
 
 Before any allowed effect starts, durable history MUST contain:
 
 - logical call and attempt IDs;
 - source assistant entry and source index;
-- provider call ID;
+- provider call ID and requested tool name;
 - exact tool identity/version;
 - reserved result-entry ID;
 - canonical arguments digest;
 - effect descriptor;
 - replay policy;
-- policy decision.
+- policy decision;
+- an explicit effect-start marker.
 
-T007 MUST extend the Agent-owned operational vocabulary and reducer to represent this information. A recommended representation is one `ToolCallClassified` record plus the existing `ToolAttemptStarted` record. Equivalent representation is acceptable only when all fields are durable before effect start and the reducer can distinguish executable, denied, and rejected calls.
+T007 MUST add these Agent-owned record shapes, with equivalent Rust field types already owned by `ww-agent-core` or `ww-agent-tools`:
+
+```rust
+pub enum ToolPreparationStage {
+    Resolve,
+    Validate,
+    Classify,
+    Policy,
+}
+
+pub enum ToolPreparationDisposition {
+    Executable {
+        identity: ToolIdentity,
+        arguments_digest: String,
+        effect: EffectDescriptor,
+        replay: ReplayPolicy,
+        policy: PolicyDecision, // Allow only in this variant
+    },
+    NoEffect {
+        failed_at: ToolPreparationStage,
+        code: String,
+        message: String,
+        identity: Option<ToolIdentity>,
+        arguments_digest: Option<String>,
+        effect: Option<EffectDescriptor>,
+        replay: Option<ReplayPolicy>,
+        policy: Option<PolicyDecision>,
+    },
+}
+
+pub enum ToolEffectResult {
+    Output { content: serde_json::Value },
+    Error { code: String, message: String },
+}
+
+pub enum AgentRecordData {
+    // existing variants remain
+    ToolCallPrepared {
+        attempt_id: ToolAttemptId,
+        logical_call_id: LogicalToolCallId,
+        assistant_entry_id: AgentEntryId,
+        source_index: u32,
+        provider_call_id: ToolCallId,
+        requested_tool_name: String,
+        result_entry_id: AgentEntryId,
+        disposition: ToolPreparationDisposition,
+    },
+    ToolEffectStarted { attempt_id: ToolAttemptId },
+    ToolEffectCompleted {
+        attempt_id: ToolAttemptId,
+        result: ToolEffectResult,
+    },
+    ToolAttemptInterrupted {
+        attempt_id: ToolAttemptId,
+        reason: String,
+    },
+}
+```
+
+`ToolAttemptStarted` retains its existing meaning as the beginning of one durable handling attempt. It is **not**, by itself, evidence that the effect boundary was crossed. `ToolEffectStarted` is the ambiguity marker used by cancellation and restart recovery.
+
+The exact enum/module layout may follow existing Rust conventions, but the variants, fields, and distinction between handling start and effect start are normative for G003.
 
 ### 7.3 No-effect settlements
 
 Unknown tool, invalid arguments, classification failure, and policy denial:
 
 - MUST invoke no effect;
-- MUST allocate one attempt and the already-reserved result entry;
-- MUST append classification/no-effect metadata, `ToolAttemptStarted`, the model-visible error entry, and `ToolAttemptDenied` in one atomic Agent append;
+- MUST allocate one handling attempt and use the already-reserved result entry;
+- MUST atomically append, in this order: `ToolAttemptStarted`, `ToolCallPrepared::NoEffect`, the model-visible error entry, and `ToolAttemptDenied`;
+- MUST NOT append `ToolEffectStarted` or `ToolEffectCompleted`;
 - MUST append exactly one model-visible error result;
 - MUST preserve source order;
 - MUST be distinguishable by stable error code:
   `tool_not_found`, `invalid_arguments`, `classification_failed`, or `policy_denied`.
 
-For an invalid/unknown call, unavailable classification fields remain absent rather than fabricated. The durable no-effect disposition records which preparation stage failed.
+For an invalid/unknown call, unavailable classification fields remain `None` rather than fabricated. The `failed_at` field records the preparation stage that failed.
 
 ### 7.4 Allowed execution settlements
 
 For an allowed call:
 
-1. append call classification and `ToolAttemptStarted` atomically;
+1. atomically append, in this order: `ToolAttemptStarted`, `ToolCallPrepared::Executable`, and `ToolEffectStarted`;
 2. commit that append;
 3. execute once with a cancellation token;
-4. append and commit the normalized effect output/error;
-5. append the one reserved model-visible result and `ToolAttemptCompleted` atomically;
+4. append and commit `ToolEffectCompleted` with normalized output/error;
+5. atomically append the one reserved model-visible result and `ToolAttemptCompleted`;
 6. commit before processing the next call or issuing another model request.
 
-To expose the required T011 repair boundary, successful/error tool output MUST be durably representable before the model-visible result entry. A recommended record is `ToolEffectCompleted { attempt_id, output }`.
+This creates the required T011 repair boundary: `ToolEffectCompleted` may be durable while the model-visible result entry is absent.
 
 A tool execution error is model-visible and normally returns control to the model. It does not automatically fail the Agent.
 
@@ -472,23 +547,26 @@ A tool execution error is model-visible and normally returns control to the mode
 
 The durable vocabulary MUST represent an interrupted tool attempt separately from denial, completion, and intervention.
 
-- Safe ambiguous attempt: append interruption, then a new attempt may execute.
-- Never ambiguous attempt: append intervention and terminalize `RequiresIntervention`.
+- `ToolAttemptStarted` without `ToolEffectStarted` means no effect boundary was crossed; recovery may settle/re-run preparation according to current durable state.
+- `ToolEffectStarted` without `ToolEffectCompleted` is effect ambiguity.
+- Safe ambiguous effect: append `ToolAttemptInterrupted`, then a new attempt may execute.
+- Never ambiguous effect: append `ToolAttemptIntervention` and terminalize `RequiresIntervention`.
 - Retries never mutate a prior attempt into success.
 
 ### 7.6 Reducer invariants
 
 The reducer MUST reject:
 
-- classification for an unknown logical call;
-- duplicate classification of one logical call with different data;
-- attempt start before executable classification;
+- preparation for an unknown logical call or non-current assistant entry;
+- duplicate preparation of one attempt or preparation data that conflicts across attempts for the same logical call;
+- `ToolEffectStarted` before an executable preparation or after a no-effect disposition;
 - result entry ID different from the reserved ID;
-- effect completion for a denied/rejected call;
-- attempt completion without a durable effect output or no-effect disposition;
+- effect completion without effect start, or for a denied/rejected call;
+- attempt completion without a durable effect result or no-effect disposition;
+- `ToolAttemptDenied` after `ToolEffectStarted`;
 - more than one model-visible result per logical call;
 - tool attempts/results outside provider source order;
-- replay-policy changes across attempts;
+- tool identity/version, arguments digest, effect, replay, or Allow/Deny decision changes across attempts for one logical call;
 - records after terminal Agent result.
 
 ## 8. Functional Agent kernel — T008
@@ -521,7 +599,7 @@ pub struct AgentRunConfiguration {
 }
 ```
 
-Until G010, this may be serialized inside the existing configuration JSON field. The kernel MUST fail before provider/tool work if the stored configuration cannot be decoded or a pinned tool is unavailable.
+Until G010, this may be serialized inside the existing configuration JSON field. The kernel MUST fail before provider/tool work if the stored configuration cannot be decoded or a pinned tool is unavailable. T008 may introduce `AgentLimits` with permissive/unbounded defaults so the configuration shape is stable; T010 owns limit validation and enforcement.
 
 ### 8.3 Model request construction
 
@@ -551,7 +629,7 @@ Before provider I/O, durable history MUST contain an attempt record with:
 
 A recommended additive record is `ModelRequestPrepared`. It and `ModelAttemptStarted` may be appended atomically.
 
-The request digest is SHA-256 over deterministic compact serialization of the normalized `ModelRequest`.
+The request digest is SHA-256 over the same recursively key-sorted compact JSON canonicalization used for tool arguments, applied to the normalized `ModelRequest`.
 
 ### 8.5 Mandatory stream finalization
 
@@ -686,8 +764,8 @@ Count limits MUST be positive. The effective deadline is the earlier of Agent co
 ### 10.2 Durable counting semantics
 
 - `model_requests` = number of durable model-attempt starts, including restart/retry attempts.
-- `turns` = number of durable `ModelAttemptCompleted` records, including terminal assistant responses; it is not limited to tool-bearing `TurnCommitted` records.
-- `tool_calls` = number of durable tool-attempt starts, including safe replay attempts and no-effect denied/rejected handling attempts.
+- the `max_turns` budget = number of durable `ModelAttemptCompleted` records, including terminal assistant responses. Add a distinct derived `completed_model_turn_count` (or equivalently named field); do not repurpose the existing `AgentRecoveryState.turn_count`, which remains the number of durable `TurnCommitted` records established by T003.
+- `tool_calls` = number of durable `ToolAttemptStarted` handling attempts, including safe replay attempts and no-effect denied/rejected attempts.
 - input/output/total tokens = sum of finalized normalized provider usage; cached-token fields do not reduce total-token accounting.
 
 Counters are reconstructed from durable history, never process-local mutable counters.
@@ -730,8 +808,8 @@ The test harness MUST support deterministic interruption after these boundaries:
 | F1 creation commit | common execution + Agent run + link + input exist | continue once from known IDs; do not create a second run |
 | F2 model start commit | model attempt started; no final response | mark interrupted; create a new attempt only if cancellation/deadline/budget permit |
 | F3 model finalization commit | assistant entry and completion record exist | do not contact provider; process pending tools or terminalize |
-| F4 safe tool start before durable result | replay `Safe`, started, no result | append interruption; execute a new attempt; one logical result |
-| F5 never tool effect observed before durable result | replay `Never`, started, no result | do not execute; append intervention; settle `RequiresIntervention` |
+| F4 safe effect-start before durable result | replay `Safe`, `ToolEffectStarted`, no `ToolEffectCompleted` | append interruption; execute a new attempt; one logical result |
+| F5 Never effect-start/effect ambiguity before durable result | replay `Never`, `ToolEffectStarted`, no `ToolEffectCompleted` | do not execute; append intervention; settle `RequiresIntervention` |
 | F6 tool effect output durable, model-visible entry absent | effect output exists with reserved result ID | append exactly the missing entry and completion; do not execute |
 | F7 all model-visible tool results durable, turn absent | ordered results exist | append one `TurnCommitted`; do not execute/provider-call |
 | F8 Agent result durable, common execution non-terminal | Agent terminal result exists | terminalize common execution once; no provider/tool work |
@@ -754,7 +832,7 @@ T012 MUST record current EvaluationRuns for:
 2. Agent durable recovery safety;
 3. Agent kernel execution conformance.
 
-Each run records:
+Each run is appended under the corresponding check in `EVALUATIONS.md` and records:
 
 - evaluation/check name;
 - exact reviewed commit;
@@ -910,8 +988,8 @@ Tests MUST assert both positive outcomes and prohibited side effects/provider ca
 | ID | Requirement |
 | --- | --- |
 | DUR-01 | Logical call, attempt, source position, provider call, and reserved result identities are stable |
-| DUR-02 | Tool/version, digest, effect, replay, and policy are durable before allowed effect start |
-| DUR-03 | No-effect dispositions are atomic and distinguish their failed preparation stage |
+| DUR-02 | Tool/version, digest, effect, replay, policy, and explicit effect-start marker are durable before allowed effect invocation |
+| DUR-03 | No-effect dispositions are atomic, distinguish their failed preparation stage, and contain no effect-start record |
 | DUR-04 | Effect output/error is durable before the model-visible result repair boundary |
 | DUR-05 | Safe interruption and Never intervention are distinct append-only attempt outcomes |
 | DUR-06 | Retries create new attempts and never rewrite previous attempts |
@@ -964,8 +1042,8 @@ Tests MUST assert both positive outcomes and prohibited side effects/provider ca
 | REC-01 | F1 creation restart continues the existing run once |
 | REC-02 | F2 started model attempt becomes an interrupted/new audited attempt when allowed |
 | REC-03 | F3 finalized model response is never re-requested before pending handling |
-| REC-04 | F4 Safe started/no-result retries as a new attempt with one logical result |
-| REC-05 | F5 Never effect ambiguity never re-executes and requires intervention |
+| REC-04 | F4 Safe effect-start/no-result retries as a new attempt with one logical result |
+| REC-05 | F5 Never effect-start/no-result never re-executes and requires intervention |
 | REC-06 | F6 durable effect output repairs exactly the reserved result without execution |
 | REC-07 | F7 missing turn commit repairs once without provider/tool work |
 | REC-08 | F8 Agent terminal/common nonterminal repairs once without provider/tool work |

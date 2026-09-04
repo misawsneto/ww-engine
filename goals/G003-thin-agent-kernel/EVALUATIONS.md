@@ -7,7 +7,7 @@
 
 ## EvaluationRun record
 
-For each check, record:
+Append each run directly under its corresponding check and record:
 
 ```markdown
 ### EvaluationRun: <stable-id>
@@ -88,7 +88,7 @@ A passing run becomes stale when relevant code or the check contract changes.
   2. inspect history immediately before effect launch;
   3. reopen SQLite and reduce the same history.
 - Expected:
-  - source position, provider call ID, logical/attempt/reserved-result identities, pinned tool/version, argument digest, effect, replay, and policy are durable;
+  - source position, provider call ID, logical/attempt/reserved-result identities, pinned tool/version, argument digest, effect, replay, policy, and explicit effect-start state are durable;
   - reopened reduction is identical;
   - changed replay/policy or reserved result is rejected.
 
@@ -118,7 +118,7 @@ A passing run becomes stale when relevant code or the check contract changes.
 - Covers: Safe versus Never effect ambiguity.
 - Subjects: `test.echo`, `test.unsafe_once`, attempts, reserved result identity.
 - Procedure:
-  1. fault after effect-start for Safe and Never;
+  1. fault after durable `ToolEffectStarted` and before `ToolEffectCompleted` for Safe and Never;
   2. restart twice;
   3. inspect attempt history, effect probe, and model-visible results.
 - Expected:
