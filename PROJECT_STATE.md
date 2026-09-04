@@ -7,10 +7,12 @@
 - Active Goal: `G003 — Durable Agent Kernel`.
 - G001 architecture baseline: achieved and accepted.
 - G002 shared runtime: achieved after independent owner review acceptance on 2026-09-02; governed by `ADR-0002`.
-- G003 is active under accepted `ADR-0003` and is narrowed to the durable provider-neutral kernel/recovery proof.
+- G003 is active under accepted `ADR-0003` and remains narrowed to the durable provider-neutral kernel/recovery proof.
 - G003 T002 through T006 are complete and verified.
 - T005 proved atomic common-execution + Agent-run creation/linkage and rollback on injected mid-write failure without adding Agent DTOs to the shared `ww-store` semantic API.
-- Next engineering slice: T007 tool contract, schema validation, policy, and replay fixtures; it converges with the completed provider work at T008, the functional model → tool → model kernel.
+- D021 places G003 under `REPLAN_LOCK` while `SPEC v2-candidate`, `PLAN v2-candidate`, open T007–T012, Verification, and Evaluations are refined for requester review.
+- The Goal state remains active, but no G003 implementation mutation or Task progression is allowed until the requester approves the refined packet and the lock is removed.
+- T007 remains the next engineering slice after unlock: tool contract, schema validation, policy, and replay fixtures; it converges with the completed provider work at T008, the functional model → tool → model kernel.
 - Proposed following Goal: `G004 — Agent Provider and Surface`; OpenAI protocol, bounded `fs.read`, Agent SDK/CLI; governed by proposed `ADR-0004`.
 - Deterministic OWS Flow kernel follows as G005; restart-safe Flow → Agent integration follows as G006.
 - `G010 — Durable Storage Evolution and Recovery Hardening` is proposed as a separate home for non-blocking persistence evolution findings. It is not a prerequisite for G004 unless later evidence activates it for a specific reason.
@@ -26,6 +28,7 @@ Every Goal must reference at least one ADR before activation. G001/G002 ADRs wer
 - OWS specification revision: `2dd2c84170d5f3e05d58e913e9ca298dcf8d543a`.
 - LangGraph reference revision: `11ee185999b86bfea2d8c0e69cef9a5e37acf686`.
 - Engine architecture baseline: `docs/architecture/WORKWEAVE-ENGINE-ARCHITECTURE-DOSSIER.md`.
+- Refinement method: approved `docs/skills/ww-refine-goal/SKILL.md`, introduced by D020 and invoked for G003 by D021.
 
 ## G002 achieved boundary
 
@@ -40,12 +43,28 @@ T003 Agent history + recovery reducer     complete / verified
 T004 Agent SQLite persistence             complete / verified
 T005 common/Agent transaction seam        complete / verified
 T006 recorded provider                    complete / verified
-T007 tool policy/replay fixtures          open
-T008 functional Agent kernel              open
-T009 lifecycle + cancellation             open
-T010 durable limits                       open
-T011 crash/restart matrix                 open
-T012 evaluations + terminal review        open
+T007 tool policy/replay fixtures          open / REPLAN_LOCK
+T008 functional Agent kernel              open / REPLAN_LOCK
+T009 lifecycle + cancellation             open / REPLAN_LOCK
+T010 durable limits                       open / REPLAN_LOCK
+T011 crash/restart matrix                 open / REPLAN_LOCK
+T012 evaluations + terminal review        open / REPLAN_LOCK
+```
+
+The Task IDs, meanings, and dependencies remain the original G003 sequence. The lock changes only whether implementation may proceed while the candidate planning basis is under review.
+
+## Current G003 planning basis
+
+```text
+ADR-0003 accepted
+GOAL unchanged
+SPEC v2-candidate    authorized by D021
+PLAN v2-candidate    based on SPEC v2-candidate
+TASKS T007-T012      refined, IDs unchanged
+VERIFICATION         requirement-traceable candidate
+EVALUATIONS          executable candidate procedures
+requester approval   pending
+REPLAN_LOCK           active
 ```
 
 ## Planned implementation sequence
@@ -53,8 +72,8 @@ T012 evaluations + terminal review        open
 ```text
 G002 Shared Runtime                 achieved
   ↓
-G003 Durable Agent Kernel           ACTIVE
-  ↓
+G003 Durable Agent Kernel           ACTIVE / REPLAN_LOCK
+  ↓ after requester approval and unlock
 G004 Agent Provider and Surface
   ↓
 G005 Deterministic OWS Flow Kernel
