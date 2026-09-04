@@ -1,7 +1,7 @@
 # G003 Tasks
 
 - Planning basis: `SPEC v2` + `PLAN v2`
-- Approval: `pending requester approval under D021`
+- Approval: `approved by requester 2026-09-04 under D021`
 - Completed T001–T006 retain their original meaning and evidence.
 - T007–T012 retain their existing identifiers and dependency order.
 
@@ -16,9 +16,9 @@
 | T005 Prove common/Agent SQLite transaction coordination | complete | common execution + Agent creation/link commit atomically without Agent DTOs in shared `ww-store`; injected failure leaves neither half committed; terminal repair remains T009 | T004 |
 | T006 Implement recorded provider and provider conformance fixtures | complete | deterministic fixtures cover text, tool calls, usage, failure, cancellation, truncation, and interrupted attempts through the normalized provider contract | T002 |
 | T007 Implement tool contract, schema validation, policy, and replay fixtures | open | complete `V-T007`; deterministic replay-safe and synthetic non-replayable fixtures validate exact arguments before policy/effect; no-effect paths invoke no effect and create one ordered model-visible result; replay/effect/policy/result identity required by recovery is durable before execution | T002, T003, T004 |
-| T008 Implement functional recorded-provider model → tool → model kernel | open | complete `V-T008`; the real functional kernel completes text-only and one-tool runs, drains/finalizes provider streams fail-closed, commits model/tool boundaries in order, and imports no concrete transport/SQLite/filesystem/Flow types | T005, T006, T007 |
+| T008 Implement functional recorded-provider model → tool → model kernel | open | complete `V-T008`; the real functional kernel completes text-only and one-tool runs, drains/finalizes provider streams fail-closed, preserves ordinary tool errors as model-visible results while keeping cancellation/invariant failures distinct, commits model/tool boundaries in order, and imports no concrete transport/SQLite/filesystem/Flow types | T005, T006, T007 |
 | T009 Integrate G002 lifecycle and durable cancellation | open | complete `V-T009`; one Agent run maps to one common execution; start/resume/terminal repair is idempotent; durable cancellation reaches provider/tool child tokens and never-replayable ambiguity requires intervention | T008 |
-| T010 Implement durable deadlines and execution budgets | open | complete `V-T010`; model/turn/tool/token counters derive from durable history, reserve before work, prohibit operation `limit + 1`, and settle deadline/budget outcomes consistently | T009 |
+| T010 Implement durable deadlines and execution budgets | open | complete `V-T010`; common execution deadline is canonical; model/completed-turn/logical-tool/token counters derive from durable history; token limits require provider usage observability; whole tool-call batches are admitted before execution; operation/batch beyond the limit is never launched | T009 |
 | T011 Prove crash/restart and ambiguous-effect recovery matrix | open | complete `V-T011`; distinct-process F1–F8 tests and second restart prove safe retry, no duplicate logical result, no Never replay, ordered repair, and idempotent terminal settlement | T010 |
 | T012 Record required EvaluationRuns and perform G003 recovery/architecture review | open | complete `V-T012`; every required Evaluation passes on the exact reviewed commit, permanent gates are green, and review finds no blocking provider/tool/store/Flow/Orchestration boundary violation | T011 |
 
@@ -88,7 +88,10 @@ cargo test --workspace --all-features --locked
 - [ ] Every stream is consumed through EOF and `ResponseAssembler::finish`; interrupted or malformed streams create no assistant entry or effect.
 - [ ] Finalized assistant entry commits before any requested tool effect.
 - [ ] Logical call IDs are allocated once in source order and then recovered from the durable assistant entry.
-- [ ] Invalid/unknown/denied/tool-error paths return exactly one ordered model-visible error result and continue only where specified.
+- [ ] Invalid/unknown/denied paths return exactly one ordered model-visible error result and continue only where specified.
+- [ ] A returned ordinary `ToolExecutionError` is durably recorded as exactly one model-visible `is_error=true` result and may be presented to the next model request.
+- [ ] Cancellation is handled by cancellation semantics and MUST NOT be normalized into an ordinary tool error result.
+- [ ] A panic or impossible invariant/contract violation is not converted into an ordinary model-visible tool error; the Agent fails/crashes and subsequent behavior derives from durable state.
 - [ ] Allowed tools execute sequentially and result ordering equals provider call ordering.
 - [ ] A turn commits only after all results are durable/model-visible.
 - [ ] Text-only and `model → test.echo → model` runs commit the expected terminal Agent result.
@@ -159,19 +162,24 @@ cargo test -p ww-agent-store-sqlite --test coordinator --locked
 
 ### Work units
 
-1. Typed limits and pure boundary decisions.
-2. Durable model/turn/tool/token counting.
-3. Provider/tool reservation enforcement.
-4. deadline/token/count terminal settlement.
+1. Typed limits, canonical deadline snapshot validation, and pure boundary decisions.
+2. Durable model/completed-model-turn/logical-tool-call/token counting.
+3. Provider usage-capability validation and tool-batch admission.
+4. Provider/tool enforcement and deadline/token/count terminal settlement.
 
 ### Acceptance criteria
 
-- [ ] Count limits are positive and typed; effective deadline is deterministic.
+- [ ] Count limits are positive and typed.
+- [ ] The linked G002 `ExecutionRecord.deadline` is the canonical deadline. Any Agent configuration deadline is a snapshot that must exactly match it; a mismatch rejects/fails closed before provider/tool work.
 - [ ] model requests count durable model attempt starts.
 - [ ] `max_turns` uses a distinct durable completed-model-turn count from `ModelAttemptCompleted`; the existing T003 `turn_count` remains the count of `TurnCommitted` records.
-- [ ] tool calls count durable tool attempt starts, including retries/no-effect attempts.
+- [ ] `max_tool_calls` counts logical model-requested calls from finalized assistant responses; the existing T003 `tool_attempt_count` remains attempt audit state and safe retries do not redefine the logical-call budget.
 - [ ] counters reconstruct identically after reopen.
-- [ ] provider/tool work is never launched as operation `limit + 1`.
+- [ ] when any token limit is configured, a provider/model with `usage == false` rejects before provider I/O.
+- [ ] when usage capability is declared but a finalized response omits normalized usage, the attempt fails closed as provider protocol failure before another model request.
+- [ ] before executing any tool from a finalized multi-call response, the complete source-ordered logical-call batch is checked against remaining `max_tool_calls` capacity.
+- [ ] if the complete batch exceeds remaining capacity, no tool in that response is prepared/executed and the Agent/common execution settles `BudgetExhausted`.
+- [ ] provider work is never launched as model request `limit + 1`; logical tool-call batches beyond capacity are never partially executed.
 - [ ] `now >= deadline` prevents launch and active deadline expiry cancels child work.
 - [ ] token usage accumulates from finalized normalized usage.
 - [ ] reaching/exceeding token limit stops before the next model request.

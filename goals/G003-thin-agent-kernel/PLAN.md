@@ -1,11 +1,11 @@
 # Plan — G003 Durable Agent Kernel
 
 - Version: `v2`
-- Approval: `pending requester approval`
+- Approval: `approved by requester 2026-09-04 under D021`
 - Specification basis: `G003 SPEC v2`
 - Refinement: `D021`
 - Goal state: `active`
-- Implementation state while pending: blocked by the G003 `REPLAN_LOCK`
+- Implementation readiness: T007 is next; implementation may begin only when no matching `REPLAN_LOCK` is present in `AGENTS.md`
 
 ## 1. Planning contract
 
@@ -54,6 +54,17 @@ Each open Task implements a WorkWeave contract, not a reference-project clone:
 - T012 proves those adaptations behaviorally; it does not require source or API parity with Pi, Harness, or LangGraph.
 
 The exact immutable source paths and preserve/adapt/reject decisions are recorded in SPEC §4. Implementation reviews MUST cite the SPEC requirement being satisfied rather than appeal directly to an upstream implementation.
+
+### 2.2 Requester-approved D021 boundary decisions
+
+The requester approved these four implementation boundaries on 2026-09-04. They are part of the v2 planning basis:
+
+1. **Deadline authority:** the linked G002 `ExecutionRecord.deadline` is canonical. Any Agent-configuration deadline is a persisted snapshot and must exactly match it; mismatch is invalid/corrupt state before provider/tool work.
+2. **Token-limit observability:** when any token limit is configured, the pinned provider/model must declare normalized usage support before provider I/O. If usage support is declared but a finalized response omits usage, fail closed as a provider-protocol failure before another model request.
+3. **Tool-call budget batches:** `max_tool_calls` counts logical model-requested calls, not retry attempts. A finalized multi-call response is admitted as one source-ordered batch before the first call executes; if the full batch exceeds remaining capacity, execute none and settle `BudgetExhausted`.
+4. **Tool execution errors:** an ordinary returned `ToolExecutionError` becomes one durable model-visible error result and the loop may continue. Cancellation follows cancellation semantics. A panic or impossible invariant/contract violation is not normalized into an ordinary tool error; it fails/crashes the kernel and recovery follows durable state.
+
+These decisions refine T008/T010 behavior without changing the T007→T012 Task topology.
 
 ## 3. Implementation strategy
 
@@ -188,7 +199,9 @@ Likely files:
 Deliver:
 
 - source-ordered preparation/execution/result handling;
-- policy denial and tool failure as one model-visible error result;
+- policy denial and ordinary returned tool failure as one durable model-visible error result;
+- cancellation remains cancellation and is not converted into ordinary tool failure;
+- panic/impossible invariant failure is not normalized into a model-visible tool error;
 - `TurnCommitted`;
 - second provider request sees ordered results;
 - text-only and model→tool→model success.
@@ -250,8 +263,11 @@ Likely files:
 Deliver:
 
 - typed positive limits;
-- durable model/turn/tool/token counts;
-- pure “may start next operation?” decisions;
+- common `ExecutionRecord.deadline` as canonical deadline plus Agent snapshot consistency validation;
+- durable model/completed-model-turn/logical-tool-call/token counts;
+- `tool_attempt_count` remains attempt audit state and is not reused as the logical tool-call budget;
+- provider usage-capability validation when token limits are configured;
+- pure “may start next operation/batch?” decisions;
 - exact deadline and inclusive/exclusive boundary tests.
 
 #### T010 work unit B — enforcement and common settlement
@@ -265,9 +281,12 @@ Likely files:
 
 Deliver:
 
-- reserve before provider/tool launch;
-- no operation `limit + 1`;
+- reserve before provider launch;
+- admit an entire finalized logical tool-call batch before its first execution;
+- if a batch exceeds remaining `max_tool_calls`, execute none of that batch and settle `BudgetExhausted`;
+- no logical model/tool work `limit + 1`;
 - token stop before next model request;
+- declared usage capability with missing finalized usage fails before another model request;
 - deadline cancellation during active work;
 - BudgetExhausted/TimedOut terminal mapping.
 
@@ -378,10 +397,14 @@ Two agents MUST NOT concurrently edit the same durable record vocabulary or Task
 | safe retry creates duplicate logical result | high | reserved result ID + reducer uniqueness + F4/F6 tests |
 | Never effect is replayed after ambiguous crash | critical | replay pin and `ToolEffectStarted` durable before invocation; F5 effect counter remains one |
 | cancellation maps unsafe ambiguity to Cancelled | high | Never + started + no result maps to intervention |
+| deadline has two competing authorities | high | common `ExecutionRecord.deadline` is canonical; Agent deadline field is a matching snapshot only |
+| token limits silently become advisory | high | require provider usage capability; missing promised finalized usage fails closed before next request |
+| multi-call response partially executes beyond tool budget | high | admit whole logical-call batch before first call; over-budget batch executes zero effects |
+| tool execution failure is conflated with cancellation or invariant failure | medium | ordinary returned ToolExecutionError is model-visible; cancellation and panic/invariant paths remain distinct |
 | limits use process-local counters | high | derive all counters from records and entries |
 | stale concurrent driver launches work from a rejected append | critical | expected-version append must commit before I/O; on conflict discard decision, reload and reduce |
 | cancel/deadline masks unsafe ambiguity | critical | fixed recovery precedence with Never ambiguity ahead of cancel/deadline/budget |
-| Goal expands into G004/G010 work | high | D021 lock, explicit exclusions, existing Stop Conditions |
+| Goal expands into G004/G010 work | high | D021 approved boundary, explicit exclusions, existing Stop Conditions |
 | Task/file scope becomes too large | medium | use internal work units; ~5 files is a strong signal, not a hard gate |
 
 ## 7. Stop and escalation rules

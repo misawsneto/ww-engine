@@ -1,11 +1,11 @@
 # Specification — G003 Durable Agent Kernel
 
 - Version: `v2`
-- Approval: `pending requester approval`
+- Approval: `approved by requester 2026-09-04 under D021`
 - Refinement: `D021`
 - Governing architecture: `ADR-0003`
-- Supersedes: the unversioned G003 specification for remaining open work when approved
-- Implementation code basis: `facb2d04d0060417db7a9fa50de68221ea493f33`
+- Supersedes: the unversioned G003 specification for remaining T007–T012 work
+- Implementation code basis: `facb2d04d0060417db7a9fa50de68221ea493f33` (coherent T006 code basis; D021 changed planning/specification only)
 - Completed-work boundary: T001–T006 remain governed by their original accepted contracts and evidence
 
 ## 0. Document contract
@@ -132,7 +132,11 @@ G003 MUST NOT add:
 10. Provider-declared failure does not trigger an automatic transient-retry policy in G003. Crash recovery may create a new audited attempt when the recovery matrix permits.
 11. A text response finalized with `CompletionReason::Length` is durable for audit but does not count as a successful Agent result.
 12. G003 has no released durable-data compatibility promise. T007–T011 may add Agent record variants and update fixtures needed by the accepted proof; same-code reopen/restart remains mandatory, while known-old schema/payload migration belongs to proposed G010.
-13. No open architectural question blocks this candidate. Requester approval of the complete packet settles these refinements.
+13. The linked G002 `ExecutionRecord.deadline` is the single canonical deadline authority. A deadline in Agent configuration is a persisted snapshot and MUST exactly match the common execution deadline.
+14. When token limits are configured, provider/model normalized usage capability is mandatory; token limits never silently degrade into advisory limits.
+15. `max_tool_calls` is a logical model-requested-call budget. Retry attempts remain separately auditable and do not redefine the logical-call budget.
+16. Ordinary returned tool execution errors are model-visible; cancellation, panic, and impossible invariant failures are distinct control/failure paths.
+17. No open architectural question blocks this approved v2. The requester approved the complete packet and the four boundary clarifications above on 2026-09-04.
 
 ## 4. Reference-derived architecture
 
@@ -220,7 +224,7 @@ This specification narrows those general contracts to the G003 proof.
 | T007 | Pi validates before `beforeToolCall`, converts blocked/invalid calls to tool results, and preserves source order; Harness binds tool start to assistant entry, source index, and reserved result identity | provider-independent registry; exact non-coercing validation; centralized policy; stable source/call/result identities; pure corruption-checking reducer | no `prepareArguments` coercion, postflight mutation, parallel execution, product hooks, lanes, or Harness façade |
 | T008 | Pi injects `StreamFn` into a small `runLoop` and alternates finalized assistant messages with ordered tool results | injected `ModelProvider`; one production EOF/finalization path; small functional durable driver | no stateful mega-session, queue draining, follow-ups, compaction, or concrete transport |
 | T009 | Pi propagates one abort signal through provider and tool hooks; G002 already separates durable cancel request from live token delivery | one common execution root token, child tokens, durable intent before signal, explicit terminal repair | cancellation is not proof that a started Never effect did not occur; no Pi session lifecycle is imported |
-| T010 | the WorkWeave dossier requires reserve-before-work budget accounting; Pi's turn-stop callback shows a useful loop boundary but is process-local | durable counters and pure pre-launch decisions reconstructed from Agent history | no callback-local counters, pricing policy, provider retry budget, or general resource scheduler |
+| T010 | the WorkWeave dossier requires reserve-before-work budget accounting; Pi's turn-stop callback shows a useful loop boundary but is process-local | durable counters and pure pre-launch decisions reconstructed from Agent history; canonical common deadline; usage-observable token limits; atomic logical-call-batch admission | no callback-local counters, pricing policy, provider retry budget, or general resource scheduler |
 | T011 | Harness reconstructs open work and rejects contradictions; LangGraph checkpoints retain pending writes and its interrupt contract may re-execute a node from its start | explicit F1–F8 durable states, bounded repair actions, distinct-process restart, second-restart idempotency | no generic graph/checkpoint runtime and no assumption that replaying an interrupted unit is safe for a Never effect |
 | T012 | Addy Osmani's spec/planning skills require explicit assumptions, dependency order, acceptance, and verification; the dossier requires behavioral reference-parity tests rather than implementation copying | exact-code EvaluationRuns and requirement-to-evidence review | reference projects are evidence, not compatibility targets or architecture authority |
 
@@ -571,7 +575,7 @@ The final no-effect attempt record preserves failure taxonomy:
 
 For an invalid/unknown call, unavailable classification fields remain `None` rather than fabricated. The `failed_at` field records the preparation stage that failed.
 
-### 7.4 Allowed execution settlements
+### 7.4 Allowed execution settlements and error taxonomy
 
 For an allowed call:
 
@@ -584,7 +588,11 @@ For an allowed call:
 
 This creates the required T011 repair boundary: `ToolEffectCompleted` may be durable while the model-visible result entry is absent.
 
-A tool execution error is model-visible and normally returns control to the model. It does not automatically fail the Agent.
+A returned ordinary `ToolExecutionError` is a completed effect outcome. It MUST be persisted as `ToolEffectCompleted::Error`, followed by exactly one reserved model-visible `is_error=true` result. It normally returns control to the model and does not automatically fail the Agent.
+
+Cancellation is not an ordinary `ToolExecutionError`: it follows the T009 cancellation/ambiguity rules and MUST NOT be rewritten into a generic model-visible tool error.
+
+A panic, impossible invariant, or kernel/tool contract violation MUST NOT be normalized into an ordinary model-visible tool error. It fails/crashes the kernel; restart behavior is determined only from the last committed durable boundary and the recorded replay policy.
 
 ### 7.5 Attempt interruption
 
@@ -644,6 +652,8 @@ pub struct AgentRunConfiguration {
 ```
 
 Until G010, this may be serialized inside the existing configuration JSON field. The kernel MUST fail before provider/tool work if the stored configuration cannot be decoded or a pinned tool is unavailable. T008 may introduce `AgentLimits` with permissive/unbounded defaults so the configuration shape is stable; T010 owns limit validation and enforcement.
+
+If `AgentLimits` contains a deadline snapshot, it is not a second authority. T009/T010 MUST compare it with the linked common `ExecutionRecord.deadline`; mismatch is invalid/corrupt state and no provider/tool work may start.
 
 ### 8.3 Model request construction
 
@@ -713,20 +723,22 @@ For every tool call, allocate stable logical IDs in provider source order before
 
 ### 8.7 Tool loop
 
-Process each logical call sequentially:
+Process each logical call sequentially only after T010 batch admission (when limits are enabled):
 
 ```text
 recover current call position
 → classify/validate/policy
 → persist pre-effect state
 → execute or produce no-effect result
-→ persist effect output
+→ persist effect output/error
 → append one model-visible result
 → finalize attempt
 → continue to next source-order call
 ```
 
 After all results are model-visible, append `TurnCommitted` with result IDs in source order and issue the next model request.
+
+An ordinary returned tool execution error follows §7.4 and may therefore be included in that next model request. Cancellation or invariant failure uses its distinct path and does not masquerade as a normal tool error.
 
 ### 8.8 Terminal behavior
 
@@ -813,7 +825,7 @@ When more than one condition is observable, the reducer/driver applies this orde
 2. an existing Agent terminal result is returned and its common terminal state is repaired if needed;
 3. a started Never effect without durable completion settles `RequiresIntervention`;
 4. a durable cancellation request settles `Cancelled` when no higher condition applies;
-5. an expired effective deadline settles `TimedOut`;
+5. an expired canonical common deadline settles `TimedOut`;
 6. an exhausted count/token budget settles `BudgetExhausted`;
 7. otherwise the one recovery/next action derived from history may proceed.
 
@@ -821,11 +833,11 @@ This order is fixed so restart does not choose a different disposition from the 
 
 ## 10. Deadlines and execution budgets — T010
 
-### 10.1 Limits model
+### 10.1 Limits model and deadline authority
 
 ```rust
 pub struct AgentLimits {
-    pub deadline: Option<DateTime<Utc>>,
+    pub deadline: Option<DateTime<Utc>>, // persisted snapshot; not authoritative
     pub max_model_requests: u64,
     pub max_turns: u64,
     pub max_tool_calls: u64,
@@ -835,13 +847,15 @@ pub struct AgentLimits {
 }
 ```
 
-Count limits MUST be positive. The effective deadline is the earlier of Agent configuration deadline and common execution deadline.
+Count limits MUST be positive.
+
+The linked G002 `ExecutionRecord.deadline` is the authoritative deadline. `AgentLimits.deadline` is only a persisted Agent configuration snapshot for audit/reconstruction and MUST exactly equal the common deadline, including both being `None`. A mismatch is invalid/corrupt state and MUST fail closed before provider/tool work. There is no “earlier of two deadlines” rule.
 
 ### 10.2 Durable counting semantics
 
 - `model_requests` = number of durable model-attempt starts, including restart/retry attempts.
 - the `max_turns` budget = number of durable `ModelAttemptCompleted` records, including terminal assistant responses. Add a distinct derived `completed_model_turn_count` (or equivalently named field); do not repurpose the existing `AgentRecoveryState.turn_count`, which remains the number of durable `TurnCommitted` records established by T003.
-- `tool_calls` = number of durable `ToolAttemptStarted` handling attempts, including safe replay attempts and no-effect denied/rejected attempts.
+- `logical_tool_calls` = number of logical tool calls present in finalized durable assistant responses admitted under the run's tool-call budget. Add a distinct derived `logical_tool_call_count` (or equivalently named field); do not repurpose the existing T003 `tool_attempt_count`, which remains handling/execution-attempt audit state. Safe retries and no-effect attempts do not consume a second logical-call unit for the same logical call.
 - input/output/total tokens = sum of finalized normalized provider usage; cached-token fields do not reduce total-token accounting.
 
 Counters are reconstructed from durable history, never process-local mutable counters.
@@ -850,28 +864,39 @@ Counters are reconstructed from durable history, never process-local mutable cou
 
 Before model attempt start:
 
-- check cancellation/deadline;
+- check durable cancellation and canonical common deadline;
 - verify the next model request fits `max_model_requests`;
-- verify the next turn fits `max_turns`;
+- verify the next completed model turn can fit `max_turns`;
+- if any token limit is configured, require the pinned provider/model to declare normalized usage capability before provider I/O;
 - persist/reserve the attempt before provider I/O.
 
-Before tool attempt start:
+After a finalized assistant response and before the first requested tool is prepared/executed:
 
-- check cancellation/deadline;
-- verify the attempt fits `max_tool_calls`;
-- persist/reserve the attempt before effect execution.
+- compute the complete source-ordered logical-call batch size from the durable assistant entry;
+- compare `logical_tool_call_count + batch_size` with `max_tool_calls`;
+- if the full batch does not fit, execute/prepare **none** of the response's tool calls and commit `BudgetExhausted`;
+- if the full batch fits, admit it as one deterministic budget decision, then process calls sequentially in source order;
+- a later Safe retry of an already admitted logical call creates another attempt but does not consume another logical-call budget unit.
 
-After finalized usage:
+Before each admitted tool effect starts:
 
-- add usage durably;
+- check cancellation/canonical deadline;
+- persist the attempt/pre-effect authorization boundary before effect execution.
+
+After finalized provider usage:
+
+- if the provider/model declared usage capability but finalized response usage is absent, fail closed as provider-protocol failure before another model request;
+- otherwise add usage durably;
 - when a token limit is reached or exceeded, do not issue another model request;
 - the already-finalized response remains durable.
 
 ### 10.4 Boundary definitions
 
-- `now >= deadline` means expired.
-- Reaching a count limit is allowed for the operation just durably reserved; launching operation `limit + 1` is forbidden.
-- Token limits cannot predict unknown provider output; enforcement occurs before the next model request.
+- `now >= ExecutionRecord.deadline` means expired.
+- Reaching a model-request/turn limit is allowed for the operation just durably reserved; launching operation `limit + 1` is forbidden.
+- Tool-call capacity is all-or-none per finalized assistant batch; a batch exceeding remaining capacity executes zero calls rather than a prefix.
+- Token limits cannot predict unknown provider output; enforcement occurs before provider I/O when capability is unavailable and before the next model request after finalized usage.
+- A provider/model advertising usage support but omitting usage from a finalized response violates the configured token-limit contract and fails closed before another request.
 - Deadline during active provider/tool work cancels its child token and settles TimedOut unless never-replayable ambiguity requires intervention.
 - Budget exhaustion produces a typed Agent result and common `BudgetExhausted`, not a provider/tool failure.
 
@@ -883,7 +908,7 @@ The test harness MUST support deterministic interruption after these boundaries:
 | --- | --- | --- |
 | F1 creation commit | common execution + Agent run + link + input exist | continue once from known IDs; do not create a second run |
 | F2 model start commit | model attempt started; no final response; subcases cover no event and transient partial deltas because deltas are not canonical durable entries | mark interrupted; create a new attempt only if cancellation/deadline/budget permit |
-| F3 model finalization commit | assistant entry and completion record exist | do not contact provider; process pending tools or terminalize |
+| F3 model finalization commit | assistant entry and completion record exist | do not contact provider; perform T010 batch admission, then process pending tools or terminalize |
 | F4 safe effect-start before durable result | replay `Safe`, `ToolEffectStarted`, no `ToolEffectCompleted` | append interruption; execute a new attempt; one logical result |
 | F5 Never effect-start/effect ambiguity before durable result | replay `Never`, `ToolEffectStarted`, no `ToolEffectCompleted` | do not execute; append intervention; settle `RequiresIntervention` |
 | F6 tool effect output durable, model-visible entry absent | effect output exists with reserved result ID | append exactly the missing entry and completion; do not execute |
@@ -898,7 +923,7 @@ A second restart after each repair MUST be a no-op with respect to external effe
 
 Repair only states explicitly listed in the matrix.
 
-Unknown references, mismatched reserved IDs, duplicate logical results, source-order violations, policy/replay changes, or incompatible common/Agent terminal states MUST fail closed as corruption or intervention; they MUST NOT be guessed into a repaired state.
+Unknown references, mismatched reserved IDs, duplicate logical results, source-order violations, policy/replay changes, deadline snapshot mismatch, or incompatible common/Agent terminal states MUST fail closed as corruption or intervention; they MUST NOT be guessed into a repaired state.
 
 ## 12. Evaluations and terminal review — T012
 
@@ -1000,8 +1025,9 @@ Package/test target names MUST match final files; update Task verification comma
 - Unit tests: identities, schema profile, deterministic digest, policy, fixture outputs, limit decisions.
 - Contract tests: registry/validation/policy ordering and zero-effect denial.
 - Reducer tests: valid transitions and every new corrupt-history case.
-- Kernel integration tests: text-only and model→tool→model.
+- Kernel integration tests: text-only, model→tool→model, and ordinary tool execution error versus cancellation/invariant failure.
 - Runtime integration tests: lifecycle/cancellation/terminal repair.
+- Limit tests: canonical deadline consistency, usage-capability requirements, logical tool-call batch admission, token/count boundaries.
 - OS-process tests: F1–F8 restart matrix.
 - Full workspace gate: required before each Task is marked complete and for T012 exact-code review.
 
@@ -1015,6 +1041,10 @@ Tests MUST assert both positive outcomes and prohibited side effects/provider ca
 - validate exact parsed arguments before policy or execution;
 - persist ambiguity-sensitive identity/classification/start state before effect/provider work;
 - preserve provider source order;
+- treat common `ExecutionRecord.deadline` as canonical and validate any Agent snapshot against it;
+- require normalized usage observability whenever token limits are configured;
+- admit a whole logical tool-call batch before executing its first call;
+- keep ordinary returned tool errors distinct from cancellation and invariant failure;
 - use typed WorkWeave-owned errors at crate boundaries;
 - run focused tests and the permanent gate;
 - update Task and Verification evidence only after the code basis passes.
@@ -1032,9 +1062,13 @@ Tests MUST assert both positive outcomes and prohibited side effects/provider ca
 ### Never
 
 - execute invalid or denied calls;
+- partially execute an over-budget logical tool-call batch;
+- silently ignore unavailable/missing provider usage when token limits are configured;
 - silently replay `ReplayPolicy::Never`;
 - produce two model-visible results for one logical call;
 - treat EOF without finalization as success;
+- treat an Agent deadline snapshot as a competing authority;
+- normalize cancellation/panic/invariant failure into an ordinary model-visible tool error;
 - rely on process-local counters for recovery or limits;
 - mutate completed Task meanings/evidence;
 - persist secrets or hidden chain-of-thought;
@@ -1090,6 +1124,7 @@ Tests MUST assert both positive outcomes and prohibited side effects/provider ca
 | KERN-09 | Kernel owns no concrete transport, SQLite, capability, Flow, or product surface |
 | KERN-10 | Outer provider dispatch errors normalize to one durable failed/interrupted attempt with no assistant/effect |
 | KERN-11 | Each mutation cycle derives from one versioned snapshot and discards stale decisions on conflict |
+| KERN-12 | Ordinary returned ToolExecutionError is one durable model-visible error; cancellation and panic/invariant failure are distinct paths |
 
 ### Lifecycle requirements
 
@@ -1108,14 +1143,17 @@ Tests MUST assert both positive outcomes and prohibited side effects/provider ca
 
 | ID | Requirement |
 | --- | --- |
-| LIMIT-01 | Positive typed limits and deterministic effective deadline |
-| LIMIT-02 | Model/turn/tool counters derive from specified durable records |
-| LIMIT-03 | Provider/tool capacity is checked and reserved before launch |
-| LIMIT-04 | Operation `limit + 1` is never launched |
+| LIMIT-01 | Common `ExecutionRecord.deadline` is authoritative; Agent deadline is a matching snapshot only |
+| LIMIT-02 | Model request, completed-model-turn, logical-tool-call, and token counters derive from specified durable state without reinterpreting T003 counters |
+| LIMIT-03 | Provider capacity and admitted tool batches are checked before launch |
+| LIMIT-04 | Provider request `limit + 1` is never launched; an over-budget logical tool-call batch executes zero calls |
 | LIMIT-05 | Finalized provider usage accumulates durably |
 | LIMIT-06 | Token limit stops before the next provider request |
-| LIMIT-07 | `now >= deadline` expires; active expiry cancels child work |
+| LIMIT-07 | `now >=` canonical common deadline expires; active expiry cancels child work |
 | LIMIT-08 | BudgetExhausted/TimedOut are explicit unless Never ambiguity requires intervention |
+| LIMIT-09 | Configured token limits require provider/model normalized usage capability before provider I/O |
+| LIMIT-10 | Declared usage capability with missing finalized usage fails closed before another model request |
+| LIMIT-11 | Logical tool-call budget admits complete finalized assistant batches atomically; safe retries remain attempt audit, not new logical calls |
 
 ### Recovery requirements
 
@@ -1149,9 +1187,9 @@ Tests MUST assert both positive outcomes and prohibited side effects/provider ca
 | --- | --- | --- |
 | TOOL-01…TOOL-13 | T007 | `V-T007` |
 | DUR-01…DUR-10 | T007/T008/T011 | `V-T007`, `V-T008`, `V-T011` |
-| KERN-01…KERN-11 | T008 | `V-T008` |
+| KERN-01…KERN-12 | T008 | `V-T008` |
 | LIFE-01…LIFE-08 | T009 | `V-T009` |
-| LIMIT-01…LIMIT-08 | T010 | `V-T010` |
+| LIMIT-01…LIMIT-11 | T010 | `V-T010` |
 | REC-01…REC-11 | T011 | `V-T011` |
 | EVAL-01…EVAL-05 | T012 | `V-T012` |
 
@@ -1159,7 +1197,7 @@ The detailed check identifiers live in `VERIFICATION.md`.
 
 ## 19. Open questions
 
-No unresolved question blocks approval of this specification.
+No unresolved question blocks implementation of this approved specification.
 
 Later, separately governed work may revisit:
 

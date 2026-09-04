@@ -1,7 +1,7 @@
 # G003 Evaluations
 
 - Version: `v2`
-- Approval: `pending requester approval under D021`
+- Approval: `approved by requester 2026-09-04 under D021`
 - Specification basis: `G003 SPEC v2`
 - All EvaluationRuns required for closure must execute on the exact final reviewed commit.
 
@@ -181,28 +181,39 @@ A passing run becomes stale when relevant code or the check contract changes.
 
 ### `denial-and-tool-error`
 
-- Covers: model-visible no-effect/error behavior.
-- Subjects: policy denial, invalid args, unknown tool, fixture error.
-- Procedure: run one case of each through the real kernel.
+- Covers: model-visible no-effect/error behavior and error taxonomy.
+- Subjects: policy denial, invalid args, unknown tool, ordinary returned `ToolExecutionError`, cancellation, invariant failure.
+- Procedure:
+  1. run invalid, unknown, and policy-denied calls through the real kernel;
+  2. run a fixture returning an ordinary typed `ToolExecutionError`;
+  3. run a cancellable fixture and assert cancellation follows the cancellation path;
+  4. exercise a test-only impossible invariant/contract failure and assert it is not normalized into an ordinary tool result.
 - Expected:
   - zero effect for invalid/unknown/denied;
-  - exactly one error result per call;
-  - next provider request sees the error in source order;
-  - tool execution error is audited and model-visible.
+  - exactly one error result per invalid/unknown/denied call;
+  - an ordinary returned execution error produces exactly one durable model-visible `is_error=true` result and the next provider request may observe it;
+  - cancellation is not converted into ordinary tool error;
+  - panic/impossible invariant failure is not presented to the model as a normal tool failure; recovery starts from the last durable boundary.
 
 ### `cancellation-limits`
 
 - Covers: bounded execution.
-- Subjects: common cancellation, deadline, model/turn/tool/token limits.
+- Subjects: common cancellation, canonical deadline, model/turn/logical-tool/token limits, provider usage capability.
 - Procedure:
-  1. block provider and safe/Never tools;
-  2. cancel or expire deadline;
-  3. run exact boundary and `limit + 1` cases;
-  4. combine cancel, deadline, budget exhaustion, and Never ambiguity in the same reduced states;
-  5. reopen terminal histories.
+  1. block provider and Safe/Never tools;
+  2. cancel or expire the common `ExecutionRecord.deadline`;
+  3. run exact model/turn/logical-tool boundaries and `limit + 1` cases;
+  4. run multi-call assistant batches exactly fitting and exceeding remaining logical tool-call capacity;
+  5. configure token limits with usage-capable and usage-incapable provider/model fixtures, plus a fixture that declares usage capability but omits finalized usage;
+  6. combine cancel, deadline, budget exhaustion, and Never ambiguity in the same reduced states;
+  7. reopen terminal histories.
 - Expected:
   - active child token receives cancellation;
-  - no operation beyond a limit launches;
+  - common `ExecutionRecord.deadline` is authoritative and a mismatching Agent deadline snapshot fails closed before work;
+  - no provider request beyond its limit launches;
+  - an over-budget logical tool-call batch executes zero tools; an exactly fitting batch is admitted as a whole in source order;
+  - token-limit configuration rejects when usage capability is unavailable;
+  - declared usage capability with omitted finalized usage fails closed before another provider request;
   - token limit stops before next provider call;
   - Never ambiguity requires intervention;
   - simultaneous conditions select the same SPEC §9.6 disposition before and after reopen;

@@ -1,7 +1,7 @@
 # G003 Verification
 
 - Version: `v2`
-- Approval: `pending requester approval under D021`
+- Approval: `approved by requester 2026-09-04 under D021`
 - Specification basis: `G003 SPEC v2`
 - Completed T002–T006 checks/evidence below retain their original meaning.
 
@@ -104,7 +104,7 @@ cargo test -p ww-agent-core --test recovery --locked
 ### Tool loop and terminal result
 
 - [ ] `V-T008-08` logical IDs allocate once in provider source order and survive reconstruction
-- [ ] `V-T008-09` unknown/invalid/denied/tool-error each returns one ordered model-visible error result
+- [ ] `V-T008-09` unknown/invalid/denied paths each return one ordered model-visible error result
 - [ ] `V-T008-10` allowed calls execute sequentially
 - [ ] `V-T008-11` provider call order equals model-visible result order in the next request
 - [ ] `V-T008-12` durable effect output precedes/repairs model-visible result
@@ -115,6 +115,9 @@ cargo test -p ww-agent-core --test recovery --locked
 - [ ] `V-T008-17` kernel imports no concrete provider transport, SQLite, filesystem/process/network, Flow/OWS, CLI/TUI/server, or Orchestration type
 - [ ] `V-T008-18` outer provider-dispatch error commits one typed failed/interrupted attempt and creates no assistant entry/effect/automatic retry
 - [ ] `V-T008-19` stale expected-version append launches no external work; reload/reduction observes and follows the winning durable state
+- [ ] `V-T008-20` an ordinary returned `ToolExecutionError` creates exactly one durable model-visible `is_error=true` result and may be included in the next provider request
+- [ ] `V-T008-21` tool cancellation follows cancellation semantics and is not converted into an ordinary tool-error result
+- [ ] `V-T008-22` panic/impossible invariant failure is not normalized into an ordinary model-visible tool error; recovery follows the last committed durable boundary
 
 Focused evidence:
 
@@ -153,11 +156,11 @@ cargo test -p ww-agent-store-sqlite --test coordinator --locked
 - [ ] `V-T010-01` zero count limit rejects configuration
 - [ ] `V-T010-02` model-request count includes every durable attempt start
 - [ ] `V-T010-03` a distinct completed-model-turn count includes every durable `ModelAttemptCompleted`, including terminal assistant responses, while T003 `turn_count` remains `TurnCommitted` count
-- [ ] `V-T010-04` tool-call count includes every durable handling/execution attempt
+- [ ] `V-T010-04` logical tool-call count derives from finalized assistant calls; T003 `tool_attempt_count` remains attempt audit state and safe retries do not consume a second logical-call unit
 - [ ] `V-T010-05` counts reconstruct identically after reopen
-- [ ] `V-T010-06` operation at the limit is allowed only if reserved; operation `limit + 1` is never launched
-- [ ] `V-T010-07` `now == deadline` is expired
-- [ ] `V-T010-08` deadline before launch calls provider/tool zero times
+- [ ] `V-T010-06` provider request at the limit is allowed only if reserved; request `limit + 1` is never launched
+- [ ] `V-T010-07` `now == ExecutionRecord.deadline` is expired
+- [ ] `V-T010-08` canonical deadline before launch calls provider/tool zero times
 - [ ] `V-T010-09` active deadline expiry cancels provider/tool child token
 - [ ] `V-T010-10` normalized input/output/total usage accumulates durably
 - [ ] `V-T010-11` reaching/exceeding token limit prevents the next provider call
@@ -165,6 +168,11 @@ cargo test -p ww-agent-store-sqlite --test coordinator --locked
 - [ ] `V-T010-13` Never ambiguity settles intervention rather than falsely timing out/cancelling
 - [ ] `V-T010-14` no limit decision depends on process-local counters
 - [ ] `V-T010-15` simultaneous cancellation/deadline/budget observations resolve deterministically before and after reopen
+- [ ] `V-T010-16` linked common `ExecutionRecord.deadline` is authoritative; an Agent deadline snapshot mismatch fails closed before provider/tool work
+- [ ] `V-T010-17` configured token limits with provider/model `usage == false` reject before provider I/O
+- [ ] `V-T010-18` provider/model declaring usage support but omitting finalized usage fails closed before another model request
+- [ ] `V-T010-19` a finalized multi-call response whose complete logical-call batch exceeds remaining `max_tool_calls` capacity executes/prepares zero tools and settles `BudgetExhausted`
+- [ ] `V-T010-20` a batch exactly fitting remaining logical-call capacity is admitted in source order and no partial admission path exists
 
 Focused evidence:
 
