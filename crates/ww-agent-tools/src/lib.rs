@@ -7,6 +7,7 @@
 
 mod digest;
 mod error;
+mod fixtures;
 mod identity;
 mod policy;
 mod preparation;
@@ -18,6 +19,7 @@ pub use digest::{arguments_digest, canonical_bytes};
 pub use error::{
     ArgumentValidationError, ArgumentViolation, ToolDefinitionError, ToolResolutionError,
 };
+pub use fixtures::{EchoTool, EffectProbe, UnsafeOnceTool};
 pub use identity::{ToolId, ToolIdentity, ToolSpec, ToolVersion};
 pub use policy::{PolicyDecision, ToolPolicy, ToolPolicyInput};
 pub use preparation::{
