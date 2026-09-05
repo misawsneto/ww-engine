@@ -49,20 +49,22 @@ The Flow kernel owns OWS flow-definition loading, bindings, guards, actions, tok
 
 T002 provider protocol/assembler, T003 Agent history/recovery reducer, T004 Agent SQLite persistence, T005 atomic common/Agent transaction coordination, and T006 RecordedProvider conformance are complete and verified.
 
-D021 established the approved v2 basis. D022 was later resumed after review found the first dry-run hardening pass had placed material architecture requirements only in lower-authority `TASKS.md` and unlocked before reconciling SPEC/PLAN/V&V.
+D021 established the approved v2 basis. D022 was later resumed after review found the first dry-run hardening pass had placed material architecture requirements only in lower-authority `TASKS.md` and unlocked before reconciling SPEC, PLAN, Tasks, Verification, and Evaluations.
 
 The **G003 D022 `REPLAN_LOCK` is active**. Implementation is blocked until the corrected packet is approved and the lock is removed.
 
-The candidate corrected basis is:
+The current draft generation is:
 
-- `SPEC v3-candidate`;
-- `PLAN v3-candidate`;
+- `SPEC v3` — draft;
+- `PLAN v3` — draft;
 - reconciled open Tasks;
-- `VERIFICATION v3-candidate` with stable D022 checks;
-- `EVALUATIONS v3-candidate`;
+- `VERIFICATION v3` — draft, with published check identities preserved or explicitly mapped;
+- `EVALUATIONS v3` — draft;
 - updated `HANDOFF.md`.
 
-The corrected boundary keeps T007 focused on tool preparation + durable tool grammar/reducer, while T008 owns the real production commit-before-effect execution proof. Tool cancellation is machine-distinguishable from ordinary tool error, Draft 2020-12 offline validation covers `$ref` and `$dynamicRef`, and run configured tool-pin order—not registry insertion order—is authoritative.
+The corrected boundary keeps T007 focused on tool preparation + durable tool grammar/reducer, while T008 owns the real production commit-before-effect execution proof. `ToolPreparationDisposition` and `ToolPreparationStage` are defined in `ww-agent-tools`; Agent core embeds those exact values in Agent-owned durable records without a duplicate preparation taxonomy or tools→core dependency. Tool cancellation is machine-distinguishable from ordinary tool error, Draft 2020-12 offline validation covers `$ref` and `$dynamicRef`, and run configured tool-pin order—not registry insertion order—is authoritative.
+
+The approved implementation basis remains D021/v2 until the requester approves v3. Approval promotes the same v3 generation from draft to approved; it does not create a new version solely for lifecycle state.
 
 After requester approval and unlock, T007 is the next implementation Task.
 
