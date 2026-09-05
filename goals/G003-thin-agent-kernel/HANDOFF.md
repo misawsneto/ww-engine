@@ -1,10 +1,10 @@
 # G003 Builder Handoff
 
-- Status: planning reconciliation under D022; implementation blocked while `REPLAN_LOCK` exists
+- Status: current implementation orientation; the D022 `REPLAN_LOCK` is removed
 - Goal: `G003 — Durable Agent Kernel`
-- Next implementation Task after approval/unlock: `T007`
+- Next implementation Task: `T007`
 - Governing architecture: `ADR-0003`
-- Draft planning basis: `SPEC v3`, `PLAN v3`, `TASKS.md`, `VERIFICATION.md`, `EVALUATIONS.md`
+- Approved planning basis: `SPEC v3`, `PLAN v3`, `TASKS.md`, `VERIFICATION.md`, `EVALUATIONS.md`
 - Refinement authority: D021 baseline + resumed D022
 
 ## Purpose

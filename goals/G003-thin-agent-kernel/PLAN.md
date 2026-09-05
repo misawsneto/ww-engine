@@ -1,11 +1,11 @@
 # Plan — G003 Durable Agent Kernel
 
 - Version: `v3`
-- State: `draft`
-- Approval: `pending requester approval under resumed D022`
-- Specification basis: `G003 SPEC v3 (draft)`
+- State: `approved`
+- Approval: `approved by requester 2026-09-05 under resumed D022`
+- Specification basis: `G003 SPEC v3`
 - Goal state: `active`
-- Implementation readiness: blocked while G003 `REPLAN_LOCK` is present
+- Implementation readiness: unblocked; the D022 `REPLAN_LOCK` is removed
 - Task topology: unchanged — `T007 → T008 → T009 → T010 → T011 → T012`
 
 ## 1. Planning contract

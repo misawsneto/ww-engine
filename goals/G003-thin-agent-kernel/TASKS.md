@@ -1,11 +1,11 @@
 # G003 Tasks
 
-- Planning basis: `SPEC v3 (draft)` + `PLAN v3 (draft)`
+- Planning basis: `SPEC v3` + `PLAN v3`
 - Refinement authority: D021 baseline + resumed D022
-- Approval: pending requester approval of the corrected D022 packet
+- Approval: approved by requester 2026-09-05 under resumed D022
 - Completed T001–T006 retain their original meaning and evidence.
 - T007–T012 retain their identifiers and dependency order.
-- G003 implementation is blocked while the D022 `REPLAN_LOCK` exists.
+- G003 implementation is unblocked; the D022 `REPLAN_LOCK` is removed.
 
 ## Canonical Task index
 

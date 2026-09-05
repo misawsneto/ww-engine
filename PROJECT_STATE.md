@@ -11,8 +11,8 @@
 - T002–T006 are complete and verified; their semantics/evidence are frozen.
 - D021 established the approved v2 planning basis and four accepted boundary clarifications: common deadline authority, usage-observable token limits, whole logical-tool-batch admission, and distinct ordinary-error/cancellation/invariant paths.
 - D022 was resumed after review found the first D022 pass had placed material architecture requirements only in `TASKS.md`, contrary to the repository authority hierarchy and `ww-refine-goal` completion rules.
-- The G003 `REPLAN_LOCK` is active under D022. Implementation is blocked until the corrected packet is approved and the lock is removed.
-- Draft planning generation: `SPEC v3`, `PLAN v3`, reconciled T007/T008 Tasks, `VERIFICATION v3`, `EVALUATIONS v3`, and the updated Goal handoff. Version identity is `v3`; draft/approval state is tracked separately.
+- The corrected D022 v3 packet is approved by the requester on 2026-09-05 and the G003 `REPLAN_LOCK` is removed. Implementation is unblocked.
+- Approved planning generation: `SPEC v3`, `PLAN v3`, reconciled T007/T008 Tasks, `VERIFICATION v3`, `EVALUATIONS v3`, and the updated Goal handoff. Version identity is `v3`; approval state is tracked separately.
 - The corrected boundary keeps T007 responsible for pure tool preparation + durable tool grammar/reducer and T008 responsible for the real commit-before-effect execution proof.
 - `ToolPreparationDisposition` and `ToolPreparationStage` are tools-owned semantic types returned by the single `ww-agent-tools` preparation seam; Agent core embeds those exact values in Agent-owned durable records and does not define a second taxonomy.
 - Tool execution cancellation is a machine-distinguishable control outcome, not an ordinary `ToolExecutionError`; T009 owns durable cancellation intent and replay-sensitive final settlement.
@@ -20,7 +20,7 @@
 - Run configured tool pin order is authoritative; registry registration order has no model-visible authority.
 - Q008 remains resolved for A004-builder: Policy stage belongs in `ToolCallPrepared::NoEffect`; `ToolAttemptDenied` gains no duplicate stage field.
 - Published Verification identifiers remain consumed. D022 no longer repurposes `V-T007-18`, `V-T007-21`, `V-T007-22`, or `V-T007-23`; their changed proof obligations are mapped to new/current checks.
-- T007 remains the next implementation Task **after requester approval and unlock**.
+- T007 is the next implementation Task; the approved basis is the v3 generation.
 - Proposed following Goal: `G004 — Agent Provider and Surface`; first concrete provider, bounded `fs.read`, SDK/CLI; proposed `ADR-0004`.
 - G005 is deterministic OWS Flow kernel; G006 is restart-safe Flow → Agent integration.
 - `G010 — Durable Storage Evolution and Recovery Hardening` remains proposed and non-blocking unless later evidence activates it.
@@ -51,7 +51,7 @@ T003 Agent history + recovery reducer     complete / verified
 T004 Agent SQLite persistence             complete / verified
 T005 common/Agent transaction seam        complete / verified
 T006 recorded provider                    complete / verified
-T007 tool preparation + durable grammar   open / NEXT AFTER D022 APPROVAL
+T007 tool preparation + durable grammar   open / NEXT
 T008 functional Agent kernel              open
 T009 lifecycle + cancellation             open
 T010 durable limits                       open
@@ -66,25 +66,25 @@ Task IDs and dependency order remain unchanged.
 ```text
 ADR-0003              accepted / unchanged
 GOAL                   unchanged
-SPEC v3                draft / pending D022 requester approval
-PLAN v3                draft / based on SPEC v3
-TASKS                  reconciled to v3 draft; IDs unchanged
-VERIFICATION v3        draft; published IDs preserved/mapped
-EVALUATIONS v3         draft; preparation/effect-boundary split
-HANDOFF                 aligned to v3 draft authority
+SPEC v3                approved
+PLAN v3                approved / based on SPEC v3
+TASKS                  reconciled to v3; IDs unchanged
+VERIFICATION v3        approved; published IDs preserved/mapped
+EVALUATIONS v3         approved; preparation/effect-boundary split
+HANDOFF                 aligned to v3 authority
 Q008                    resolved
-REPLAN_LOCK             ACTIVE — D022
-next implementation     T007 after approval/unlock
+REPLAN_LOCK             none
+next implementation     T007
 ```
 
-The currently approved implementation basis remains D021/v2 until the requester approves v3. Approval promotes this same v3 generation; it does not mint another version solely for lifecycle state.
+The approved implementation basis is the v3 generation. Approval promoted this same generation from draft; it did not mint another version solely for lifecycle state.
 
 ## Planned implementation sequence
 
 ```text
 G002 Shared Runtime                 achieved
   ↓
-G003 Durable Agent Kernel           ACTIVE — D022 replanning lock
+G003 Durable Agent Kernel           ACTIVE — T007 next
   ↓
 G004 Agent Provider and Surface
   ↓

@@ -1,8 +1,8 @@
 # Specification — G003 Durable Agent Kernel
 
 - Version: `v3`
-- State: `draft`
-- Approval: `pending requester approval under resumed D022`
+- State: `approved`
+- Approval: `approved by requester 2026-09-05 under resumed D022`
 - Refinement: `D021` baseline + resumed `D022`
 - Governing architecture: `ADR-0003`
 - Supersedes: `SPEC v2` when approved
@@ -870,4 +870,4 @@ finalized provider call
 
 No unresolved technical question is intentionally left for the implementing agent in T007/T008.
 
-This v3 draft remains under `REPLAN_LOCK` until requester approval. Later separately governed work may revisit durable format evolution, approval-bearing policy, idempotency keys, parallel tools, concrete providers, and real capabilities.
+This v3 generation is approved and the `REPLAN_LOCK` is removed. Later separately governed work may revisit durable format evolution, approval-bearing policy, idempotency keys, parallel tools, concrete providers, and real capabilities.

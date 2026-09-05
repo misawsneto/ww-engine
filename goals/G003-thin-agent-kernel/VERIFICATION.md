@@ -1,9 +1,9 @@
 # G003 Verification
 
 - Version: `v3`
-- State: `draft`
-- Approval: `pending requester approval under resumed D022`
-- Specification basis: `G003 SPEC v3 (draft)`
+- State: `approved`
+- Approval: `approved by requester 2026-09-05 under resumed D022`
+- Specification basis: `G003 SPEC v3`
 - Completed T002–T006 evidence retains its original meaning.
 
 ## Permanent deterministic gate

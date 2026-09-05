@@ -115,7 +115,11 @@ A004 also correctly noted that “metadata omitted” was not a meaningful runti
 
 No new Goal, Task, Decision, domain entity, durable record variant, or dependency direction is introduced by these clarifications.
 
-The corrected packet remains under `REPLAN_LOCK` until the exact draft head passes the complete D017 gate and the requester approves the complete v3 packet.
+### D022 approval and unlock — 2026-09-05
+
+The requester approved the complete corrected v3 packet and directed removal of the lock. `SPEC v3`, `PLAN v3`, reconciled Tasks, `VERIFICATION v3`, and `EVALUATIONS v3` are promoted from draft to approved without minting a new version. The G003 `REPLAN_LOCK` is removed and T007 implementation may begin.
+
+The v3 correction resolved two findings raised by `A004-builder` in the T007 dry run: preparation-type ownership now sits in `ww-agent-tools` with core embedding those exact types (`V-T007-41`), and the seam/module naming mandate was demoted from acceptance requirement to convention in SPEC §6.1. The review additionally found a false-green class the dry run missed: registration order matching configured order, now proved distinct by `V-T007-04`.
 
 ## Planned terminal review focus
 

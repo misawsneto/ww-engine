@@ -51,22 +51,22 @@ T002 provider protocol/assembler, T003 Agent history/recovery reducer, T004 Agen
 
 D021 established the approved v2 basis. D022 was later resumed after review found the first dry-run hardening pass had placed material architecture requirements only in lower-authority `TASKS.md` and unlocked before reconciling SPEC, PLAN, Tasks, Verification, and Evaluations.
 
-The **G003 D022 `REPLAN_LOCK` is active**. Implementation is blocked until the corrected packet is approved and the lock is removed.
+The corrected D022 packet is approved and the **G003 `REPLAN_LOCK` is removed**. Implementation is unblocked.
 
-The current draft generation is:
+The approved generation is:
 
-- `SPEC v3` — draft;
-- `PLAN v3` — draft;
+- `SPEC v3` — approved;
+- `PLAN v3` — approved;
 - reconciled open Tasks;
-- `VERIFICATION v3` — draft, with published check identities preserved or explicitly mapped;
-- `EVALUATIONS v3` — draft;
+- `VERIFICATION v3` — approved, with published check identities preserved or explicitly mapped;
+- `EVALUATIONS v3` — approved;
 - updated `HANDOFF.md`.
 
 The corrected boundary keeps T007 focused on tool preparation + durable tool grammar/reducer, while T008 owns the real production commit-before-effect execution proof. `ToolPreparationDisposition` and `ToolPreparationStage` are defined in `ww-agent-tools`; Agent core embeds those exact values in Agent-owned durable records without a duplicate preparation taxonomy or tools→core dependency. Tool cancellation is machine-distinguishable from ordinary tool error, Draft 2020-12 offline validation covers `$ref` and `$dynamicRef`, and run configured tool-pin order—not registry insertion order—is authoritative.
 
-The approved implementation basis remains D021/v2 until the requester approves v3. Approval promotes the same v3 generation from draft to approved; it does not create a new version solely for lifecycle state.
+The approved implementation basis is the v3 generation. Approval promoted the same generation from draft to approved; it did not create a new version solely for lifecycle state.
 
-After requester approval and unlock, T007 is the next implementation Task.
+T007 is the next implementation Task.
 
 `G004 — Agent Provider and Surface` remains proposed. It adds the first concrete provider, bounded `fs.read`, and Rust SDK/CLI surface only after G003 is accepted. Deterministic OWS Flow work begins at G005.
 

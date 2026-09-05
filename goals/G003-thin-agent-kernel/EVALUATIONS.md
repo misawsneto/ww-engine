@@ -1,9 +1,9 @@
 # G003 Evaluations
 
 - Version: `v3`
-- State: `draft`
-- Approval: `pending requester approval under resumed D022`
-- Specification basis: `G003 SPEC v3 (draft)`
+- State: `approved`
+- Approval: `approved by requester 2026-09-05 under resumed D022`
+- Specification basis: `G003 SPEC v3`
 - All closure EvaluationRuns execute on the exact final reviewed commit.
 
 ## EvaluationRun record
