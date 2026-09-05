@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "crates/ww-agent-core",
+  "crates/ww-agent-tools",
   "crates/ww-agent-provider",
   "crates/ww-agent-store-sqlite",
   "crates/ww-types",
@@ -25,6 +26,7 @@ chrono = { version = "0.4", features = ["clock", "serde"] }
 clap = { version = "4", features = ["derive", "env"] }
 futures-core = "0.3"
 futures-util = "0.3"
+jsonschema = { version = "0.52.1", default-features = false }
 proptest = "1"
 rusqlite = { version = "0.37", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }

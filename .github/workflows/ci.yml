@@ -31,16 +31,46 @@ jobs:
       - name: Architecture boundaries
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          # `set -e` is ignored for a status inverted with `!`, so every check
+          # must record its own failure. Otherwise only the last one gates.
+          violations=0
+          forbid() {
+            local description="$1" pattern="$2"; shift 2
+            if grep -R -n -E "$pattern" "$@"; then
+              echo "::error::architecture boundary violated — $description"
+              violations=1
+            fi
+          }
+
           # shared runtime stays free of Agent and Flow semantics
-          ! grep -R -n -E 'Agent|FlowToken|OWS|provider|tool.loop' crates/ww-types crates/ww-store crates/ww-store-sqlite crates/ww-runtime
-          ! grep -R -n -E 'ww-store|rusqlite' crates/ww-cli/src crates/ww-cli/Cargo.toml
+          forbid 'shared runtime references an engine kernel' \
+            'Agent|FlowToken|OWS|provider|tool.loop' \
+            crates/ww-types crates/ww-store crates/ww-store-sqlite crates/ww-runtime
+          forbid 'CLI bypasses the SDK boundary' \
+            'ww-store|rusqlite' \
+            crates/ww-cli/src crates/ww-cli/Cargo.toml
           # provider contracts stay free of runtime, storage, and transport
-          ! grep -R -n -E 'ww-runtime|ww-store|rusqlite|reqwest|ww-flow|OWS' crates/ww-agent-provider/Cargo.toml crates/ww-agent-provider/src
+          forbid 'provider depends on runtime, storage, or transport' \
+            'ww-runtime|ww-store|rusqlite|reqwest|ww-flow|OWS' \
+            crates/ww-agent-provider/Cargo.toml crates/ww-agent-provider/src
           # Agent core owns no concrete transport, storage, or CLI
-          ! grep -R -n -E 'rusqlite|reqwest|clap' crates/ww-agent-core/Cargo.toml crates/ww-agent-core/src
+          forbid 'Agent core depends on concrete transport, storage, or CLI' \
+            'rusqlite|reqwest|clap' \
+            crates/ww-agent-core/Cargo.toml crates/ww-agent-core/src
           # no Agent crate depends on Flow or OWS
-          ! grep -R -n -E 'ww-flow|OWS' crates/ww-agent-core crates/ww-agent-provider crates/ww-agent-store-sqlite
+          forbid 'Agent crate depends on Flow or OWS' \
+            'ww-flow|OWS' \
+            crates/ww-agent-core crates/ww-agent-provider crates/ww-agent-store-sqlite
+          # tools own no Agent identity, runtime, storage, transport, or capability
+          forbid 'tools crate declares a forbidden dependency' \
+            '^(ww-agent-core|ww-runtime|ww-store|ww-store-sqlite|rusqlite|reqwest|ww-flow)' \
+            crates/ww-agent-tools/Cargo.toml
+          forbid 'tools crate imports Agent core, runtime, storage, transport, or a capability' \
+            'use +(ww_agent_core|ww_runtime|ww_store|ww_store_sqlite|rusqlite|reqwest|ww_flow)|std::(fs|process|net)' \
+            crates/ww-agent-tools/src
+
+          exit "$violations"
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
