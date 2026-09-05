@@ -1,8 +1,9 @@
 # G003 Verification
 
-- Version: `v3-candidate`
+- Version: `v3`
+- State: `draft`
 - Approval: `pending requester approval under resumed D022`
-- Specification basis: `G003 SPEC v3-candidate`
+- Specification basis: `G003 SPEC v3 (draft)`
 - Completed T002–T006 evidence retains its original meaning.
 
 ## Permanent deterministic gate
@@ -64,15 +65,11 @@ Focused checks are additive and never replace this gate.
 - [ ] `V-T007-15` effect/replay classification occurs before policy
 - [ ] `V-T007-16` policy evaluates exactly once per preparation attempt
 - [ ] `V-T007-17` policy Deny invokes executor/probe 0 times
-- [ ] `V-T007-18` policy Deny returns stable `NoEffect(Policy)` data containing `policy_denied` code/message and durable `PolicyDecision::Deny`; this check does not claim model-visible result persistence
 - [ ] `V-T007-19` `test.echo` returns deterministic structured output and is Safe
 - [ ] `V-T007-20` `test.unsafe_once` invokes its probe once per direct execute and is Never
 
 ### Durable grammar and reducer
 
-- [ ] `V-T007-21` handcrafted executable history contains source/call/attempt/reserved-result identities plus pinned tool/version, digest, effect, replay, policy, and `ToolEffectStarted`; reducer reconstructs the expected effect-in-flight ambiguity state
-- [ ] `V-T007-22` reducer treats `ToolEffectStarted` as an ambiguity boundary, not evidence that an external effect definitely occurred; T007 performs no commit-before-effect production proof
-- [ ] `V-T007-23` Resolve/Validate/Classify/Policy `NoEffect` histories contain no effect-start/effect-completion record and reconstruct the matching no-effect state
 - [ ] `V-T007-24` durable `ToolEffectCompleted` with reserved model-visible result absent reconstructs a repairable completed-awaiting-result state
 - [ ] `V-T007-25` interrupted Safe and intervention Never histories are distinct
 - [ ] `V-T007-26` reducer rejects changed tool/version/digest/effect/replay/policy across attempts of one logical call
@@ -82,13 +79,26 @@ Focused checks are additive and never replace this gate.
 - [ ] `V-T007-30` tools public request/context types contain no Agent run/logical-call/attempt/entry identity and no core dependency
 - [ ] `V-T007-31` Resolve/Validate/Classify terminate as Rejected; only Policy Deny terminates as Denied
 
-### D022 stable preparation-contract checks
+### D022 preparation-contract checks
 
 - [ ] `V-T007-32` exactly one production tools preparation seam is exercised end-to-end; core exposes no competing preparation pipeline
 - [ ] `V-T007-33` an effect/replay-aware policy fixture changes decision based on `EffectDescriptor` and/or `ReplayPolicy`; omitting/substituting/late classification metadata fails the proof
 - [ ] `V-T007-34` canonicalization test asserts nested canonical serialized bytes directly; digest equality alone cannot satisfy the check
 - [ ] `V-T007-35` Q008 placement is exact: `ToolCallPrepared::NoEffect.failed_at=Policy` + Deny; `ToolAttemptDenied` has no duplicate stage field
 - [ ] `V-T007-36` tool execution contract represents Output, OrdinaryError, and Cancelled as machine-distinguishable normal outcomes; panic/invariant is outside that outcome contract
+- [ ] `V-T007-37` policy Deny returns stable `NoEffect(Policy)` data containing `policy_denied` code/message and durable `PolicyDecision::Deny`; this check does not claim model-visible result persistence
+- [ ] `V-T007-38` handcrafted executable history contains source/call/attempt/reserved-result identities plus pinned tool/version, digest, effect, replay, policy, and `ToolEffectStarted`; reducer reconstructs the expected effect-in-flight ambiguity state
+- [ ] `V-T007-39` reducer treats `ToolEffectStarted` as an ambiguity boundary, not evidence that an external effect definitely occurred; T007 performs no commit-before-effect production proof
+- [ ] `V-T007-40` Resolve/Validate/Classify/Policy `NoEffect` histories contain no effect-start/effect-completion record and reconstruct the matching no-effect state
+
+### Published check identities superseded by D022
+
+These identifiers were published under v2 and remain consumed. D022 changed proof ownership; their meanings are not reused.
+
+- `V-T007-18` — v2 proposition: denial yields exactly one ordered `policy_denied` model-visible result. Production proof now lives in `V-T008-09`.
+- `V-T007-21` — v2 proposition: pre-effect durable state contains the complete tool preparation/effect-start identity set. The grammar/reducer portion is now `V-T007-38`; production sequencing is proved by `V-T008-24`.
+- `V-T007-22` — v2 proposition: allowed effect is not invoked until the append containing `ToolEffectStarted` commits. Production proof now lives in `V-T008-24`.
+- `V-T007-23` — v2 proposition: unknown/invalid/classification/denied paths produce one no-effect audited result with no effect-start/completion. The grammar portion is now `V-T007-40`; production result settlement is `V-T008-09`.
 
 Focused evidence:
 
