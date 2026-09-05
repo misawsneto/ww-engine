@@ -1,6 +1,7 @@
 # Specification — G003 Durable Agent Kernel
 
-- Version: `v3-candidate`
+- Version: `v3`
+- State: `draft`
 - Approval: `pending requester approval under resumed D022`
 - Refinement: `D021` baseline + resumed `D022`
 - Governing architecture: `ADR-0003`
@@ -44,7 +45,7 @@ T001–T006 are frozen. This version applies prospectively to T007–T012.
 
 D022 remains the authorizing Decision. It is resumed rather than replaced.
 
-The first D022 pass correctly identified useful T007 hardening but placed normative architecture only in `TASKS.md`. This v3 candidate reconciles that hardening into the full authority chain before implementation resumes.
+The first D022 pass correctly identified useful T007 hardening but placed normative architecture only in `TASKS.md`. This v3 draft reconciles that hardening into the full authority chain before implementation resumes.
 
 D022 introduces **no new durable entity, relationship, lifecycle, authority, or record variant**. It clarifies:
 
@@ -209,21 +210,35 @@ Agent operational identities remain owned by `ww-agent-core`. Public tools APIs 
 
 ## 6. Tool subsystem contract — T007
 
-### 6.1 Required semantic contracts
+### 6.1 Required semantic contracts and ownership
 
-T007 MUST provide WorkWeave-owned equivalents of the existing v2 concepts:
+T007 MUST provide WorkWeave-owned equivalents of:
 
 - `ToolId`, `ToolVersion`, `ToolIdentity`, `ToolSpec`;
 - immutable `ToolRegistry`;
 - `EffectDescriptor`;
 - `ReplayPolicy::Safe | Never`;
 - `PolicyDecision::Allow | Deny`;
-- `ToolPolicy`;
+- `ToolPolicy` and non-optional `ToolPolicyInput.effect` / `ToolPolicyInput.replay`;
 - `ToolRequest`, `ToolContext`, `ToolOutput`, and ordinary `ToolExecutionError`;
+- `ToolPreparationDisposition::{Executable, NoEffect}`;
+- `ToolPreparationStage::{Resolve, Validate, Classify, Policy}`;
 - one async tool execution contract;
 - one production tool-preparation seam.
 
-The durable semantic names `ToolPreparationDisposition::{Executable, NoEffect}` and `ToolPreparationStage::{Resolve, Validate, Classify, Policy}` are canonical for the persisted/reducer vocabulary.
+`ToolPreparationDisposition` and `ToolPreparationStage` are **owned by `ww-agent-tools`**. They are the single public preparation taxonomy returned by the tools-side preparation seam. `ww-agent-core` MAY embed these tools-owned values inside Agent-owned durable records such as `ToolCallPrepared`; core MUST NOT redefine or duplicate equivalent preparation enums.
+
+This ownership is what preserves both requirements simultaneously:
+
+```text
+ww-agent-tools owns preparation semantics
+        ↓
+ww-agent-core depends on ww-agent-tools
+        ↓
+core embeds the preparation result in Agent-owned durable records
+```
+
+There is no tools → core dependency.
 
 Function names and module/file placement are **not** architecture authority. A function named `prepare_tool_call` and a `preparation.rs` module are preferred conventional choices, not acceptance requirements. Equivalent naming/layout is allowed when there remains exactly one production preparation seam and no competing semantic taxonomy.
 
@@ -240,7 +255,7 @@ resolve exact tool/version
 → derive EffectDescriptor
 → derive ReplayPolicy
 → evaluate ToolPolicy
-→ return Executable or NoEffect
+→ return ToolPreparationDisposition::Executable | NoEffect
 ```
 
 Rules:
@@ -299,8 +314,10 @@ Normative profile:
 - `test.unsafe_once` is `Synthetic` and `Never`.
 - A tool cannot authorize itself.
 - Policy runs only after validation and effect/replay classification.
+- `ToolPolicyInput.effect` and `ToolPolicyInput.replay` are non-optional. Their omission is prevented structurally by the public type contract rather than simulated as a runtime case.
 - Policy runs exactly once per preparation attempt.
 - At least one deterministic conformance policy MUST make its decision depend on `EffectDescriptor` and/or `ReplayPolicy`; a ToolId-only allow list cannot be the sole policy proof.
+- Behavioral conformance MUST prove that substituting classification metadata can change the policy decision and that the policy observes the exact classified effect/replay values before evaluation.
 - `Deny` returns a `NoEffect` preparation with stable `policy_denied` code/message and performs no effect.
 - Approval-bearing policy remains outside G003.
 
@@ -356,21 +373,25 @@ For each finalized provider tool call, core owns:
 - assistant entry identity and source index;
 - provider call ID and requested name.
 
-### 7.2 Existing durable vocabulary remains authoritative
+### 7.2 Agent-owned records embedding tools-owned preparation semantics
 
 D022 adds no durable record variant.
+
+The durable **records** below are Agent-owned because they belong to Agent history/recovery. Their preparation fields use the tools-owned `ToolPreparationDisposition` and `ToolPreparationStage` types from §6.1.
 
 T007 retains the v2 record grammar:
 
 - `ToolAttemptStarted`;
-- `ToolCallPrepared` with `Executable | NoEffect`;
+- `ToolCallPrepared` embedding `ToolPreparationDisposition`;
 - `ToolEffectStarted`;
 - `ToolEffectCompleted` with normalized Output/Error;
-- `ToolAttemptRejected`;
+- `ToolAttemptRejected` whose stage field uses `ToolPreparationStage`;
 - existing `ToolAttemptDenied`;
 - `ToolAttemptCompleted`;
 - `ToolAttemptInterrupted`;
 - `ToolAttemptIntervention`.
+
+Core MUST NOT define a second preparation disposition/stage taxonomy merely because the enclosing durable record is Agent-owned.
 
 Before an allowed effect may execute in T008, durable state must be able to contain:
 
@@ -749,6 +770,7 @@ finalized provider call
 | TOOL-13 | Public tools contracts contain no Agent-owned operational identity/core dependency |
 | TOOL-14 | Exactly one production tool-preparation seam exists in `ww-agent-tools`; core does not duplicate it |
 | TOOL-15 | Tool execution distinguishes Output, OrdinaryError, and Cancelled; panic/invariant is outside normal outcomes |
+| TOOL-16 | ToolPreparationDisposition and ToolPreparationStage are tools-owned semantic types embedded, not redefined, by Agent-owned durable records |
 
 ### Durability requirements
 
@@ -836,7 +858,7 @@ finalized provider call
 
 | Requirement family | Primary Task | Verification |
 | --- | --- | --- |
-| TOOL-01…TOOL-15 | T007 | `V-T007` |
+| TOOL-01…TOOL-16 | T007 | `V-T007` |
 | DUR-01…DUR-10 | T007/T008/T011 | `V-T007`, `V-T008`, `V-T011` |
 | KERN-01…KERN-14 | T008 | `V-T008` |
 | LIFE-01…LIFE-08 | T009 | `V-T009` |
@@ -848,4 +870,4 @@ finalized provider call
 
 No unresolved technical question is intentionally left for the implementing agent in T007/T008.
 
-This candidate remains under `REPLAN_LOCK` until requester approval. Later separately governed work may revisit durable format evolution, approval-bearing policy, idempotency keys, parallel tools, concrete providers, and real capabilities.
+This v3 draft remains under `REPLAN_LOCK` until requester approval. Later separately governed work may revisit durable format evolution, approval-bearing policy, idempotency keys, parallel tools, concrete providers, and real capabilities.
