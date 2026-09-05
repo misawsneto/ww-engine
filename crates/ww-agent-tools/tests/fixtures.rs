@@ -64,10 +64,7 @@ impl ToolPolicy for EffectReplayPolicy {
 }
 
 fn registry(probe: Arc<CountingProbe>) -> ToolRegistry {
-    let tools: Vec<Arc<dyn Tool>> = vec![
-        Arc::new(EchoTool),
-        Arc::new(UnsafeOnceTool::new(probe)),
-    ];
+    let tools: Vec<Arc<dyn Tool>> = vec![Arc::new(EchoTool), Arc::new(UnsafeOnceTool::new(probe))];
     ToolRegistry::build(tools).expect("fixture registry")
 }
 
@@ -81,12 +78,14 @@ fn policy_deny_is_stable_no_effect_and_invokes_probe_zero_times() {
     let probe = Arc::new(CountingProbe::default());
     let registry = registry(Arc::clone(&probe));
     let policy = EffectReplayPolicy::default();
+    let arguments = json!({"key": "alpha"});
+    let expected_digest = arguments_digest(&arguments);
     let prepared = prepare_tool_call(
         &registry,
         &pins(),
         &policy,
         "test.unsafe_once",
-        &json!({"key": "alpha"}),
+        &arguments,
     );
 
     let ToolPreparationDisposition::NoEffect {
@@ -107,15 +106,12 @@ fn policy_deny_is_stable_no_effect_and_invokes_probe_zero_times() {
     assert_eq!(code, "policy_denied");
     assert_eq!(message, "synthetic or non-replay-safe call denied");
     assert_eq!(identity.as_ref(), Some(&UnsafeOnceTool::identity()));
-    assert_eq!(
-        digest.as_deref(),
-        Some(arguments_digest(&json!({"key": "alpha"})).as_str())
-    );
+    assert_eq!(digest.as_deref(), Some(expected_digest.as_str()));
     assert!(matches!(effect, Some(EffectDescriptor::Synthetic { .. })));
     assert_eq!(*replay, Some(ReplayPolicy::Never));
     assert_eq!(
-        *decision,
-        Some(PolicyDecision::Deny {
+        decision.as_ref(),
+        Some(&PolicyDecision::Deny {
             code: "unsafe_effect".to_owned(),
             message: "synthetic or non-replay-safe call denied".to_owned(),
         })
@@ -158,10 +154,7 @@ fn effect_replay_policy_changes_decision_when_classification_is_substituted() {
     assert!(matches!(deny, PolicyDecision::Deny { .. }));
     assert_eq!(
         policy.seen.lock().expect("policy log").as_slice(),
-        &[
-            (pure, ReplayPolicy::Safe),
-            (synthetic, ReplayPolicy::Never),
-        ]
+        &[(pure, ReplayPolicy::Safe), (synthetic, ReplayPolicy::Never),]
     );
 }
 
@@ -259,7 +252,8 @@ async fn echo_returns_deterministic_structured_output_and_is_safe() {
 #[tokio::test]
 async fn unsafe_once_invokes_probe_once_per_direct_execute_and_is_never_replay_safe() {
     let probe = Arc::new(CountingProbe::default());
-    let tool = UnsafeOnceTool::new(Arc::clone(&probe) as Arc<dyn EffectProbe>);
+    let probe_for_tool: Arc<dyn EffectProbe> = probe.clone();
+    let tool = UnsafeOnceTool::new(probe_for_tool);
     let arguments = json!({"key": "alpha"});
     assert_eq!(tool.replay_policy(&arguments), ReplayPolicy::Never);
 
