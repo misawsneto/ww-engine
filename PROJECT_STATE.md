@@ -12,12 +12,14 @@
 - D021 established the approved v2 planning basis and four accepted boundary clarifications: common deadline authority, usage-observable token limits, whole logical-tool-batch admission, and distinct ordinary-error/cancellation/invariant paths.
 - D022 was resumed after review found the first D022 pass had placed material architecture requirements only in `TASKS.md`, contrary to the repository authority hierarchy and `ww-refine-goal` completion rules.
 - The G003 `REPLAN_LOCK` is active under D022. Implementation is blocked until the corrected packet is approved and the lock is removed.
-- Candidate planning basis: `SPEC v3-candidate`, `PLAN v3-candidate`, reconciled T007/T008 Tasks, `VERIFICATION v3-candidate`, `EVALUATIONS v3-candidate`, and the updated Goal handoff.
+- Draft planning generation: `SPEC v3`, `PLAN v3`, reconciled T007/T008 Tasks, `VERIFICATION v3`, `EVALUATIONS v3`, and the updated Goal handoff. Version identity is `v3`; draft/approval state is tracked separately.
 - The corrected boundary keeps T007 responsible for pure tool preparation + durable tool grammar/reducer and T008 responsible for the real commit-before-effect execution proof.
-- Tool execution cancellation is now a machine-distinguishable control outcome, not an ordinary `ToolExecutionError`; T009 owns durable cancellation intent and replay-sensitive final settlement.
+- `ToolPreparationDisposition` and `ToolPreparationStage` are tools-owned semantic types returned by the single `ww-agent-tools` preparation seam; Agent core embeds those exact values in Agent-owned durable records and does not define a second taxonomy.
+- Tool execution cancellation is a machine-distinguishable control outcome, not an ordinary `ToolExecutionError`; T009 owns durable cancellation intent and replay-sensitive final settlement.
 - JSON Schema Draft 2020-12 offline rules cover both `$ref` and `$dynamicRef`; `$id` alone is not treated as an external retrieval request.
 - Run configured tool pin order is authoritative; registry registration order has no model-visible authority.
 - Q008 remains resolved for A004-builder: Policy stage belongs in `ToolCallPrepared::NoEffect`; `ToolAttemptDenied` gains no duplicate stage field.
+- Published Verification identifiers remain consumed. D022 no longer repurposes `V-T007-18`, `V-T007-21`, `V-T007-22`, or `V-T007-23`; their changed proof obligations are mapped to new/current checks.
 - T007 remains the next implementation Task **after requester approval and unlock**.
 - Proposed following Goal: `G004 — Agent Provider and Surface`; first concrete provider, bounded `fs.read`, SDK/CLI; proposed `ADR-0004`.
 - G005 is deterministic OWS Flow kernel; G006 is restart-safe Flow → Agent integration.
@@ -64,16 +66,18 @@ Task IDs and dependency order remain unchanged.
 ```text
 ADR-0003              accepted / unchanged
 GOAL                   unchanged
-SPEC v3-candidate      pending D022 requester approval
-PLAN v3-candidate      pending D022 requester approval
-TASKS                  reconciled to v3 candidate; IDs unchanged
-VERIFICATION v3        candidate with stable D022 checks
-EVALUATIONS v3         candidate with preparation/effect-boundary split
-HANDOFF                 aligned to candidate authority
+SPEC v3                draft / pending D022 requester approval
+PLAN v3                draft / based on SPEC v3
+TASKS                  reconciled to v3 draft; IDs unchanged
+VERIFICATION v3        draft; published IDs preserved/mapped
+EVALUATIONS v3         draft; preparation/effect-boundary split
+HANDOFF                 aligned to v3 draft authority
 Q008                    resolved
 REPLAN_LOCK             ACTIVE — D022
 next implementation     T007 after approval/unlock
 ```
+
+The currently approved implementation basis remains D021/v2 until the requester approves v3. Approval promotes this same v3 generation; it does not mint another version solely for lifecycle state.
 
 ## Planned implementation sequence
 
