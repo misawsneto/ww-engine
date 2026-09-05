@@ -1,8 +1,9 @@
 # G003 Evaluations
 
-- Version: `v3-candidate`
+- Version: `v3`
+- State: `draft`
 - Approval: `pending requester approval under resumed D022`
-- Specification basis: `G003 SPEC v3-candidate`
+- Specification basis: `G003 SPEC v3 (draft)`
 - All closure EvaluationRuns execute on the exact final reviewed commit.
 
 ## EvaluationRun record
@@ -95,22 +96,25 @@ Expected:
 
 ### `preparation-seam`
 
-**Covers:** TOOL-06…TOOL-10, TOOL-14.
+**Covers:** TOOL-06…TOOL-10, TOOL-14, TOOL-16.
 
 Procedure:
 
-1. exercise the single production preparation seam through valid/invalid/unknown/classification-failure/allow/deny calls;
-2. instrument resolve, validate, canonicalize, classify, policy, execute;
-3. exercise nested objects with reordered keys;
-4. use effect/replay-aware policy whose decision changes from classification metadata.
+1. inspect public ownership: `ToolPreparationDisposition` and `ToolPreparationStage` are defined in `ww-agent-tools`, while core only embeds them in Agent-owned durable records;
+2. exercise the single production preparation seam through valid/invalid/unknown/classification-failure/allow/deny calls;
+3. instrument resolve, validate, canonicalize, classify, policy, execute;
+4. exercise nested objects with reordered keys;
+5. use an effect/replay-aware policy whose decision changes when classification metadata is substituted.
 
 Expected:
 
+- exactly one preparation taxonomy exists and there is no tools→core dependency;
 - exact order is resolve → validate → canonical bytes/digest → effect/replay → policy;
 - earlier failure prevents later stages;
 - invalid args invoke classification/policy/execute 0;
 - nested canonical bytes are identical across key insertion order and different for different values;
-- effect/replay metadata reaches policy before decision;
+- policy input structurally requires effect/replay metadata;
+- policy observes the exact classified effect/replay values before decision and substitution can change the decision;
 - policy denial returns stable `NoEffect(Policy)` and executes zero effects;
 - no second preparation pipeline exists in core.
 
@@ -139,7 +143,7 @@ Expected:
 
 Procedure:
 
-1. construct canonical executable, no-effect, effect-in-flight, completed-awaiting-result, settled, interrupted, and intervention histories;
+1. construct canonical executable, no-effect, effect-in-flight, completed-awaiting-result, settled, interrupted, and intervention histories using the tools-owned preparation disposition/stage inside Agent-owned records;
 2. reopen SQLite and reduce;
 3. run all T007 corruption cases;
 4. verify Q008 placement.
@@ -150,6 +154,7 @@ Expected:
 - `ToolEffectStarted` is reduced as ambiguity boundary only;
 - no-effect histories contain no effect-start/completion;
 - policy denial records Policy stage only in preparation disposition and ends as Denied;
+- core has not introduced a duplicate preparation taxonomy;
 - invalid histories fail closed.
 
 ## Agent kernel execution conformance
@@ -167,7 +172,7 @@ Procedure:
 
 Expected:
 
-- kernel uses the single T007 preparation seam;
+- kernel uses the single T007 preparation seam and tools-owned preparation disposition;
 - executor/probe count remains zero until `ToolEffectStarted` append commits;
 - failed/conflicted authorization invokes zero effects;
 - successful path executes exactly once after commit;
