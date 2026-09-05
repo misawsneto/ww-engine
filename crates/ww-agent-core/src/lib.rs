@@ -5,7 +5,7 @@ mod store;
 pub use history::{
     AgentAssistantContent, AgentEntry, AgentEntryData, AgentEntryId, AgentRecord, AgentRecordData,
     AgentRunId, AgentTerminalResult, AgentToolCall, DurableAssistantMessage, LogicalToolCallId,
-    ModelAttemptId, ModelAttemptInterruptReason, ToolAttemptId,
+    ModelAttemptId, ModelAttemptInterruptReason, ToolAttemptId, ToolEffectResult,
 };
 pub use reducer::{
     AgentPhase, AgentRecoveryState, CorruptionError, ModelAttemptState, ModelAttemptStatus,
