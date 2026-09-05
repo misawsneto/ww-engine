@@ -139,5 +139,10 @@ fn required_key(arguments: &Value) -> Result<&str, ToolExecutionError> {
         .get("key")
         .and_then(Value::as_str)
         .filter(|key| !key.is_empty())
-        .ok_or_else(|| ToolExecutionError::new("invalid_arguments", "test.unsafe_once requires non-empty key"))
+        .ok_or_else(|| {
+            ToolExecutionError::new(
+                "invalid_arguments",
+                "test.unsafe_once requires non-empty key",
+            )
+        })
 }
