@@ -1,11 +1,14 @@
 use crate::{
     AgentEntry, AgentEntryData, AgentEntryId, AgentRecord, AgentRecordData, AgentRunId,
-    AgentTerminalResult, LogicalToolCallId, ModelAttemptId, ToolAttemptId,
+    AgentTerminalResult, LogicalToolCallId, ModelAttemptId, ToolAttemptId, ToolEffectResult,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
-use ww_agent_provider::ModelUsage;
+use ww_agent_provider::{ModelUsage, ToolCallId};
+use ww_agent_tools::{
+    PolicyDecision, ReplayPolicy, ToolPreparationDisposition, ToolPreparationStage,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -14,6 +17,7 @@ pub enum AgentPhase {
     ModelInFlight,
     ToolsPending,
     ToolInFlight,
+    ToolResultPending,
     ReadyToCommitTurn,
     ReadyToCommitResult,
     InterventionPending,
@@ -35,16 +39,47 @@ pub struct ModelAttemptState {
     pub status: ModelAttemptStatus,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ToolAttemptStatus {
     Started,
-    Denied { result_entry_id: AgentEntryId },
-    Completed { result_entry_id: AgentEntryId },
-    Intervention { reason: String },
+    Prepared {
+        result_entry_id: AgentEntryId,
+        disposition: ToolPreparationDisposition,
+    },
+    /// `ToolEffectStarted` was durably observed. This is an ambiguity marker,
+    /// not proof that an external effect actually occurred.
+    EffectInFlight {
+        result_entry_id: AgentEntryId,
+        replay: ReplayPolicy,
+    },
+    /// The effect outcome is durable but the model-visible result is not yet
+    /// settled. T011 owns repair of this state.
+    EffectCompleted {
+        result_entry_id: AgentEntryId,
+        replay: ReplayPolicy,
+        result: ToolEffectResult,
+    },
+    Rejected {
+        result_entry_id: AgentEntryId,
+        failed_at: ToolPreparationStage,
+    },
+    Denied {
+        result_entry_id: AgentEntryId,
+    },
+    Interrupted {
+        replay: ReplayPolicy,
+        reason: String,
+    },
+    Completed {
+        result_entry_id: AgentEntryId,
+    },
+    Intervention {
+        reason: String,
+    },
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ToolAttemptState {
     pub id: ToolAttemptId,
     pub logical_call_id: LogicalToolCallId,
@@ -133,6 +168,32 @@ pub enum CorruptionError {
         expected: LogicalToolCallId,
         actual: LogicalToolCallId,
     },
+    #[error("tool-call source index exceeds durable u32 range")]
+    ToolSourceIndexOverflow,
+    #[error("prepared source metadata does not match logical tool call {0}")]
+    PreparationSourceMismatch(LogicalToolCallId),
+    #[error("tool attempt {0} has more than one preparation record")]
+    DuplicatePreparation(ToolAttemptId),
+    #[error("preparation contract conflicts across attempts of logical call {0}")]
+    PreparationConflict(LogicalToolCallId),
+    #[error("reserved result id for attempt {attempt_id} is {actual}, expected {expected}")]
+    ReservedResultMismatch {
+        attempt_id: ToolAttemptId,
+        expected: AgentEntryId,
+        actual: AgentEntryId,
+    },
+    #[error("tool effect started before executable preparation for attempt {0}")]
+    EffectBeforePreparation(ToolAttemptId),
+    #[error("tool effect started after no-effect preparation for attempt {0}")]
+    EffectAfterNoEffect(ToolAttemptId),
+    #[error("tool effect completed without an effect-start ambiguity marker for attempt {0}")]
+    EffectCompletionWithoutStart(ToolAttemptId),
+    #[error("no-effect terminal record does not match preparation taxonomy for attempt {0}")]
+    WrongNoEffectRecord(ToolAttemptId),
+    #[error("Safe replay is required to interrupt ambiguous effect attempt {0}")]
+    UnsafeInterruption(ToolAttemptId),
+    #[error("Never replay is required to force intervention for ambiguous effect attempt {0}")]
+    UnsafeIntervention(ToolAttemptId),
     #[error("turn result entries do not match committed tool-call source order")]
     TurnResultOrder,
     #[error("succeeded Agent result references wrong assistant entry {0}")]
@@ -146,6 +207,9 @@ pub enum CorruptionError {
 #[derive(Clone, Debug)]
 struct ToolDefinition {
     assistant_entry_id: AgentEntryId,
+    source_index: u32,
+    provider_call_id: ToolCallId,
+    requested_tool_name: String,
 }
 
 pub fn reduce_agent_history(
@@ -186,12 +250,17 @@ pub fn reduce_agent_history(
             }
             AgentEntryData::AssistantMessage { message, .. } => {
                 user_prefix = false;
-                for call in message.tool_calls() {
+                for (source_index, call) in message.tool_calls().enumerate() {
+                    let source_index = u32::try_from(source_index)
+                        .map_err(|_| CorruptionError::ToolSourceIndexOverflow)?;
                     if tool_definitions
                         .insert(
                             call.logical_id,
                             ToolDefinition {
                                 assistant_entry_id: entry.id,
+                                source_index,
+                                provider_call_id: call.provider_call_id.clone(),
+                                requested_tool_name: call.name.clone(),
                             },
                         )
                         .is_some()
@@ -241,6 +310,8 @@ pub fn reduce_agent_history(
     finalized_entries.extend(state.context_entry_ids.iter().copied());
     let mut current_turn_result_ids = Vec::new();
     let mut seen_tool_attempt_ids = BTreeSet::new();
+    let mut canonical_preparations = BTreeMap::new();
+    let mut reserved_result_ids = BTreeMap::new();
 
     for (index, record) in records.iter().enumerate() {
         let expected_sequence = index as u64 + 1;
@@ -387,44 +458,310 @@ pub fn reduce_agent_history(
                 state.tool_attempt_count += 1;
                 state.phase = AgentPhase::ToolInFlight;
             }
+            AgentRecordData::ToolCallPrepared {
+                attempt_id,
+                logical_call_id,
+                assistant_entry_id,
+                source_index,
+                provider_call_id,
+                requested_tool_name,
+                result_entry_id,
+                disposition,
+            } => {
+                require_phase(&state, AgentPhase::ToolInFlight, record.data.kind())?;
+                require_attempt(state.active_tool_attempt, *attempt_id)?;
+                let active_call = active_tool_call_id(&state, *attempt_id)?;
+                if active_call != *logical_call_id {
+                    return Err(CorruptionError::UnknownLogicalToolCall(*logical_call_id));
+                }
+                let definition = tool_definitions
+                    .get(logical_call_id)
+                    .ok_or(CorruptionError::UnknownLogicalToolCall(*logical_call_id))?;
+                if definition.assistant_entry_id != *assistant_entry_id
+                    || Some(*assistant_entry_id) != state.current_assistant_entry
+                    || definition.source_index != *source_index
+                    || definition.provider_call_id != *provider_call_id
+                    || definition.requested_tool_name != *requested_tool_name
+                {
+                    return Err(CorruptionError::PreparationSourceMismatch(*logical_call_id));
+                }
+                if !matches!(
+                    tool_attempt(&state, *attempt_id)?.status,
+                    ToolAttemptStatus::Started
+                ) {
+                    return Err(CorruptionError::DuplicatePreparation(*attempt_id));
+                }
+                if let Some(previous) = canonical_preparations.get(logical_call_id) {
+                    if !preparation_contract_matches(previous, disposition) {
+                        return Err(CorruptionError::PreparationConflict(*logical_call_id));
+                    }
+                } else {
+                    canonical_preparations.insert(*logical_call_id, disposition.clone());
+                }
+                if let Some(previous) = reserved_result_ids.get(logical_call_id) {
+                    if previous != result_entry_id {
+                        return Err(CorruptionError::ReservedResultMismatch {
+                            attempt_id: *attempt_id,
+                            expected: *previous,
+                            actual: *result_entry_id,
+                        });
+                    }
+                } else {
+                    reserved_result_ids.insert(*logical_call_id, *result_entry_id);
+                }
+                let attempt = active_tool_attempt_mut(&mut state, *attempt_id)?;
+                attempt.status = ToolAttemptStatus::Prepared {
+                    result_entry_id: *result_entry_id,
+                    disposition: disposition.clone(),
+                };
+            }
+            AgentRecordData::ToolEffectStarted { attempt_id } => {
+                require_phase(&state, AgentPhase::ToolInFlight, record.data.kind())?;
+                require_attempt(state.active_tool_attempt, *attempt_id)?;
+                let status = tool_attempt(&state, *attempt_id)?.status.clone();
+                let (result_entry_id, replay) = match status {
+                    ToolAttemptStatus::Prepared {
+                        result_entry_id,
+                        disposition:
+                            ToolPreparationDisposition::Executable { replay, .. },
+                    } => (result_entry_id, replay),
+                    ToolAttemptStatus::Prepared {
+                        disposition: ToolPreparationDisposition::NoEffect { .. },
+                        ..
+                    } => return Err(CorruptionError::EffectAfterNoEffect(*attempt_id)),
+                    ToolAttemptStatus::Started => {
+                        return Err(CorruptionError::EffectBeforePreparation(*attempt_id));
+                    }
+                    _ => {
+                        return Err(CorruptionError::InvalidRecord {
+                            record: record.data.kind(),
+                            phase: state.phase,
+                        });
+                    }
+                };
+                active_tool_attempt_mut(&mut state, *attempt_id)?.status =
+                    ToolAttemptStatus::EffectInFlight {
+                        result_entry_id,
+                        replay,
+                    };
+            }
+            AgentRecordData::ToolEffectCompleted { attempt_id, result } => {
+                require_phase(&state, AgentPhase::ToolInFlight, record.data.kind())?;
+                require_attempt(state.active_tool_attempt, *attempt_id)?;
+                let status = tool_attempt(&state, *attempt_id)?.status.clone();
+                let ToolAttemptStatus::EffectInFlight {
+                    result_entry_id,
+                    replay,
+                } = status
+                else {
+                    return Err(CorruptionError::EffectCompletionWithoutStart(*attempt_id));
+                };
+                active_tool_attempt_mut(&mut state, *attempt_id)?.status =
+                    ToolAttemptStatus::EffectCompleted {
+                        result_entry_id,
+                        replay,
+                        result: result.clone(),
+                    };
+                state.phase = AgentPhase::ToolResultPending;
+            }
+            AgentRecordData::ToolAttemptRejected {
+                attempt_id,
+                result_entry_id,
+                failed_at,
+            } => {
+                require_tool_result_phase(&state, record.data.kind())?;
+                require_attempt(state.active_tool_attempt, *attempt_id)?;
+                let status = tool_attempt(&state, *attempt_id)?.status.clone();
+                let ToolAttemptStatus::Prepared {
+                    result_entry_id: reserved,
+                    disposition,
+                } = status
+                else {
+                    return Err(CorruptionError::WrongNoEffectRecord(*attempt_id));
+                };
+                let ToolPreparationDisposition::NoEffect {
+                    failed_at: prepared_stage,
+                    policy,
+                    ..
+                } = disposition
+                else {
+                    return Err(CorruptionError::WrongNoEffectRecord(*attempt_id));
+                };
+                if prepared_stage == ToolPreparationStage::Policy
+                    || prepared_stage != *failed_at
+                    || policy.is_some()
+                {
+                    return Err(CorruptionError::WrongNoEffectRecord(*attempt_id));
+                }
+                ensure_reserved_result(*attempt_id, reserved, *result_entry_id)?;
+                active_tool_attempt_mut(&mut state, *attempt_id)?.status =
+                    ToolAttemptStatus::Rejected {
+                        result_entry_id: reserved,
+                        failed_at: prepared_stage,
+                    };
+                settle_no_effect_if_present(
+                    &mut state,
+                    &entry_by_id,
+                    *attempt_id,
+                    reserved,
+                    &mut finalized_entries,
+                    &mut current_turn_result_ids,
+                )?;
+            }
             AgentRecordData::ToolAttemptDenied {
                 attempt_id,
                 result_entry_id,
             } => {
-                finish_tool_attempt(
-                    &mut state,
-                    &entry_by_id,
-                    *attempt_id,
-                    *result_entry_id,
-                    true,
-                    &mut finalized_entries,
-                    &mut current_turn_result_ids,
-                )?;
+                require_tool_result_phase(&state, record.data.kind())?;
+                require_attempt(state.active_tool_attempt, *attempt_id)?;
+                let status = tool_attempt(&state, *attempt_id)?.status.clone();
+                match status {
+                    ToolAttemptStatus::Started => {
+                        settle_visible_result(
+                            &mut state,
+                            &entry_by_id,
+                            *attempt_id,
+                            *result_entry_id,
+                            None,
+                            ToolAttemptStatus::Denied {
+                                result_entry_id: *result_entry_id,
+                            },
+                            &mut finalized_entries,
+                            &mut current_turn_result_ids,
+                        )?;
+                    }
+                    ToolAttemptStatus::Prepared {
+                        result_entry_id: reserved,
+                        disposition,
+                    } => {
+                        let ToolPreparationDisposition::NoEffect {
+                            failed_at,
+                            policy,
+                            ..
+                        } = disposition
+                        else {
+                            return Err(CorruptionError::WrongNoEffectRecord(*attempt_id));
+                        };
+                        if failed_at != ToolPreparationStage::Policy
+                            || !matches!(policy, Some(PolicyDecision::Deny { .. }))
+                        {
+                            return Err(CorruptionError::WrongNoEffectRecord(*attempt_id));
+                        }
+                        ensure_reserved_result(*attempt_id, reserved, *result_entry_id)?;
+                        active_tool_attempt_mut(&mut state, *attempt_id)?.status =
+                            ToolAttemptStatus::Denied {
+                                result_entry_id: reserved,
+                            };
+                        settle_no_effect_if_present(
+                            &mut state,
+                            &entry_by_id,
+                            *attempt_id,
+                            reserved,
+                            &mut finalized_entries,
+                            &mut current_turn_result_ids,
+                        )?;
+                    }
+                    ToolAttemptStatus::EffectInFlight { .. }
+                    | ToolAttemptStatus::EffectCompleted { .. } => {
+                        return Err(CorruptionError::WrongNoEffectRecord(*attempt_id));
+                    }
+                    _ => {
+                        return Err(CorruptionError::InvalidRecord {
+                            record: record.data.kind(),
+                            phase: state.phase,
+                        });
+                    }
+                }
             }
             AgentRecordData::ToolAttemptCompleted {
                 attempt_id,
                 result_entry_id,
             } => {
-                finish_tool_attempt(
-                    &mut state,
-                    &entry_by_id,
-                    *attempt_id,
-                    *result_entry_id,
-                    false,
-                    &mut finalized_entries,
-                    &mut current_turn_result_ids,
-                )?;
+                require_tool_result_phase(&state, record.data.kind())?;
+                require_attempt(state.active_tool_attempt, *attempt_id)?;
+                let status = tool_attempt(&state, *attempt_id)?.status.clone();
+                match status {
+                    ToolAttemptStatus::Started => {
+                        settle_visible_result(
+                            &mut state,
+                            &entry_by_id,
+                            *attempt_id,
+                            *result_entry_id,
+                            None,
+                            ToolAttemptStatus::Completed {
+                                result_entry_id: *result_entry_id,
+                            },
+                            &mut finalized_entries,
+                            &mut current_turn_result_ids,
+                        )?;
+                    }
+                    ToolAttemptStatus::EffectCompleted {
+                        result_entry_id: reserved,
+                        ..
+                    } => {
+                        ensure_reserved_result(*attempt_id, reserved, *result_entry_id)?;
+                        settle_visible_result(
+                            &mut state,
+                            &entry_by_id,
+                            *attempt_id,
+                            *result_entry_id,
+                            Some(reserved),
+                            ToolAttemptStatus::Completed {
+                                result_entry_id: reserved,
+                            },
+                            &mut finalized_entries,
+                            &mut current_turn_result_ids,
+                        )?;
+                    }
+                    _ => {
+                        return Err(CorruptionError::InvalidRecord {
+                            record: record.data.kind(),
+                            phase: state.phase,
+                        });
+                    }
+                }
+            }
+            AgentRecordData::ToolAttemptInterrupted { attempt_id, reason } => {
+                require_phase(&state, AgentPhase::ToolInFlight, record.data.kind())?;
+                require_attempt(state.active_tool_attempt, *attempt_id)?;
+                let status = tool_attempt(&state, *attempt_id)?.status.clone();
+                let ToolAttemptStatus::EffectInFlight { replay, .. } = status else {
+                    return Err(CorruptionError::UnsafeInterruption(*attempt_id));
+                };
+                if replay != ReplayPolicy::Safe {
+                    return Err(CorruptionError::UnsafeInterruption(*attempt_id));
+                }
+                active_tool_attempt_mut(&mut state, *attempt_id)?.status =
+                    ToolAttemptStatus::Interrupted {
+                        replay,
+                        reason: reason.clone(),
+                    };
+                state.active_tool_attempt = None;
+                state.phase = AgentPhase::ToolsPending;
             }
             AgentRecordData::ToolAttemptIntervention { attempt_id, reason } => {
                 require_phase(&state, AgentPhase::ToolInFlight, record.data.kind())?;
                 require_attempt(state.active_tool_attempt, *attempt_id)?;
                 let logical_call_id = active_tool_call_id(&state, *attempt_id)?;
-                {
-                    let attempt = active_tool_attempt_mut(&mut state, *attempt_id)?;
-                    attempt.status = ToolAttemptStatus::Intervention {
+                let status = tool_attempt(&state, *attempt_id)?.status.clone();
+                match status {
+                    ToolAttemptStatus::Started => {}
+                    ToolAttemptStatus::EffectInFlight { replay, .. }
+                        if replay == ReplayPolicy::Never => {}
+                    ToolAttemptStatus::EffectInFlight { .. } => {
+                        return Err(CorruptionError::UnsafeIntervention(*attempt_id));
+                    }
+                    _ => {
+                        return Err(CorruptionError::InvalidRecord {
+                            record: record.data.kind(),
+                            phase: state.phase,
+                        });
+                    }
+                }
+                active_tool_attempt_mut(&mut state, *attempt_id)?.status =
+                    ToolAttemptStatus::Intervention {
                         reason: reason.clone(),
                     };
-                }
                 state.active_tool_attempt = None;
                 state.pending_tool_calls.retain(|id| *id != logical_call_id);
                 state.phase = AgentPhase::InterventionPending;
@@ -510,6 +847,20 @@ fn require_phase(
     }
 }
 
+fn require_tool_result_phase(
+    state: &AgentRecoveryState,
+    record: &'static str,
+) -> Result<(), CorruptionError> {
+    if matches!(state.phase, AgentPhase::ToolInFlight | AgentPhase::ToolResultPending) {
+        Ok(())
+    } else {
+        Err(CorruptionError::InvalidRecord {
+            record,
+            phase: state.phase,
+        })
+    }
+}
+
 fn require_attempt<T: std::fmt::Display + Copy + Eq>(
     active: Option<T>,
     actual: T,
@@ -551,6 +902,18 @@ fn active_tool_call_id(
     Err(CorruptionError::UnknownToolAttempt(attempt_id))
 }
 
+fn tool_attempt(
+    state: &AgentRecoveryState,
+    attempt_id: ToolAttemptId,
+) -> Result<&ToolAttemptState, CorruptionError> {
+    for attempts in state.tool_attempts.values() {
+        if let Some(attempt) = attempts.iter().find(|attempt| attempt.id == attempt_id) {
+            return Ok(attempt);
+        }
+    }
+    Err(CorruptionError::UnknownToolAttempt(attempt_id))
+}
+
 fn active_tool_attempt_mut(
     state: &mut AgentRecoveryState,
     attempt_id: ToolAttemptId,
@@ -563,25 +926,119 @@ fn active_tool_attempt_mut(
     Err(CorruptionError::UnknownToolAttempt(attempt_id))
 }
 
-fn finish_tool_attempt(
+fn preparation_contract_matches(
+    previous: &ToolPreparationDisposition,
+    current: &ToolPreparationDisposition,
+) -> bool {
+    match (previous, current) {
+        (
+            ToolPreparationDisposition::Executable {
+                identity: left_identity,
+                arguments_digest: left_digest,
+                effect: left_effect,
+                replay: left_replay,
+                policy: left_policy,
+            },
+            ToolPreparationDisposition::Executable {
+                identity: right_identity,
+                arguments_digest: right_digest,
+                effect: right_effect,
+                replay: right_replay,
+                policy: right_policy,
+            },
+        ) => {
+            left_identity == right_identity
+                && left_digest == right_digest
+                && left_effect == right_effect
+                && left_replay == right_replay
+                && left_policy == right_policy
+        }
+        (
+            ToolPreparationDisposition::NoEffect {
+                identity: left_identity,
+                arguments_digest: left_digest,
+                effect: left_effect,
+                replay: left_replay,
+                policy: left_policy,
+                ..
+            },
+            ToolPreparationDisposition::NoEffect {
+                identity: right_identity,
+                arguments_digest: right_digest,
+                effect: right_effect,
+                replay: right_replay,
+                policy: right_policy,
+                ..
+            },
+        ) => {
+            left_identity == right_identity
+                && left_digest == right_digest
+                && left_effect == right_effect
+                && left_replay == right_replay
+                && left_policy == right_policy
+        }
+        _ => false,
+    }
+}
+
+fn ensure_reserved_result(
+    attempt_id: ToolAttemptId,
+    expected: AgentEntryId,
+    actual: AgentEntryId,
+) -> Result<(), CorruptionError> {
+    if expected == actual {
+        Ok(())
+    } else {
+        Err(CorruptionError::ReservedResultMismatch {
+            attempt_id,
+            expected,
+            actual,
+        })
+    }
+}
+
+fn settle_no_effect_if_present(
     state: &mut AgentRecoveryState,
     entry_by_id: &BTreeMap<AgentEntryId, &AgentEntry>,
     attempt_id: ToolAttemptId,
     result_entry_id: AgentEntryId,
-    denied: bool,
     finalized_entries: &mut BTreeSet<AgentEntryId>,
     current_turn_result_ids: &mut Vec<AgentEntryId>,
 ) -> Result<(), CorruptionError> {
-    require_phase(
-        state,
-        AgentPhase::ToolInFlight,
-        if denied {
-            "tool_attempt_denied"
-        } else {
-            "tool_attempt_completed"
-        },
-    )?;
+    if entry_by_id.contains_key(&result_entry_id) {
+        let final_status = tool_attempt(state, attempt_id)?.status.clone();
+        settle_visible_result(
+            state,
+            entry_by_id,
+            attempt_id,
+            result_entry_id,
+            Some(result_entry_id),
+            final_status,
+            finalized_entries,
+            current_turn_result_ids,
+        )
+    } else {
+        state.active_tool_attempt = None;
+        state.phase = AgentPhase::ToolResultPending;
+        Ok(())
+    }
+}
+
+fn settle_visible_result(
+    state: &mut AgentRecoveryState,
+    entry_by_id: &BTreeMap<AgentEntryId, &AgentEntry>,
+    attempt_id: ToolAttemptId,
+    result_entry_id: AgentEntryId,
+    expected_reserved: Option<AgentEntryId>,
+    final_status: ToolAttemptStatus,
+    finalized_entries: &mut BTreeSet<AgentEntryId>,
+    current_turn_result_ids: &mut Vec<AgentEntryId>,
+) -> Result<(), CorruptionError> {
+    require_tool_result_phase(state, "tool_result_settlement")?;
     require_attempt(state.active_tool_attempt, attempt_id)?;
+    if let Some(expected) = expected_reserved {
+        ensure_reserved_result(attempt_id, expected, result_entry_id)?;
+    }
     let logical_call_id = active_tool_call_id(state, attempt_id)?;
     let entry = *entry_by_id
         .get(&result_entry_id)
@@ -614,16 +1071,13 @@ fn finish_tool_attempt(
         .completed_tool_results
         .insert(logical_call_id, result_entry_id);
     current_turn_result_ids.push(result_entry_id);
-    {
-        let attempt = active_tool_attempt_mut(state, attempt_id)?;
-        attempt.status = if denied {
-            ToolAttemptStatus::Denied { result_entry_id }
-        } else {
-            ToolAttemptStatus::Completed { result_entry_id }
-        };
-    }
+    active_tool_attempt_mut(state, attempt_id)?.status = final_status;
     state.active_tool_attempt = None;
-    state.pending_tool_calls.remove(0);
+    if state.pending_tool_calls.first() == Some(&logical_call_id) {
+        state.pending_tool_calls.remove(0);
+    } else {
+        return Err(CorruptionError::UnknownLogicalToolCall(logical_call_id));
+    }
     state.phase = if state.pending_tool_calls.is_empty() {
         AgentPhase::ReadyToCommitTurn
     } else {
