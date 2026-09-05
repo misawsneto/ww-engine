@@ -1,90 +1,99 @@
 # G003 Verification
 
-- Version: `v2`
-- Approval: `approved by requester 2026-09-04 under D021`
-- Specification basis: `G003 SPEC v2`
-- Completed T002–T006 checks/evidence below retain their original meaning.
+- Version: `v3-candidate`
+- Approval: `pending requester approval under resumed D022`
+- Specification basis: `G003 SPEC v3-candidate`
+- Completed T002–T006 evidence retains its original meaning.
 
 ## Permanent deterministic gate
 
-- [x] ADR-0003 is accepted before implementation is represented as active.
-- [x] `cargo fmt --all -- --check`
-- [x] Agent/common dependency-boundary checks
-- [x] `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`
-- [x] `cargo test --workspace --all-features --locked`
+Every later Task closure MUST run the complete merge-target gate required by D017:
 
-The checked gate records completed evidence through T006. Every later Task closure must add exact-code evidence for the same gate.
+```bash
+cargo fmt --all -- --check
+# permanent architecture-boundary checks from CI
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-features --locked
+```
+
+Focused checks are additive and never replace this gate.
 
 ## Completed foundation
 
 ### Provider protocol — T002/T006
 
 - [x] text-only recorded stream finalizes one immutable assistant message
-- [x] complete recorded tool-call stream finalizes stable call IDs and exact JSON arguments
-- [x] delta before start rejects
-- [x] duplicate terminal event rejects
-- [x] incomplete/truncated tool arguments cannot execute
-- [x] provider disconnect before finalization becomes an interrupted/failed model attempt
-- [x] normalized usage is immutable at finalized response boundary
-- [x] RecordedProvider detects mismatched, extra, and unused scripted exchanges
-- [x] RecordedProvider captures provider-source tool/result ordering deterministically
+- [x] complete tool-call stream finalizes stable call IDs and exact parsed JSON arguments
+- [x] invalid event ordering/duplicate finalization/truncated or incomplete tool calls fail closed
+- [x] disconnect before finalization is not success
+- [x] normalized usage is immutable at finalization
+- [x] RecordedProvider detects mismatched/extra/unused exchanges and preserves source order deterministically
 
 ### Durable Agent state — T003/T004/T005
 
-- [x] entries and operational records reconstruct identical `AgentRecoveryState` after SQLite reopen and OS process restart
-- [x] stale Agent writer is rejected without partial Agent/common mutation
-- [x] unknown references, duplicate finalization, duplicate logical tool result, and records after terminal result reject as corrupt history
-- [x] finalized entries are immutable; retries create new attempt records
+- [x] entries/records reconstruct identical recovery state after SQLite reopen and OS restart
+- [x] stale Agent writer rejects without partial mutation
+- [x] impossible references/order/duplicate logical result/post-terminal records fail closed
+- [x] finalized entries are immutable; retries append new attempts
 - [x] common execution + Agent run + link commit atomically or roll back together
 
-## V-T007 — Tool contract, validation, policy, replay
+## V-T007 — Tool preparation, policy, replay, and durable grammar
 
-### Identity and registry
+### Identity and configured order
 
 - [ ] `V-T007-01` empty ToolId/ToolVersion rejects
 - [ ] `V-T007-02` duplicate ToolId rejects before run start
-- [ ] `V-T007-03` exact pinned version resolves; unavailable/mismatched version rejects
-- [ ] `V-T007-04` model-visible specs preserve configured tool order
+- [ ] `V-T007-03` exact pinned version resolves; missing/mismatched version rejects with no substitution
+- [ ] `V-T007-04` registry availability/registration order differs from run pin order; projection returns only exact configured pins in configured order
 
 ### Schema profile
 
 - [ ] `V-T007-05` valid self-contained Draft 2020-12 schema compiles once and validates repeatedly
 - [ ] `V-T007-06` malformed schema rejects registry construction
-- [ ] `V-T007-07` HTTP/file/other non-fragment `$ref` rejects with no retrieval
-- [ ] `V-T007-08` local `#/$defs/...` reference validates
-- [ ] `V-T007-09` invalid instance reports deterministic WorkWeave-owned instance path/message
-- [ ] `V-T007-10` validation is non-coercing and leaves the parsed `Value` byte-equivalent after normalized serialization
-- [ ] `V-T007-11` invalid arguments invoke policy zero times and executor zero times
+- [ ] `V-T007-07` non-fragment `$ref` and non-fragment `$dynamicRef` reject before validator compilation with no retrieval; `$id` alone does not reject or retrieve
+- [ ] `V-T007-08` local fragment `$ref` and local `$dynamicRef`/`$dynamicAnchor` fixture validates
+- [ ] `V-T007-09` invalid instance reports deterministic WorkWeave-owned path/message ordering
+- [ ] `V-T007-10` validation is non-coercing and leaves the authoritative parsed Value unchanged
+- [ ] `V-T007-11` invalid arguments invoke classification 0, policy 0, execution 0
 
-### Canonical arguments, effect, replay, policy
+### Canonical arguments and preparation ordering
 
-- [ ] `V-T007-12` object key order does not change arguments digest
-- [ ] `V-T007-13` different argument value changes digest
-- [ ] `V-T007-14` validation occurs before effect/replay classification
-- [ ] `V-T007-15` classification occurs before policy
-- [ ] `V-T007-16` policy is evaluated exactly once per preparation attempt
-- [ ] `V-T007-17` policy denial invokes executor/probe zero times
-- [ ] `V-T007-18` denial yields exactly one ordered `policy_denied` model-visible result
-- [ ] `V-T007-19` `test.echo` returns deterministic structured output and `ReplayPolicy::Safe`
-- [ ] `V-T007-20` `test.unsafe_once` invokes its probe once per actual execute and is `ReplayPolicy::Never`
+- [ ] `V-T007-12` two nested objects differing only in insertion/key order produce equal canonical bytes and equal digest
+- [ ] `V-T007-13` semantically different parsed value produces different canonical bytes/digest
+- [ ] `V-T007-14` validation occurs before digest/effect/replay classification
+- [ ] `V-T007-15` effect/replay classification occurs before policy
+- [ ] `V-T007-16` policy evaluates exactly once per preparation attempt
+- [ ] `V-T007-17` policy Deny invokes executor/probe 0 times
+- [ ] `V-T007-18` policy Deny returns stable `NoEffect(Policy)` data containing `policy_denied` code/message and durable `PolicyDecision::Deny`; this check does not claim model-visible result persistence
+- [ ] `V-T007-19` `test.echo` returns deterministic structured output and is Safe
+- [ ] `V-T007-20` `test.unsafe_once` invokes its probe once per direct execute and is Never
 
-### Durable preparation and reducer
+### Durable grammar and reducer
 
-- [ ] `V-T007-21` pre-effect durable state contains source position, provider call ID, pinned tool/version, arguments digest, effect, replay, policy, attempt ID, reserved result ID, and `ToolEffectStarted`
-- [ ] `V-T007-22` allowed effect is not invoked until the pre-effect append containing `ToolEffectStarted` commits
-- [ ] `V-T007-23` unknown/invalid/classification/denied paths each produce one no-effect audited result with stable code and no effect-start/effect-completion record
-- [ ] `V-T007-24` durable effect output can exist before model-visible result for later repair
-- [ ] `V-T007-25` interrupted safe and intervention Never attempts are distinct states
-- [ ] `V-T007-26` reducer rejects changed replay/policy across attempts
-- [ ] `V-T007-27` reducer rejects wrong reserved result ID, effect on denied call, duplicate classification/result, and source-order violation
+- [ ] `V-T007-21` handcrafted executable history contains source/call/attempt/reserved-result identities plus pinned tool/version, digest, effect, replay, policy, and `ToolEffectStarted`; reducer reconstructs the expected effect-in-flight ambiguity state
+- [ ] `V-T007-22` reducer treats `ToolEffectStarted` as an ambiguity boundary, not evidence that an external effect definitely occurred; T007 performs no commit-before-effect production proof
+- [ ] `V-T007-23` Resolve/Validate/Classify/Policy `NoEffect` histories contain no effect-start/effect-completion record and reconstruct the matching no-effect state
+- [ ] `V-T007-24` durable `ToolEffectCompleted` with reserved model-visible result absent reconstructs a repairable completed-awaiting-result state
+- [ ] `V-T007-25` interrupted Safe and intervention Never histories are distinct
+- [ ] `V-T007-26` reducer rejects changed tool/version/digest/effect/replay/policy across attempts of one logical call
+- [ ] `V-T007-27` reducer rejects wrong reserved result ID, effect on NoEffect, duplicate preparation/result, and source-order violation
 - [ ] `V-T007-28` Agent history reconstructs the same tool state after SQLite reopen
-- [ ] `V-T007-29` `ww-agent-tools` imports no runtime/store/SQLite/filesystem/process/network/Flow/Orchestration dependency
-- [ ] `V-T007-30` `ww-agent-tools` public request/context types contain no Agent run/logical-call/attempt/entry identity and no core dependency
-- [ ] `V-T007-31` Resolve/Validate/Classify no-effect attempts end as Rejected while only policy Deny ends as Denied
+- [ ] `V-T007-29` tools crate imports no Agent core/runtime/store/SQLite/filesystem/process/network/Flow/Orchestration dependency
+- [ ] `V-T007-30` tools public request/context types contain no Agent run/logical-call/attempt/entry identity and no core dependency
+- [ ] `V-T007-31` Resolve/Validate/Classify terminate as Rejected; only Policy Deny terminates as Denied
+
+### D022 stable preparation-contract checks
+
+- [ ] `V-T007-32` exactly one production tools preparation seam is exercised end-to-end; core exposes no competing preparation pipeline
+- [ ] `V-T007-33` an effect/replay-aware policy fixture changes decision based on `EffectDescriptor` and/or `ReplayPolicy`; omitting/substituting/late classification metadata fails the proof
+- [ ] `V-T007-34` canonicalization test asserts nested canonical serialized bytes directly; digest equality alone cannot satisfy the check
+- [ ] `V-T007-35` Q008 placement is exact: `ToolCallPrepared::NoEffect.failed_at=Policy` + Deny; `ToolAttemptDenied` has no duplicate stage field
+- [ ] `V-T007-36` tool execution contract represents Output, OrdinaryError, and Cancelled as machine-distinguishable normal outcomes; panic/invariant is outside that outcome contract
 
 Focused evidence:
 
 ```bash
+cargo test -p ww-agent-tools --test preparation --locked
 cargo test -p ww-agent-tools --locked
 cargo test -p ww-agent-core --test recovery --locked
 ```
@@ -94,54 +103,63 @@ cargo test -p ww-agent-core --test recovery --locked
 ### Request and stream
 
 - [ ] `V-T008-01` typed stored configuration decodes before provider/tool work
-- [ ] `V-T008-02` request maps ordered entries and pinned tool specs exactly
+- [ ] `V-T008-02` request maps ordered durable entries and exact pinned tool specs
 - [ ] `V-T008-03` provider/model/request digest attempt state commits before provider call
-- [ ] `V-T008-04` stream is drained through EOF and then finalized
+- [ ] `V-T008-04` stream drains through EOF and finalizes exactly once
 - [ ] `V-T008-05` unexpected EOF, stream error, post-terminal event, malformed order, or truncated tool call creates no assistant entry/effect
-- [ ] `V-T008-06` provider Failed/Aborted has one typed attempt/Agent disposition
-- [ ] `V-T008-07` finalized assistant entry and usage commit before any tool effect
+- [ ] `V-T008-06` provider Failed/Aborted has one typed attempt/Agent control outcome
+- [ ] `V-T008-07` finalized assistant entry/usage commits before tool handling
 
-### Tool loop and terminal result
+### Tool loop and result settlement
 
 - [ ] `V-T008-08` logical IDs allocate once in provider source order and survive reconstruction
-- [ ] `V-T008-09` unknown/invalid/denied paths each return one ordered model-visible error result
+- [ ] `V-T008-09` invalid/unknown/classification/denied paths each persist exactly one ordered model-visible error result and execute 0 times
 - [ ] `V-T008-10` allowed calls execute sequentially
 - [ ] `V-T008-11` provider call order equals model-visible result order in the next request
-- [ ] `V-T008-12` durable effect output precedes/repairs model-visible result
-- [ ] `V-T008-13` `TurnCommitted` contains exactly the ordered result IDs
+- [ ] `V-T008-12` durable effect completion precedes/repairs model-visible result
+- [ ] `V-T008-13` `TurnCommitted` contains exactly ordered result IDs
 - [ ] `V-T008-14` text-only RecordedProvider run commits expected successful Agent result
 - [ ] `V-T008-15` RecordedProvider model→test.echo→model run commits expected successful Agent result
 - [ ] `V-T008-16` Length completion is audited but not successful
-- [ ] `V-T008-17` kernel imports no concrete provider transport, SQLite, filesystem/process/network, Flow/OWS, CLI/TUI/server, or Orchestration type
-- [ ] `V-T008-18` outer provider-dispatch error commits one typed failed/interrupted attempt and creates no assistant entry/effect/automatic retry
-- [ ] `V-T008-19` stale expected-version append launches no external work; reload/reduction observes and follows the winning durable state
-- [ ] `V-T008-20` an ordinary returned `ToolExecutionError` creates exactly one durable model-visible `is_error=true` result and may be included in the next provider request
-- [ ] `V-T008-21` tool cancellation follows cancellation semantics and is not converted into an ordinary tool-error result
-- [ ] `V-T008-22` panic/impossible invariant failure is not normalized into an ordinary model-visible tool error; recovery follows the last committed durable boundary
+- [ ] `V-T008-17` kernel imports no concrete provider transport, SQLite, capability, Flow/OWS, CLI/TUI/server, or Orchestration type
+- [ ] `V-T008-18` outer provider-dispatch error commits one typed failed/interrupted attempt and creates no assistant/tool/effect/automatic retry
+- [ ] `V-T008-19` stale expected-version append launches no external work; reload/reduction follows winning durable state
+- [ ] `V-T008-20` ordinary returned tool error creates exactly one durable model-visible `is_error=true` result and may be included in next provider request
+- [ ] `V-T008-21` tool Cancelled outcome enters cancellation/interruption control flow and is not converted into `ToolEffectCompleted::Error` or a model-visible ordinary tool error
+- [ ] `V-T008-22` panic/impossible invariant failure is not normalized into ordinary model-visible tool error; recovery starts from last durable boundary
+
+### D022 production-boundary checks
+
+- [ ] `V-T008-23` kernel calls the single T007 production preparation seam; instrumentation proves no duplicate core preparation stages execute
+- [ ] `V-T008-24` allowed fixture executor/probe is invoked only after the append containing `ToolAttemptStarted + ToolCallPrepared::Executable + ToolEffectStarted` commits successfully
+- [ ] `V-T008-25` a failed/conflicted pre-effect append invokes executor/probe 0 times
+- [ ] `V-T008-26` registry registration order differs from run pin order and provider request exposes tools exactly in run pin order
+- [ ] `V-T008-27` cancellation already observable before pre-effect append prevents `ToolEffectStarted` and invocation; post-start cancellation remains a distinct control outcome for T009
 
 Focused evidence:
 
 ```bash
 cargo test -p ww-agent-core --test kernel --locked
 cargo test -p ww-agent-provider --test recorded_provider --locked
+cargo test -p ww-agent-tools --locked
 ```
 
-## V-T009 — Lifecycle and cancellation
+## V-T009 — Lifecycle and durable cancellation
 
 - [ ] `V-T009-01` missing/mismatched/non-agent common link rejects before work
-- [ ] `V-T009-02` Pending starts once; Running/Waiting resumes; matching terminal state performs no work
+- [ ] `V-T009-02` Pending starts once; Running/Waiting resumes; matching terminal performs no work
 - [ ] `V-T009-03` durable cancellation commits before root-token signal
-- [ ] `V-T009-04` repeated registration observes one root while consumer child cancellation cannot cancel siblings
-- [ ] `V-T009-05` pre-launch cancellation calls provider/tool zero times
+- [ ] `V-T009-04` repeated registration observes one root; consumer child cancellation cannot cancel siblings
+- [ ] `V-T009-05` pre-launch cancellation calls provider/tool 0
 - [ ] `V-T009-06` active provider receives cancellation
-- [ ] `V-T009-07` active safe tool receives cancellation and is not retried after caller cancellation
-- [ ] `V-T009-08` active Never tool with no durable result settles RequiresIntervention
+- [ ] `V-T009-07` active Safe tool receives cancellation and Cancelled remains distinct from ordinary error
+- [ ] `V-T009-08` active Never tool with no durable completion settles RequiresIntervention
 - [ ] `V-T009-09` completed durable result is not discarded by later cancellation
 - [ ] `V-T009-10` Agent terminal dispositions map to matching common statuses
-- [ ] `V-T009-11` Agent-terminal/common-nonterminal repair is idempotent and calls provider/tool zero times
-- [ ] `V-T009-12` shared runtime API contains no Agent DTO or semantic type
-- [ ] `V-T009-13` cancellation durable before the final pre-effect check prevents `ToolEffectStarted` and invocation; cancellation after effect start obeys replay ambiguity
-- [ ] `V-T009-14` identical conflicting conditions before/after reopen select the same disposition under SPEC §9.6 precedence
+- [ ] `V-T009-11` Agent-terminal/common-nonterminal repair is idempotent and calls provider/tool 0
+- [ ] `V-T009-12` shared runtime API contains no Agent DTO/semantic type
+- [ ] `V-T009-13` cancellation durable before final pre-effect check prevents marker/invocation; cancellation after effect start obeys replay ambiguity
+- [ ] `V-T009-14` same conflicting conditions before/after reopen select same SPEC precedence disposition
 
 Focused evidence:
 
@@ -155,85 +173,68 @@ cargo test -p ww-agent-store-sqlite --test coordinator --locked
 
 - [ ] `V-T010-01` zero count limit rejects configuration
 - [ ] `V-T010-02` model-request count includes every durable attempt start
-- [ ] `V-T010-03` a distinct completed-model-turn count includes every durable `ModelAttemptCompleted`, including terminal assistant responses, while T003 `turn_count` remains `TurnCommitted` count
-- [ ] `V-T010-04` logical tool-call count derives from finalized assistant calls; T003 `tool_attempt_count` remains attempt audit state and safe retries do not consume a second logical-call unit
+- [ ] `V-T010-03` completed-model-turn count is distinct from T003 `turn_count`
+- [ ] `V-T010-04` logical-tool-call count derives from finalized assistant calls and is distinct from T003 `tool_attempt_count`
 - [ ] `V-T010-05` counts reconstruct identically after reopen
-- [ ] `V-T010-06` provider request at the limit is allowed only if reserved; request `limit + 1` is never launched
+- [ ] `V-T010-06` provider request at limit is allowed only when reserved; `limit+1` never launches
 - [ ] `V-T010-07` `now == ExecutionRecord.deadline` is expired
-- [ ] `V-T010-08` canonical deadline before launch calls provider/tool zero times
+- [ ] `V-T010-08` expired canonical deadline before launch calls provider/tool 0
 - [ ] `V-T010-09` active deadline expiry cancels provider/tool child token
 - [ ] `V-T010-10` normalized input/output/total usage accumulates durably
-- [ ] `V-T010-11` reaching/exceeding token limit prevents the next provider call
-- [ ] `V-T010-12` BudgetExhausted and TimedOut are distinct audited Agent/common terminal outcomes
-- [ ] `V-T010-13` Never ambiguity settles intervention rather than falsely timing out/cancelling
+- [ ] `V-T010-11` reaching/exceeding token limit prevents next provider call
+- [ ] `V-T010-12` BudgetExhausted and TimedOut are distinct audited Agent/common outcomes
+- [ ] `V-T010-13` Never ambiguity settles intervention rather than timeout/cancel
 - [ ] `V-T010-14` no limit decision depends on process-local counters
-- [ ] `V-T010-15` simultaneous cancellation/deadline/budget observations resolve deterministically before and after reopen
-- [ ] `V-T010-16` linked common `ExecutionRecord.deadline` is authoritative; an Agent deadline snapshot mismatch fails closed before provider/tool work
-- [ ] `V-T010-17` configured token limits with provider/model `usage == false` reject before provider I/O
-- [ ] `V-T010-18` provider/model declaring usage support but omitting finalized usage fails closed before another model request
-- [ ] `V-T010-19` a finalized multi-call response whose complete logical-call batch exceeds remaining `max_tool_calls` capacity executes/prepares zero tools and settles `BudgetExhausted`
-- [ ] `V-T010-20` a batch exactly fitting remaining logical-call capacity is admitted in source order and no partial admission path exists
-
-Focused evidence:
-
-```bash
-cargo test -p ww-agent-core --test limits --locked
-cargo test -p ww-runtime --locked
-```
+- [ ] `V-T010-15` simultaneous cancel/deadline/budget observations resolve identically before/after reopen
+- [ ] `V-T010-16` common deadline is authoritative; Agent snapshot mismatch fails closed before work
+- [ ] `V-T010-17` token limits + `usage == false` reject before provider I/O
+- [ ] `V-T010-18` usage-capable provider omitting finalized usage fails closed before next provider request
+- [ ] `V-T010-19` over-budget finalized multi-call batch prepares/executes 0 tools and settles BudgetExhausted
+- [ ] `V-T010-20` exactly fitting batch is admitted in source order with no partial admission path
 
 ## V-T011 — Recovery matrix
 
-- [ ] `V-T011-F1` restart after creation commit continues existing run once
-- [ ] `V-T011-F2` restart after model start appends interruption/new attempt only when permitted
-- [ ] `V-T011-F3` restart after model finalization makes zero provider calls before pending tool/terminal handling
-- [ ] `V-T011-F4` Safe `ToolEffectStarted`/no effect result creates a new attempt and one logical result
-- [ ] `V-T011-F5` Never `ToolEffectStarted`/no effect result performs zero re-execution and settles RequiresIntervention
-- [ ] `V-T011-F6` effect output/no model-visible entry appends exactly the reserved entry without execution
-- [ ] `V-T011-F7` all results/no turn appends one TurnCommitted without provider/tool work
-- [ ] `V-T011-F8` Agent terminal/common nonterminal terminalizes common once without provider/tool work
-- [ ] `V-T011-09` F1–F8 resume in a distinct OS process using the same SQLite database
-- [ ] `V-T011-10` second restart after every repair adds no effect, logical result, or duplicate terminal event
-- [ ] `V-T011-11` impossible history outside the matrix fails closed
-- [ ] `V-T011-12` F2 pre-event and transient-partial-delta process losses both leave no durable assistant entry and follow the same permitted retry rule
-- [ ] `V-T011-13` two competing resume drivers cannot both authorize provider/tool work; the stale writer reloads without external invocation
-
-Focused evidence:
-
-```bash
-cargo test -p ww-agent-store-sqlite --test recovery_matrix --locked
-```
+- [ ] `V-T011-F1` creation restart continues existing run once
+- [ ] `V-T011-F2` started model attempt becomes interrupted/new attempt only when permitted
+- [ ] `V-T011-F3` finalized model response is not re-requested before pending handling
+- [ ] `V-T011-F4` Safe effect-start/no-completion creates new attempt and one logical result
+- [ ] `V-T011-F5` Never effect-start/no-completion performs 0 re-execution and requires intervention
+- [ ] `V-T011-F6` durable effect completion repairs reserved result without execution
+- [ ] `V-T011-F7` missing turn commit repairs once without provider/tool work
+- [ ] `V-T011-F8` Agent terminal/common nonterminal repairs once without provider/tool work
+- [ ] `V-T011-09` F1–F8 resume in distinct OS process on same SQLite database
+- [ ] `V-T011-10` second restart adds no effect/logical result/duplicate terminal event
+- [ ] `V-T011-11` impossible history outside matrix fails closed
+- [ ] `V-T011-12` F2 pre-event and transient-partial-delta losses leave no durable assistant entry
+- [ ] `V-T011-13` competing resume drivers cannot both authorize external work
 
 ## V-T012 — Evaluation and terminal review
 
-- [ ] `V-T012-01` every active check in `EVALUATIONS.md` has a passing current EvaluationRun appended under that check
-- [ ] `V-T012-02` each EvaluationRun pins exact commit, command/fixture, date, mode, result, and evidence
-- [ ] `V-T012-03` permanent gate passes locally and in hosted CI on exact reviewed commit
+- [ ] `V-T012-01` every active Evaluation check has a current passing EvaluationRun
+- [ ] `V-T012-02` each EvaluationRun pins exact commit, command/fixture, date, mode, result, evidence
+- [ ] `V-T012-03` permanent gate passes locally and hosted on exact reviewed commit
 - [ ] `V-T012-04` terminal review maps every SPEC requirement family to evidence
 - [ ] `V-T012-05` review finds no unsafe replay, duplicate logical result, or undefined repair state
-- [ ] `V-T012-06` review finds no concrete transport/filesystem/process/network/product/Flow/Orchestration leakage
-- [ ] `V-T012-07` residual findings are classified without automatically changing the active roadmap
+- [ ] `V-T012-06` review finds no concrete transport/capability/product/Flow/Orchestration leakage
+- [ ] `V-T012-07` residual findings are classified without automatically changing roadmap
 - [ ] `V-T012-08` no G003 Stop Condition remains active
-- [ ] `V-T012-09` requester explicitly accepts or rejects G003; acceptance is not inferred from branch placement
-- [ ] `V-T012-10` terminal review traces each open Task to SPEC §4 reference evidence, WorkWeave adaptation, and rejected/deferred behavior
+- [ ] `V-T012-09` requester explicitly accepts/rejects G003
+- [ ] `V-T012-10` review traces each open Task to reference evidence, WorkWeave adoption, and deferrals
 
 ## Architecture boundary checks for final review
 
-- [ ] `ww-agent-provider` remains provider-neutral and transport-free
-- [ ] `ww-agent-tools` remains capability-free and independent from Agent core/runtime/store
-- [ ] `ww-agent-core` contains no SQLite or concrete capability/transport
+- [ ] provider crate remains provider-neutral and transport-free
+- [ ] tools crate remains capability-free and independent from Agent core/runtime/store
+- [ ] Agent core contains no SQLite or concrete capability/transport
 - [ ] Agent DTOs do not enter shared `ww-store`
 - [ ] no Agent crate depends on Flow/OWS
 - [ ] no public Agent SDK/CLI/TUI/server is added
-- [ ] no hidden chain-of-thought or secret value is persisted
-
-## Required Evaluations
-
-All checks in `EVALUATIONS.md` required for G003 closure must have current passing EvaluationRuns on the final reviewed code basis.
+- [ ] no secret value or hidden chain-of-thought is persisted
 
 ## Evidence retained through T006
 
-- T002 verification: temporary verifier branch; provider boundary and clippy passed; full workspace tests passed with 15 `ww-agent-provider` assembler/conformance tests.
-- T003 verification: temporary verifier branch; clippy and full workspace tests passed with 11 `ww-agent-core` recovery/corruption tests.
-- T004 verification: temporary verifier branch; clippy and full workspace tests passed, including Agent SQLite rollback/reopen/version-conflict and real process-restart reconstruction.
-- T005 verification: consolidated engineering commit `69f4ab7ecbed731d40a695dafcf487d62645b695`; full merge-target-equivalent gate passed on Rust 1.98.0: fmt, five architecture boundary checks, clippy `--locked -D warnings`, and 44/44 tests. Coordinator acceptance covers atomic create/link, injected mid-write rollback, and mismatched database path rejection.
-- T006 verification: full `main` gate on Rust 1.98.0 — formatting, five architecture checks, locked clippy, and 58/58 tests. RecordedProvider covers the eight required scenarios plus transport-unavailable, determinism, request capture, and script violations.
+- T002: provider boundary + assembler/conformance tests passed.
+- T003: recovery/corruption tests passed.
+- T004: rollback/reopen/version-conflict and process-restart reconstruction passed.
+- T005: atomic create/link + injected rollback passed under full gate.
+- T006: RecordedProvider conformance + full `main` gate passed with 58/58 tests at its closure checkpoint.

@@ -4,98 +4,99 @@
 
 State: active. No terminal G003 review has occurred.
 
-Verified slices:
+Verified foundation:
 
-- T002 provider-neutral protocol and pure stream assembler: provider boundary, clippy and workspace tests passed; 15 assembler/conformance tests passed.
-- T003 durable Agent entries/operational records and pure recovery reducer: clippy and workspace tests passed; 11 recovery/corruption tests passed.
-- T004 Agent-owned SQLite persistence/reconstruction: clippy and workspace tests passed, including rollback/reopen/version-conflict and real OS-process restart reconstruction.
-
-Current checkpoint:
-
-- T006 RecordedProvider conformance is complete and verified. The full `main` gate passed on Rust 1.98.0: rustfmt, five architecture-boundary checks, clippy with `--locked -D warnings`, and 58/58 tests.
-- T005 remains scoped only to atomic common-execution + Agent-run creation/linkage and rollback on injected half-write failure. Terminal repair remains owned by T009.
-- T007 tool contract, schema validation, policy, and replay fixtures is the next open implementation slice.
+- T002 provider-neutral protocol/stream assembler complete and verified.
+- T003 durable Agent entries/operational records + pure recovery reducer complete and verified.
+- T004 Agent-owned SQLite persistence/reconstruction complete and verified.
+- T005 common/Agent creation/link coordination complete and verified; terminal repair remains T009.
+- T006 RecordedProvider complete and verified under the full permanent gate; T007 remains the next open implementation Task.
 
 ## D018 experiment disposition — 2026-09-03
 
-D018 introduced a durability-hygiene cleanup gate after T006. The implementation produced useful evidence, but review found that inserting and renumbering Tasks changed the accepted G003 structure without an existing acceptance criterion or Stop Condition requiring the interruption. D019 therefore superseded D018, and the D018-era implementation was ordinarily reverted without rewriting history. The canonical G003 sequence remains T001–T012, with T007 next. Technical findings are mapped either to an existing G003 Task or proposed G010; the full evidence and disposition remain in `docs/memories/recall/D018-DURABILITY-HYGIENE-RETROSPECTIVE-2026-09-03.md`.
+D018 inserted a durability/hygiene gate after T006. The implementation produced useful findings but changed the accepted G003 Task structure without a Stop Condition or acceptance requirement demanding the interruption. D019 superseded D018, restored T001–T012, and retained the technical findings as historical evidence. Non-blocking persistence hardening moved to proposed G010 rather than becoming a prerequisite cleanup cycle.
+
+See `docs/memories/recall/D018-DURABILITY-HYGIENE-RETROSPECTIVE-2026-09-03.md`.
 
 ## D021 specification and plan refinement — 2026-09-04
 
-D021 authorized a reference-grounded precision pass before T007 without changing the Goal boundary, accepted ADR-0003, completed T001–T006 semantics, or used Task identities. The lock was published at `999170f895b4a4ecc72615e48b6cd4efba87473e`; the initial candidate packet was published at `403fd72b30ec8afe11112803d5ee06e17217e6d4`; later review/grounding amendments culminated in candidate head `63c8f5cd7e9223b0614e4b9dbce39bc884c831fd`.
+D021 authorized a reference-grounded precision pass before T007 while preserving ADR-0003, Goal boundary, T001–T006 semantics, and Task IDs.
 
-The review corrections preserve the existing T003 meaning of `ToolAttemptStarted`, `turn_count`, and `tool_attempt_count`. They add prospective T007/T010 concepts—an explicit `ToolEffectStarted` ambiguity marker, a completed-model-turn counter, and a logical-tool-call budget counter—rather than retroactively reinterpreting completed durable-state semantics.
+Evidence basis included:
 
-Method and evidence basis:
+- pinned Addy Osmani spec-driven-development and planning/task-breakdown skills;
+- pinned Pi production Agent seams and future Harness durability evidence;
+- ADR-0003, Engine architecture dossier, and current Rust contracts.
 
-- `addyosmani/agent-skills@1c760d643497e9da289300e5eb2f5aca861503f7`: `spec-driven-development` blob `f3f5877c5d6be8f74408c308393bfb45cbcf53c4` and `planning-and-task-breakdown` blob `296249b64334bcfd1aeaefd27b9e3e5494e38ec0`;
-- pinned Pi revision `6c87d9a026677b601e8278030dcf1ad97fe0bd86`: production provider/tool-loop seams and future-Harness entry/record/reducer durability evidence;
-- accepted ADR-0003 plus the WorkWeave Engine architecture dossier and current Rust contracts;
-- current implementation basis through T006 on `main`.
+D021 produced approved SPEC/PLAN v2, refined open Tasks, requirement-traceable Verification, executable Evaluations, and the current Goal-owned handoff. The requester also approved four final boundaries: common deadline authority, usage-observable token limits, whole logical-tool-batch admission, and distinct ordinary-tool-error/cancellation/invariant semantics.
 
-Refined records:
+Approval-reconciliation head `2cde0a9ceb7abf448bed57cd363065dce5494a22` passed hosted CI run `33881904717`, after which the D021 lock was removed.
 
-- `SPEC.md` v2 defines normative architecture, ownership, ordering, failure behavior, durable boundaries, exact limit semantics, F1–F8 recovery states, testing strategy, and requirement traceability for T007–T012;
-- `PLAN.md` v2 preserves T007→T012 and adds dependency-ordered work units, likely files, checkpoints, risks, and escalation rules;
-- `TASKS.md` preserves completed rows and identities while making each open Task executable through descriptions, work units, acceptance criteria, focused commands, likely files, and scope guidance;
-- `VERIFICATION.md` adds stable Task-scoped checks for tool safety, kernel execution, lifecycle/cancellation, limits, recovery, and final review while retaining T002–T006 evidence;
-- `EVALUATIONS.md` defines exact deterministic procedures, expected results, and EvaluationRun evidence fields.
+## A004 T007 dry run — 2026-09-04
 
-Deliberately deferred rather than added to G003: generic durable-format migration infrastructure, cross-adapter storage hardening, approval-bearing policy, idempotency-key replay, parallel tools, concrete providers, filesystem/process/network capabilities, SDK/CLI/TUI/server surfaces, and Flow/Orchestration semantics.
+A004-builder recorded `artifacts/A004-builder-T007-claude-opus-5-dryrun-01.md` before implementation.
 
-### Requester approval and unlock — 2026-09-04
+Useful findings:
 
-The requester explicitly approved the complete refined packet and all four final boundary recommendations:
+- canonical-digest tests can false-green under current `serde_json::Map` ordering unless canonical bytes are asserted directly;
+- `jsonschema 0.52.1` with default features disabled supports the intended offline profile;
+- explicit external-reference rejection is needed for clear WorkWeave-owned schema errors;
+- existing `AgentAppend` already supports atomic multi-record appends under one optimistic version;
+- the preparation/execution boundary should follow Pi's distinct preparation seam;
+- Q008 asked where Policy `failed_at` belongs.
 
-1. linked G002 `ExecutionRecord.deadline` is authoritative; Agent deadline is a matching snapshot only;
-2. configured token limits require provider/model normalized usage capability, and missing promised finalized usage fails closed before another request;
-3. `max_tool_calls` counts logical model-requested calls and admits a finalized multi-call batch all-or-none before any call executes;
-4. an ordinary returned `ToolExecutionError` becomes one durable model-visible error result, while cancellation and panic/impossible invariant failure remain distinct paths.
+Q008 is resolved in `QUESTIONS.md`: Policy stage belongs in `ToolCallPrepared::NoEffect` with durable Deny; `ToolAttemptDenied` gains no duplicate stage field.
 
-The approval-reconciliation commit `2cde0a9ceb7abf448bed57cd363065dce5494a22` incorporates those clarifications into SPEC/PLAN/TASKS/VERIFICATION/EVALUATIONS v2 and adds the current Goal-owned implementation orientation at `goals/G003-thin-agent-kernel/HANDOFF.md`. Historical handoffs under `docs/memories/recall/` remain evidence only.
+## D022 first pass and critique — 2026-09-04
 
-Hosted CI run `33881904717` succeeded on exact approval-reconciliation head `2cde0a9ceb7abf448bed57cd363065dce5494a22`: Format, architecture boundaries, locked Clippy, and full workspace tests all passed. That satisfies the D021 unlock condition. The G003 `REPLAN_LOCK` is removed in the subsequent bookkeeping change; G003 remains active and T007 is implementation-ready.
+D022 authorized T007 hardening after the dry run without changing the domain model, ADR-0003, Goal boundary, completed Tasks, or Task IDs.
 
-## D022 T007 dry-run hardening — 2026-09-04
+The first pass correctly added a single preparation seam direction, effect/replay-aware policy proof, canonical-byte proof, and Q008 resolution. It then unlocked at `790cf17e5fa1fbce7e8bd0449e3ab28485db0a92` after green CI.
 
-The requester asked for a deeper review of `artifacts/A004-builder-T007-claude-opus-5-dryrun-01.md` against the accepted architecture, especially Pi production and Pi Harness, and authorized a `ww-refine-goal` pass only if the resulting hardening required no domain-model change.
+A subsequent independent critique found the unlock premature. The critique was accepted because:
 
-### Domain-model assessment
+1. material requirements existed only in lower-authority `TASKS.md` while SPEC/PLAN/V&V remained v2;
+2. `ww-refine-goal` requires a new explicit SPEC version and reconciled PLAN/Tasks/Verification/Evaluations before unlock;
+3. T007 preparation cannot by itself prove real commit-before-effect execution; that production proof belongs in T008;
+4. tool cancellation behavior was semantically specified but not representable distinctly from ordinary `ToolExecutionError` at the tools/core API boundary;
+5. exact function/module naming in TASKS contradicted SPEC's implementation-flexibility rule;
+6. D022 requirements lacked stable Verification IDs and Evaluation coverage;
+7. the Draft 2020-12 offline profile needed `$dynamicRef` coverage while not treating `$id` itself as external retrieval;
+8. configured run pin order needed proof independent of registry registration order.
 
-No domain-model change is required.
+This is a planning-authority/process defect, not a domain-model or ADR change.
 
-The accepted model already contains the relevant semantics: stable tool identity/version, exact parsed arguments, `EffectDescriptor`, `ReplayPolicy`, `PolicyDecision`, `ToolPreparationDisposition`, `ToolPreparationStage`, Agent-owned logical-call/attempt/result identities, `ToolCallPrepared`, `ToolEffectStarted`, effect completion, rejected/denied/completed/interrupted/intervention attempt outcomes, and one model-visible result per logical call. D022 introduces no new entity, state, relationship, lifecycle, authority, or durable record variant.
+## D022 resumed reconciliation — 2026-09-04
 
-The hardening is an implementation-architecture clarification inside ADR-0003:
+The D022 lock was restored at `e26bcc3737a5f78e906bd22c64d09bcf490be2e4` before further planning mutations.
 
-- make Pi's distinct preparation seam explicit as one production `ww-agent-tools::prepare_tool_call` boundary rather than leaving T008 to recompose registry/schema/effect/replay/policy logic;
-- keep Agent IDs and durable wrapping in `ww-agent-core`, so the seam does not acquire Agent-domain ownership;
-- require an effect/replay-aware policy conformance fixture so the existing policy input is behaviorally proved rather than merely present in types;
-- harden canonicalization proof against the current `serde_json::Map` ordering false-green by asserting deterministic nested canonical bytes, not digest equality alone;
-- resolve A004's remaining `failed_at` question without adding a new field or record.
+The candidate reconciliation now does the following:
 
-This follows Pi's production `prepareToolCall` separation and Harness's durable source/result correlation while retaining WorkWeave's stronger commit-before-effect and replay-intervention semantics. It does not import Pi queues, hooks, parallel execution, session façade, or Harness lanes.
+- promotes the material tool architecture into `SPEC v3-candidate`;
+- reconciles `PLAN v3-candidate`, TASKS, Verification, Evaluations, handoff, and Project State;
+- keeps one production tool-preparation seam semantically mandatory while allowing idiomatic function/module naming;
+- keeps durable preparation taxonomy canonical but removes unnecessary exact module/file mandates;
+- makes run configured pin order authoritative and proves it against different registration order;
+- expands offline schema rules to non-fragment `$ref` and `$dynamicRef`; `$id` alone is not rejected;
+- requires effect/replay-aware policy conformance and nested canonical-byte proof;
+- makes Output / OrdinaryError / Cancelled machine-distinguishable normal tool outcomes; panic/invariant remains outside normal outcomes;
+- keeps T007 responsible for pure preparation + durable grammar/reducer;
+- moves actual `ToolEffectStarted` commit-before-executor proof to T008;
+- retains Q008 without adding a new record field;
+- adds stable D022 Verification IDs and matching Evaluations.
 
-### Q008 resolution
+No Goal/Task topology change, new durable record, or new prerequisite is introduced.
 
-`Q008` records the dry-run question on behalf of `A004-builder`. For policy denial, `failed_at: Policy` lives in `ToolCallPrepared::NoEffect` with `PolicyDecision::Deny`; the existing `ToolAttemptDenied { attempt_id, result_entry_id }` shape remains unchanged. Resolve/Validate/Classify failures continue to use `ToolAttemptRejected.failed_at`.
-
-The actor-identifier question from the dry run was already resolved separately as `A004-builder` in commit `c0c684d580d1e24bb746b7c46b1c7aaa4119639e`.
-
-D022 changes only the open T007 implementation contract and question/evidence bookkeeping. `SPEC v2`, `PLAN v2`, ADR-0003, the G003 Goal boundary, completed T001–T006 semantics, and Task identifiers remain unchanged.
-
-### Verification and unlock
-
-D022 lock commit: `a5152d33412fa36d5da15a3de34412e5a9393986`.
-
-Refinement commit `7e458c2bb87d4bfc94d64ce80d7afeb580cfbcf7` passed hosted CI run `33898841197` on its exact head: Format, architecture boundaries, locked Clippy, and full workspace tests all succeeded. The requester had already authorized the domain-neutral hardening in the D022 instruction, so the verification satisfies the unlock condition. The subsequent bookkeeping commit removes only the D022 `REPLAN_LOCK`; G003 stays active and T007 remains the next implementation Task under the hardened contract.
+The corrected packet remains under `REPLAN_LOCK` until the exact candidate head passes the complete D017 gate and the requester approves the resulting packet.
 
 ## Planned terminal review focus
 
 - provider-neutral kernel ownership and dependency direction;
+- one tools preparation authority with no core duplication;
 - deterministic recovery reducer and corrupt-history behavior;
-- Agent/common SQLite transaction ownership without Agent DTO leakage into shared store contracts;
-- tool argument validation, policy, replay classification, and logical-result uniqueness;
-- crash/restart behavior at every model/tool ambiguity boundary;
-- cancellation and durable budget accounting;
-- absence of concrete transport, filesystem, CLI/product surface, Flow/OWS, or WorkWeave Orchestration semantics in the kernel.
+- Agent/common SQLite ownership without Agent DTO leakage;
+- exact arguments, configured tool order, policy/replay classification, and result uniqueness;
+- real commit-before-effect ordering in T008;
+- cancellation distinct from ordinary tool error and replay-sensitive settlement;
+- crash/restart behavior at every ambiguity boundary;
+- absence of concrete transport/capability/product/Flow/Orchestration leakage.

@@ -6,39 +6,39 @@
 - Language: Rust.
 - Active Goal: `G003 — Durable Agent Kernel`.
 - G001 architecture baseline: achieved and accepted.
-- G002 shared runtime: achieved after independent owner review acceptance on 2026-09-02; governed by `ADR-0002`.
-- G003 is active under accepted `ADR-0003` and remains narrowed to the durable provider-neutral kernel/recovery proof.
-- G003 T002 through T006 are complete and verified.
-- T005 proved atomic common-execution + Agent-run creation/linkage and rollback on injected mid-write failure without adding Agent DTOs to the shared `ww-store` semantic API.
-- D021 refinement is complete and requester-approved: `SPEC v2`, `PLAN v2`, open T007–T012 detail, Verification, and Evaluations are the accepted planning basis.
-- The four final D021 boundary clarifications are accepted: common deadline authority, usage-observable token limits, all-or-none logical tool-call batch admission, and distinct ordinary-tool-error/cancellation/invariant semantics.
-- Approval-reconciliation commit `2cde0a9ceb7abf448bed57cd363065dce5494a22` passed the complete hosted D017 gate in run `33881904717`.
-- D022 T007 dry-run hardening is complete and requester-approved. It is domain-model neutral and leaves `SPEC v2`, `PLAN v2`, ADR-0003, the Goal boundary, completed T001–T006, and Task IDs unchanged.
-- D022 makes the open T007 implementation contract explicit: one production `ww-agent-tools::prepare_tool_call` seam, canonical preparation nomenclature, effect/replay-aware policy conformance, nested canonical-byte proof, and resolved failure-stage placement under Q008.
-- D022 refinement commit `7e458c2bb87d4bfc94d64ce80d7afeb580cfbcf7` passed the complete hosted D017 gate in run `33898841197`.
-- The D022 `REPLAN_LOCK` is removed. G003 implementation may resume.
-- T007 is the next engineering slice: tool contract, schema validation, policy, replay fixtures, durable preparation metadata, and the D022 preparation-seam/conformance requirements; it converges with the completed provider work at T008, the functional model → tool → model kernel.
-- Current implementation orientation: `goals/G003-thin-agent-kernel/HANDOFF.md`.
-- Proposed following Goal: `G004 — Agent Provider and Surface`; OpenAI protocol, bounded `fs.read`, Agent SDK/CLI; governed by proposed `ADR-0004`.
-- Deterministic OWS Flow kernel follows as G005; restart-safe Flow → Agent integration follows as G006.
-- `G010 — Durable Storage Evolution and Recovery Hardening` is proposed as a separate home for non-blocking persistence evolution findings. It is not a prerequisite for G004 unless later evidence activates it for a specific reason.
+- G002 shared runtime: achieved and accepted on 2026-09-02 under `ADR-0002`.
+- G003 remains active under accepted `ADR-0003` and narrowed to the durable provider-neutral kernel/recovery proof.
+- T002–T006 are complete and verified; their semantics/evidence are frozen.
+- D021 established the approved v2 planning basis and four accepted boundary clarifications: common deadline authority, usage-observable token limits, whole logical-tool-batch admission, and distinct ordinary-error/cancellation/invariant paths.
+- D022 was resumed after review found the first D022 pass had placed material architecture requirements only in `TASKS.md`, contrary to the repository authority hierarchy and `ww-refine-goal` completion rules.
+- The G003 `REPLAN_LOCK` is active under D022. Implementation is blocked until the corrected packet is approved and the lock is removed.
+- Candidate planning basis: `SPEC v3-candidate`, `PLAN v3-candidate`, reconciled T007/T008 Tasks, `VERIFICATION v3-candidate`, `EVALUATIONS v3-candidate`, and the updated Goal handoff.
+- The corrected boundary keeps T007 responsible for pure tool preparation + durable tool grammar/reducer and T008 responsible for the real commit-before-effect execution proof.
+- Tool execution cancellation is now a machine-distinguishable control outcome, not an ordinary `ToolExecutionError`; T009 owns durable cancellation intent and replay-sensitive final settlement.
+- JSON Schema Draft 2020-12 offline rules cover both `$ref` and `$dynamicRef`; `$id` alone is not treated as an external retrieval request.
+- Run configured tool pin order is authoritative; registry registration order has no model-visible authority.
+- Q008 remains resolved for A004-builder: Policy stage belongs in `ToolCallPrepared::NoEffect`; `ToolAttemptDenied` gains no duplicate stage field.
+- T007 remains the next implementation Task **after requester approval and unlock**.
+- Proposed following Goal: `G004 — Agent Provider and Surface`; first concrete provider, bounded `fs.read`, SDK/CLI; proposed `ADR-0004`.
+- G005 is deterministic OWS Flow kernel; G006 is restart-safe Flow → Agent integration.
+- `G010 — Durable Storage Evolution and Recovery Hardening` remains proposed and non-blocking unless later evidence activates it.
 
 ## Goal ADR rule
 
-Every Goal must reference at least one ADR before activation. G001/G002 ADRs were backfilled when this rule was introduced; future Goals must create their ADRs while still proposed.
+Every Goal must reference at least one ADR before activation. Material architecture changes during an active Goal require the governing ADR to be amended/superseded before reliance. D022 does not change ADR-0003; it reconciles contracts already inside it.
 
 ## Current evidence pins
 
-- Pi reference revision: `6c87d9a026677b601e8278030dcf1ad97fe0bd86`.
-- WorkWeave Orchestration reference revision: `21aac374d28e6ad39944214866780a74b39f8e24`.
-- OWS specification revision: `2dd2c84170d5f3e05d58e913e9ca298dcf8d543a`.
-- LangGraph reference revision: `11ee185999b86bfea2d8c0e69cef9a5e37acf686`.
+- Pi reference: `6c87d9a026677b601e8278030dcf1ad97fe0bd86`.
+- WorkWeave Orchestration: `21aac374d28e6ad39944214866780a74b39f8e24`.
+- OWS specification: `2dd2c84170d5f3e05d58e913e9ca298dcf8d543a`.
+- LangGraph reference: `11ee185999b86bfea2d8c0e69cef9a5e37acf686`.
 - Engine architecture baseline: `docs/architecture/WORKWEAVE-ENGINE-ARCHITECTURE-DOSSIER.md`.
-- Refinement method: approved `docs/skills/ww-refine-goal/SKILL.md`, introduced by D020 and invoked for G003 by D021 and D022.
+- Refinement method: `docs/skills/ww-refine-goal/SKILL.md`, introduced by D020 and used by D021/D022.
 
 ## G002 achieved boundary
 
-Final reviewed implementation code head `9ea9d58f4dcafa2f5d5073beb6be65b7ab690bcc` is covered by CI run `33646651848` through evidence commit `bb2cb831fe42342afcfc93cf7e8757a9206c1947`. The project owner independently reviewed and approved G002 on 2026-09-02.
+Final reviewed G002 implementation code head `9ea9d58f4dcafa2f5d5073beb6be65b7ab690bcc` is covered by CI run `33646651848` through evidence commit `bb2cb831fe42342afcfc93cf7e8757a9206c1947`.
 
 ## G003 execution status
 
@@ -49,7 +49,7 @@ T003 Agent history + recovery reducer     complete / verified
 T004 Agent SQLite persistence             complete / verified
 T005 common/Agent transaction seam        complete / verified
 T006 recorded provider                    complete / verified
-T007 tool policy/replay fixtures          open / NEXT / D022-hardened
+T007 tool preparation + durable grammar   open / NEXT AFTER D022 APPROVAL
 T008 functional Agent kernel              open
 T009 lifecycle + cancellation             open
 T010 durable limits                       open
@@ -57,24 +57,22 @@ T011 crash/restart matrix                 open
 T012 evaluations + terminal review        open
 ```
 
-The Task IDs, meanings, and dependency order remain the original G003 sequence.
+Task IDs and dependency order remain unchanged.
 
 ## Current G003 planning basis
 
 ```text
-ADR-0003 accepted
-GOAL unchanged
-SPEC v2              approved under D021
-PLAN v2              approved, based on SPEC v2
-TASKS T007-T012      refined, IDs unchanged, approved
-T007                  additional D022 hard requirements approved
-VERIFICATION         requirement-traceable v2 approved
-EVALUATIONS          executable v2 approved
-HANDOFF.md            current builder orientation
-Q008                  resolved for A004-builder
-requester approval   complete 2026-09-04
-REPLAN_LOCK           none
-next Task             T007
+ADR-0003              accepted / unchanged
+GOAL                   unchanged
+SPEC v3-candidate      pending D022 requester approval
+PLAN v3-candidate      pending D022 requester approval
+TASKS                  reconciled to v3 candidate; IDs unchanged
+VERIFICATION v3        candidate with stable D022 checks
+EVALUATIONS v3         candidate with preparation/effect-boundary split
+HANDOFF                 aligned to candidate authority
+Q008                    resolved
+REPLAN_LOCK             ACTIVE — D022
+next implementation     T007 after approval/unlock
 ```
 
 ## Planned implementation sequence
@@ -82,7 +80,7 @@ next Task             T007
 ```text
 G002 Shared Runtime                 achieved
   ↓
-G003 Durable Agent Kernel           ACTIVE — T007 next
+G003 Durable Agent Kernel           ACTIVE — D022 replanning lock
   ↓
 G004 Agent Provider and Surface
   ↓
@@ -97,6 +95,4 @@ G008 Local product experience
 G009 Coordinated deployment          reserved
 ```
 
-`G009 — Coordinated Deployment` is reserved by the original architecture roadmap; D015 shifted it by one when the Agent Provider and Surface Goal was inserted.
-
-G010 is proposed outside this sequence. Its activation and execution order will be decided after G003 from concrete requirements rather than inferred from review findings alone.
+G010 remains proposed outside this sequence.

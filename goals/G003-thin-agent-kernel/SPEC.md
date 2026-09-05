@@ -1,1001 +1,670 @@
 # Specification — G003 Durable Agent Kernel
 
-- Version: `v2`
-- Approval: `approved by requester 2026-09-04 under D021`
-- Refinement: `D021`
+- Version: `v3-candidate`
+- Approval: `pending requester approval under resumed D022`
+- Refinement: `D021` baseline + resumed `D022`
 - Governing architecture: `ADR-0003`
-- Supersedes: the unversioned G003 specification for remaining T007–T012 work
-- Implementation code basis: `facb2d04d0060417db7a9fa50de68221ea493f33` (coherent T006 code basis; D021 changed planning/specification only)
-- Completed-work boundary: T001–T006 remain governed by their original accepted contracts and evidence
+- Supersedes: `SPEC v2` when approved
+- Implementation code basis: T006-equivalent code; D021/D022 are planning/specification-only
+- Completed-work boundary: T001–T006 retain their original accepted contracts and evidence
 
 ## 0. Document contract
 
-This specification makes the remaining G003 work executable without changing the accepted Goal boundary, architecture, completed Task meanings, or Task identifiers.
+This specification makes the remaining G003 work executable without changing the Goal boundary, ADR-0003, completed Task meanings, Task identifiers, or the WorkWeave domain model.
 
-Normative words have their usual meaning:
+Normative words:
 
 - **MUST / MUST NOT** — required for G003 acceptance.
-- **SHOULD / SHOULD NOT** — strong default; deviation requires a recorded rationale in the Task review.
+- **SHOULD / SHOULD NOT** — strong default; deviation requires a recorded Task-review rationale.
 - **MAY** — permitted but not required.
 
-Authority remains:
+Authority:
 
 ```text
-accepted Decisions and ADR-0003
+accepted Decisions + ADR-0003
         ↓
-G003 GOAL.md
+GOAL.md
         ↓
-this SPEC
+SPEC.md
         ↓
-PLAN
+PLAN.md
         ↓
-TASKS
+TASKS.md
         ↓
-VERIFICATION / EVALUATIONS
+VERIFICATION.md / EVALUATIONS.md
+        ↓
+HANDOFF.md
         ↓
 implementation
 ```
 
-This version is prospective for T007–T012. It does not retroactively add requirements to T001–T006.
+T001–T006 are frozen. This version applies prospectively to T007–T012.
 
-### 0.1 Refinement method
+### 0.1 D022 resumption
 
-D021 authorized this precision pass under `ww-refine-goal`.
+D022 remains the authorizing Decision. It is resumed rather than replaced.
 
-The refinement method adapts, rather than copies, these pinned sources:
+The first D022 pass correctly identified useful T007 hardening but placed normative architecture only in `TASKS.md`. This v3 candidate reconciles that hardening into the full authority chain before implementation resumes.
 
-| Source | Pin | Adopted use |
-| --- | --- | --- |
-| Addy Osmani `spec-driven-development` | `addyosmani/agent-skills@1c760d643497e9da289300e5eb2f5aca861503f7`, file blob `f3f5877c5d6be8f74408c308393bfb45cbcf53c4` | explicit assumptions, boundaries, testable success criteria, human approval before implementation |
-| Addy Osmani `planning-and-task-breakdown` | same repository pin, file blob `296249b64334bcfd1aeaefd27b9e3e5494e38ec0` | dependency order, focused work units, acceptance + verification + likely files, checkpoints |
-| WorkWeave `ww-refine-goal` | D020 | stable Task identities, completed-work immutability, Goal-scoped `REPLAN_LOCK` |
+D022 introduces **no new durable entity, relationship, lifecycle, authority, or record variant**. It clarifies:
 
-The existing G003 Task topology already satisfies the greenfield capability-map step. This refinement MUST NOT decompose or renumber G003 again.
+- one production tool-preparation seam;
+- ownership between `ww-agent-tools` and `ww-agent-core`;
+- effect/replay-aware policy conformance;
+- canonical JSON proof;
+- configured tool ordering;
+- the Draft 2020-12 offline reference profile;
+- cancellation as a distinct execution outcome;
+- T007 versus T008 proof ownership;
+- Q008 failure-stage placement.
 
-### 0.2 Architecture evidence labels
+### 0.2 Reference evidence labels
 
-- **Pi observed** — behavior present in pinned Pi production Agent code.
-- **Pi Harness observed** — behavior present in pinned future Harness code; useful evidence, not production equivalence.
-- **WW adopted** — normative WorkWeave G003 behavior.
-- **WW deferred** — useful behavior deliberately outside G003.
+- **Pi observed** — production Pi Agent behavior at the pinned revision.
+- **Pi Harness observed** — future-Harness behavior at the pinned revision; useful evidence, not production parity.
+- **WW adopted** — normative G003 behavior.
+- **WW deferred** — deliberately outside G003.
 
 ## 1. Objective
 
-G003 proves that a bounded probabilistic Agent can:
+G003 proves that one bounded probabilistic Agent execution can:
 
 1. reconstruct its next safe action from durable history;
-2. issue provider-neutral model requests through `RecordedProvider`;
-3. validate and authorize deterministic/synthetic tool calls;
-4. commit every ambiguity-sensitive boundary before crossing it;
-5. recover after process restart without duplicating one logical tool result;
+2. use a provider-neutral recorded model seam;
+3. prepare and authorize deterministic/synthetic tool calls;
+4. cross provider/effect ambiguity boundaries only after durable authorization commits;
+5. recover without duplicate logical tool results or silent Never replay;
 6. propagate cancellation and enforce durable limits;
-7. terminate with one auditable Agent result consistent with one G002 execution.
+7. settle one auditable Agent result consistently with one G002 execution.
 
-Success is one deterministic text-only run and one deterministic:
+Required walking skeleton:
 
 ```text
 model → tool → model → terminal Agent result
 ```
 
-executed through the real kernel, persisted in SQLite, reopened across process boundaries, and verified by the required Evaluations.
-
 ## 2. Frozen and open scope
 
 ### 2.1 Frozen foundation
 
-T001–T006 are complete and remain unchanged in meaning:
+T001–T006 remain unchanged:
 
 - ADR-0003 accepted and G003 active;
-- normalized provider protocol and fail-closed stream assembler;
+- provider-neutral protocol and fail-closed stream assembler;
 - immutable Agent context entries and operational records;
 - pure recovery reducer;
 - Agent-owned SQLite persistence;
-- atomic common-execution + Agent-run creation/linkage;
-- deterministic `RecordedProvider` conformance fixtures.
-
-Refinement or implementation MUST NOT claim that completed evidence proved new T007–T012 requirements.
+- common/Agent atomic creation/link coordination;
+- deterministic `RecordedProvider` fixtures.
 
 ### 2.2 Open implementation scope
 
 | Task | Capability |
 | --- | --- |
-| T007 | tool identity, schema validation, effect/replay classification, policy, deterministic fixtures, and durable preparation metadata |
-| T008 | smallest functional recorded-provider model/tool loop |
-| T009 | G002 lifecycle binding, cancellation propagation, and terminal repair |
+| T007 | tool contract, offline schema, preparation seam, policy/replay fixtures, durable tool grammar and reducer |
+| T008 | smallest functional recorded-provider model/tool loop; real commit-before-effect execution proof |
+| T009 | G002 lifecycle binding, durable cancellation, terminal repair |
 | T010 | durable deadlines and execution budgets |
-| T011 | process-restart and ambiguous-effect recovery matrix |
+| T011 | distinct-process crash/restart and ambiguity matrix |
 | T012 | exact-code EvaluationRuns and terminal architecture/recovery review |
 
 ### 2.3 Explicit exclusions
 
 G003 MUST NOT add:
 
-- OpenAI, Anthropic, or another concrete network provider;
-- API keys, credential resolution, HTTP clients, or retries against a live provider;
-- public filesystem, process, network, MCP, plugin, A2A, SDK, CLI, TUI, or server capability;
-- Flow, OWS, Goal, Task, Decision, Evaluation, Review, epistemic, deontic, or temporal orchestration semantics;
-- parallel tool execution;
-- sessions, steering/follow-up queues, compaction, branches, subagents, or dynamic tool installation;
-- generic schema/payload migration infrastructure or reusable storage-hardening work assigned to proposed G010.
+- concrete network providers or credentials;
+- public filesystem/process/network/MCP/plugin/A2A capabilities;
+- SDK/CLI/TUI/server product surfaces;
+- Flow/OWS or WorkWeave Orchestration semantic types;
+- parallel tool scheduling;
+- sessions, steering/follow-up queues, branching, compaction, subagents, or dynamic tool installation;
+- generic durable-format migration infrastructure assigned to proposed G010.
 
-## 3. Assumptions settled by this specification
+## 3. Settled assumptions
 
-1. G003 runs in the embedded, single-process profile with SQLite persistence and deterministic fixtures.
-2. `main` is the canonical engineering line. A stale G003 branch is never an alternate authority.
-3. Model tool arguments reach T007 as a complete parsed `serde_json::Value` produced by the T002 assembler.
-4. The parsed value is the sole executable authority. Existing raw JSON may remain as provider provenance but MUST NOT be reparsed for validation, policy, digesting, or execution.
-5. Tool argument validation is non-coercing: validation either accepts the exact parsed value or rejects it.
-6. Tool schemas use JSON Schema Draft 2020-12 and are self-contained.
-7. G003 policy has only `Allow` and `Deny`. Approval workflows remain later.
-8. G003 replay policy has only `Safe` and `Never`. Idempotency-key semantics remain later.
-9. Every tool call is handled sequentially in provider source order.
-10. Provider-declared failure does not trigger an automatic transient-retry policy in G003. Crash recovery may create a new audited attempt when the recovery matrix permits.
-11. A text response finalized with `CompletionReason::Length` is durable for audit but does not count as a successful Agent result.
-12. G003 has no released durable-data compatibility promise. T007–T011 may add Agent record variants and update fixtures needed by the accepted proof; same-code reopen/restart remains mandatory, while known-old schema/payload migration belongs to proposed G010.
-13. The linked G002 `ExecutionRecord.deadline` is the single canonical deadline authority. A deadline in Agent configuration is a persisted snapshot and MUST exactly match the common execution deadline.
-14. When token limits are configured, provider/model normalized usage capability is mandatory; token limits never silently degrade into advisory limits.
-15. `max_tool_calls` is a logical model-requested-call budget. Retry attempts remain separately auditable and do not redefine the logical-call budget.
-16. Ordinary returned tool execution errors are model-visible; cancellation, panic, and impossible invariant failures are distinct control/failure paths.
-17. No open architectural question blocks this approved v2. The requester approved the complete packet and the four boundary clarifications above on 2026-09-04.
+1. The parsed `serde_json::Value` produced by T002 is the sole executable tool-argument authority.
+2. Raw provider JSON is diagnostic provenance only and MUST NOT be reparsed for validation, digesting, policy, or execution.
+3. Validation is non-coercing and injects no defaults.
+4. G003 tool schemas use JSON Schema Draft 2020-12 and are self-contained.
+5. G003 policy is `Allow | Deny`; approval workflows remain later.
+6. G003 replay policy is `Safe | Never`; idempotency-key replay remains later.
+7. G003 executes tool calls sequentially in provider source order.
+8. Registration/availability order is not run configuration order.
+9. Provider-declared failure does not trigger automatic transient retries in G003.
+10. `CompletionReason::Length` is auditable but not successful.
+11. Same-code reopen/restart is mandatory; generic old-format migration is G010.
+12. The linked G002 `ExecutionRecord.deadline` is the single deadline authority; any Agent copy is a matching snapshot only.
+13. Token limits require normalized usage observability.
+14. `max_tool_calls` counts logical model-requested calls, not execution attempts.
+15. Ordinary tool failure, tool cancellation, and panic/invariant failure are three distinct semantic paths.
+16. `ToolEffectStarted` means the durable ambiguity boundary after which execution **may** have occurred; it is not proof that an external effect occurred.
+17. Q008 is resolved: Policy-stage failure lives in `ToolCallPrepared::NoEffect.failed_at`; `ToolAttemptDenied` does not gain a duplicate stage field.
 
 ## 4. Reference-derived architecture
 
-### 4.1 Pi production Agent: adopted seams
+### 4.1 Pi production Agent
 
-At the pinned Pi revision, the production loop separates provider streaming from the Agent loop, resolves a tool by name, prepares/validates arguments, runs a preflight policy hook, executes allowed tools, normalizes failures into model-visible results, and preserves source ordering for sequential calls.
+**Pi observed:** production Pi keeps a small functional model/tool loop and separates tool preparation from execution. Preparation resolves the tool, validates arguments, applies preflight policy, and either produces an immediate error result or a prepared invocation. Execution and result finalization happen afterward. Tool results remain in assistant source order.
 
-Exact evidence:
-
-- `packages/agent/src/types.ts#L18-L42` defines the injected provider stream seam and the sequential/parallel ordering contract;
-- `packages/agent/src/types.ts#L258-L293` places the pre-tool hook after validation and before execution;
-- `packages/agent/src/agent-loop.ts#L156-L273` keeps the low-level model/tool loop separate from the stateful product façade;
-- `packages/agent/src/agent-loop.ts#L409-L552` prepares calls before execution and preserves assistant source order in emitted tool-result messages;
-- `packages/agent/src/agent-loop.ts#L598-L788` resolves, validates, preflights, executes, normalizes failures, and constructs one model-visible result.
-
-All paths are relative to the immutable Pi prefix in `docs/architecture/SOURCE-REGISTER.md`.
-
-**WW adopted:**
+**WW adopted:** preserve the same separation, but add explicit effect/replay classification and durable authorization:
 
 ```text
-resolve
-→ validate exact arguments
-→ derive effect/replay
-→ evaluate centralized policy
-→ persist pre-effect state
-→ execute or deny
-→ normalize one model-visible result
+prepare
+    resolve exact pinned tool
+    → validate exact parsed value
+    → canonicalize/digest
+    → derive effect
+    → derive replay policy
+    → evaluate centralized policy
+    → return typed preparation disposition
+
+then, in the Agent kernel
+    persist Agent-owned preparation/effect boundary
+    → commit
+    → execute or settle no-effect
+    → persist normalized outcome
+    → expose one ordered model-visible result
 ```
 
-### 4.2 Pi production Agent: deliberate adaptations
+**WW deferred/rejected:** Pi argument coercion, postflight mutation, parallel execution, queues, session façade, product hooks, and coding-agent capabilities.
 
-| Pi behavior | G003 treatment |
-| --- | --- |
-| argument preparation may transform/coerce raw arguments | reject; G003 validation is non-coercing |
-| tools may run in parallel | reject; sequential only |
-| hooks can patch tool calls/results | defer |
-| session queues and continuation modes | defer |
-| tool updates/progress | not required for G003 |
-| coding-agent filesystem/process tools | defer to later Goals |
+### 4.2 Pi Harness
 
-### 4.3 Pi Harness: adopted durability evidence
+**Pi Harness observed:** entries and operational records are separate; tool-start records correlate assistant entry, source index, effective arguments, result identity, and replay safety; a pure reducer rejects impossible histories and reconstructs unresolved work.
 
-At the pinned Harness revision:
+**WW adopted:** immutable context entries, Agent-owned operational records, reserved result identity, append-only attempts, explicit replay safety, pure reduction, and fail-closed corruption handling.
 
-- entries and operational records are separate;
-- a tool-start record includes effective arguments, source position, replay classification, and a reserved result-entry identity;
-- the reducer derives unresolved tool batches in source order;
-- open operations are reconstructed and impossible histories fail closed.
+**WW adaptation:** WorkWeave records a stronger pre-effect grammar—effect descriptor, policy decision, and an explicit ambiguity marker—because restart safety is a first-class G003 requirement.
 
-**WW adopted:**
+### 4.3 WorkWeave architectural rule
 
-- stable logical call, attempt, and reserved result identities;
-- durable effective-argument digest, tool pin, effect, policy, and replay classification before execution;
-- append-only attempts;
-- pure recovery reduction;
-- one model-visible result per logical call.
+The tool subsystem decides **whether a call is executable**. The Agent kernel decides **whether execution is durably authorized now**.
 
-**WW deferred:** Harness lanes, queues, navigation, compaction, hook system, filesystem environment, and session product façade.
-
-Exact evidence:
-
-- `packages/agent/src/harness/reducer.ts#L131-L270` validates attempt continuity, reserved result identity, assistant/source-index linkage, and duplicate tool invocation;
-- `packages/agent/src/harness/reducer.ts#L311-L382` validates the record log before reduction and rejects unknown or post-finish records;
-- `packages/agent/src/harness/reducer.ts#L447-L507` reconstructs the unresolved source-ordered tool batch from entries plus records;
-- `packages/agent/src/harness/agent-harness.ts` still contains unavailable/not-implemented façade operations at the pin, so G003 adopts reducer evidence rather than claiming Harness lifecycle parity.
-
-### 4.4 WorkWeave architecture dossier: governing direction
-
-The primary Engine dossier establishes:
-
-- stable tool identity/version;
-- tool-owned schema and async execution contract;
-- centralized policy over an effect descriptor;
-- replay classification before effect execution;
-- durable model and tool boundaries;
-- no silent replay of an unsafe started effect;
-- `jsonschema` for dynamic provider/tool-boundary validation.
-
-This specification narrows those general contracts to the G003 proof.
-
-### 4.5 Reference-to-Task design lineage
-
-| Task | Observed reference evidence | WorkWeave adoption | Deliberate rejection or adaptation |
-| --- | --- | --- | --- |
-| T007 | Pi validates before `beforeToolCall`, converts blocked/invalid calls to tool results, and preserves source order; Harness binds tool start to assistant entry, source index, and reserved result identity | provider-independent registry; exact non-coercing validation; centralized policy; stable source/call/result identities; pure corruption-checking reducer | no `prepareArguments` coercion, postflight mutation, parallel execution, product hooks, lanes, or Harness façade |
-| T008 | Pi injects `StreamFn` into a small `runLoop` and alternates finalized assistant messages with ordered tool results | injected `ModelProvider`; one production EOF/finalization path; small functional durable driver | no stateful mega-session, queue draining, follow-ups, compaction, or concrete transport |
-| T009 | Pi propagates one abort signal through provider and tool hooks; G002 already separates durable cancel request from live token delivery | one common execution root token, child tokens, durable intent before signal, explicit terminal repair | cancellation is not proof that a started Never effect did not occur; no Pi session lifecycle is imported |
-| T010 | the WorkWeave dossier requires reserve-before-work budget accounting; Pi's turn-stop callback shows a useful loop boundary but is process-local | durable counters and pure pre-launch decisions reconstructed from Agent history; canonical common deadline; usage-observable token limits; atomic logical-call-batch admission | no callback-local counters, pricing policy, provider retry budget, or general resource scheduler |
-| T011 | Harness reconstructs open work and rejects contradictions; LangGraph checkpoints retain pending writes and its interrupt contract may re-execute a node from its start | explicit F1–F8 durable states, bounded repair actions, distinct-process restart, second-restart idempotency | no generic graph/checkpoint runtime and no assumption that replaying an interrupted unit is safe for a Never effect |
-| T012 | Addy Osmani's spec/planning skills require explicit assumptions, dependency order, acceptance, and verification; the dossier requires behavioral reference-parity tests rather than implementation copying | exact-code EvaluationRuns and requirement-to-evidence review | reference projects are evidence, not compatibility targets or architecture authority |
-
-LangGraph and OWS remain negative boundary evidence for G003: LangGraph's checkpoint mechanics inform restart discipline, while OWS remains the future Flow-definition authority. Neither contributes a graph, command, interrupt, task, or workflow type to the Agent kernel.
+Do not merge those responsibilities.
 
 ## 5. Container and dependency architecture
 
 ```text
-                         ┌───────────────────────┐
-                         │ RecordedProvider      │
-                         │ ww-agent-provider     │
-                         └───────────┬───────────┘
-                                     │ normalized stream
-                                     ▼
-┌───────────────────────┐   ┌────────────────────────┐
-│ ToolRegistry/Policy   │◄──│ AgentKernel            │
-│ ww-agent-tools        │   │ ww-agent-core          │
-└───────────┬───────────┘   └───────────┬────────────┘
-            │ fixture effect             │ AgentStore port
-            ▼                            ▼
-┌───────────────────────┐   ┌────────────────────────┐
-│ test.echo /           │   │ SqliteAgentStore +     │
-│ test.unsafe_once      │   │ coordinator            │
-└───────────────────────┘   │ ww-agent-store-sqlite  │
-                            └───────────┬────────────┘
-                                        │ common lifecycle
-                                        ▼
-                            ┌────────────────────────┐
-                            │ G002 runtime/store     │
-                            └────────────────────────┘
+RecordedProvider (ww-agent-provider)
+          ↓
+Agent kernel (ww-agent-core)
+    ↙             ↘
+Tool subsystem     AgentStore port
+(ww-agent-tools)         ↓
+                  ww-agent-store-sqlite
+                         ↓
+                    G002 runtime
 ```
 
-### 5.1 Required dependency direction
+Required dependency direction:
 
 - `ww-agent-provider` MUST NOT depend on Agent core, tools, runtime, persistence, Flow, or transport.
-- `ww-agent-tools` MAY depend on utility crates such as `serde`, `serde_json`, `sha2`, `async-trait`, `tokio-util`, and `jsonschema`. It MUST NOT depend on Agent core, runtime/store, SQLite, filesystem/process/network libraries, Flow, or Orchestration.
-- `ww-agent-core` MAY depend on `ww-agent-provider`, `ww-agent-tools`, and the generic G002 runtime API. It MUST NOT depend on SQLite, concrete provider transport, filesystem/process/network capability, Flow, CLI, or Orchestration.
-- `ww-agent-store-sqlite` implements Agent persistence and the bounded common/Agent SQLite coordination seam. Agent DTOs MUST NOT enter `ww-store`.
-- G003 MUST add no generic `ww-policy`, `ww-agent-openai`, or `ww-agent-tools-local` crate.
+- `ww-agent-tools` MAY depend on utility/schema/async crates only; it MUST NOT depend on Agent core, runtime/store, SQLite, filesystem/process/network libraries, Flow, or Orchestration.
+- `ww-agent-core` MAY depend on provider, tools, and generic G002 runtime APIs; it MUST NOT depend on SQLite, concrete transport/capabilities, Flow, CLI, or Orchestration.
+- `ww-agent-store-sqlite` owns Agent persistence and bounded backend coordination.
+- Agent DTOs MUST NOT enter `ww-store`.
+- G003 MUST NOT add a generic policy crate or capability-specific tool crate.
 
-Agent operational identities (`AgentRunId`, `LogicalToolCallId`, `ToolAttemptId`, and `AgentEntryId`) remain owned by `ww-agent-core`, as established by T003. The `ww-agent-tools` public API MUST NOT mention those types or depend on core to obtain them. Core correlates a generic tool invocation with its durable Agent attempt outside the tool trait.
+Agent operational identities remain owned by `ww-agent-core`. Public tools APIs MUST NOT depend on Agent run/call/attempt/entry identities.
 
 ## 6. Tool subsystem contract — T007
 
-### 6.1 Required concepts
+### 6.1 Required semantic contracts
 
-The implementation MUST expose WorkWeave-owned equivalents of:
+T007 MUST provide WorkWeave-owned equivalents of the existing v2 concepts:
 
-```rust
-pub struct ToolId(String);          // model-visible stable name, e.g. "test.echo"
-pub struct ToolVersion(String);     // opaque non-empty version, fixture value "1"
+- `ToolId`, `ToolVersion`, `ToolIdentity`, `ToolSpec`;
+- immutable `ToolRegistry`;
+- `EffectDescriptor`;
+- `ReplayPolicy::Safe | Never`;
+- `PolicyDecision::Allow | Deny`;
+- `ToolPolicy`;
+- `ToolRequest`, `ToolContext`, `ToolOutput`, and ordinary `ToolExecutionError`;
+- one async tool execution contract;
+- one production tool-preparation seam.
 
-pub struct ToolIdentity {
-    pub id: ToolId,
-    pub version: ToolVersion,
-    pub implementation_digest: Option<String>,
-}
+The durable semantic names `ToolPreparationDisposition::{Executable, NoEffect}` and `ToolPreparationStage::{Resolve, Validate, Classify, Policy}` are canonical for the persisted/reducer vocabulary.
 
-pub struct ToolSpec {
-    pub identity: ToolIdentity,
-    pub description: String,
-    pub input_schema: serde_json::Value,
-}
+Function names and module/file placement are **not** architecture authority. A function named `prepare_tool_call` and a `preparation.rs` module are preferred conventional choices, not acceptance requirements. Equivalent naming/layout is allowed when there remains exactly one production preparation seam and no competing semantic taxonomy.
 
-pub enum ReplayPolicy {
-    Safe,
-    Never,
-}
+Do not introduce a generic `ToolManager`, `PolicyEngine`, orchestration object, or run-stateful registry.
 
-pub enum EffectDescriptor {
-    Pure { kind: String },
-    Synthetic { kind: String, attributes: serde_json::Value },
-}
+### 6.2 One production preparation seam
 
-pub enum PolicyDecision {
-    Allow,
-    Deny { code: String, message: String },
-}
+`ww-agent-tools` MUST own one production seam that performs this exact semantic order:
 
-pub struct ToolOutput {
-    pub content: serde_json::Value,
-}
-
-pub struct ToolExecutionError {
-    pub code: String,
-    pub message: String,
-}
-
-pub struct ToolRequest {
-    pub identity: ToolIdentity,
-    pub arguments: serde_json::Value,
-}
-
-pub struct ToolContext {
-    pub cancellation: tokio_util::sync::CancellationToken,
-}
-
-#[async_trait::async_trait]
-pub trait Tool: Send + Sync {
-    fn spec(&self) -> ToolSpec;
-    fn effect(&self, arguments: &serde_json::Value)
-        -> Result<EffectDescriptor, ToolExecutionError>;
-    fn replay_policy(&self, arguments: &serde_json::Value) -> ReplayPolicy;
-    async fn execute(
-        &self,
-        request: ToolRequest,
-        context: ToolContext,
-    ) -> Result<ToolOutput, ToolExecutionError>;
-}
+```text
+resolve exact tool/version
+→ validate authoritative parsed Value
+→ derive deterministic canonical bytes/digest
+→ derive EffectDescriptor
+→ derive ReplayPolicy
+→ evaluate ToolPolicy
+→ return Executable or NoEffect
 ```
-
-Equivalent names or module placement are allowed only when the ownership, data, and ordering semantics remain identical.
-
-`ToolRequest` deliberately contains no Agent run/call/attempt/entry identity. Those values belong to core's durable execution protocol and are not required to perform a G003 fixture effect. Later observability or idempotency work may introduce a tools-owned opaque invocation token through separate governance; T007 MUST NOT create a dependency cycle to expose core IDs.
-
-### 6.2 Identity rules
-
-- `ToolId` MUST be non-empty and MUST equal the name exposed to the model.
-- G003 fixture IDs are exactly `test.echo` and `test.unsafe_once`.
-- `ToolVersion` MUST be non-empty; both initial fixtures use version `1`.
-- One registry MUST reject duplicate `ToolId` values.
-- A run MUST resolve the ordered tool identities pinned in its configuration; it MUST NOT silently substitute another version with the same name.
-- `implementation_digest` MAY be absent for G003 fixtures, but the field belongs to the identity contract for later pinning.
-
-### 6.3 Registry rules
-
-`ToolRegistry` MUST:
-
-1. accept an explicit set of tools;
-2. validate and compile each schema at construction/registration;
-3. reject duplicate IDs before a run starts;
-4. expose deterministic lookup by exact `ToolId`;
-5. emit model-visible specs in the order pinned by the run configuration;
-6. retain compiled validators for reuse;
-7. return WorkWeave-owned errors rather than `jsonschema` types.
-
-The registry MUST be immutable for one `AgentRun`.
-
-### 6.4 JSON Schema profile
-
-T007 MUST add:
-
-```toml
-jsonschema = { version = "0.52.1", default-features = false }
-```
-
-to the workspace dependency set and commit the resulting lockfile.
-
-Selection basis: the official `jsonschema` 0.52.1 documentation reports an MSRV of Rust 1.85 and enables HTTP/file reference resolution by default. WorkWeave pins Rust 1.98 and therefore disables all default resolver features for this offline G003 profile.
-
-Normative profile:
-
-- Draft: JSON Schema 2020-12, selected explicitly.
-- Schema root: object schema for G003 tools.
-- External `$ref`: forbidden.
-- Local fragment references such as `#/$defs/...`: allowed.
-- HTTP and file retrieval features: disabled.
-- Schema document validity: checked before registration succeeds.
-- Instance validation: performed with one compiled reusable validator.
-- Coercion/default injection: forbidden.
-- `format` assertion: disabled in G003.
-- Error ownership: `ww-agent-tools` converts validation failures into stable records containing at least an instance path and message.
-- Error ordering: deterministic, sorted by instance path and then message.
-- `schemars`: not added in G003 because schemas are explicit fixture data.
-
-A malformed or externally resolving schema is a tool-definition error and prevents registry construction. Invalid invocation arguments are a call error and do not invoke policy or the tool.
-
-### 6.5 Canonical arguments and digest
-
-- `ToolCall.arguments: Value` is authoritative.
-- `arguments_json` is diagnostic provenance only.
-- Validation, effect derivation, policy, digesting, and execution MUST receive the same parsed value.
-- No stage may mutate that value.
-- `arguments_digest` MUST be SHA-256 over a compact deterministic serialization of the parsed value with object keys recursively sorted.
-- Two objects differing only in insertion/key order MUST produce the same digest.
-- A semantically different value MUST produce a different digest.
-- This digest is an internal G003 audit/recovery identity, not yet a cross-language public canonicalization standard.
-
-### 6.6 Effect and replay classification
-
-Classification occurs only after schema validation.
-
-- `test.echo` returns `EffectDescriptor::Pure { kind: "test.echo" }` and `ReplayPolicy::Safe`.
-- `test.unsafe_once` returns `EffectDescriptor::Synthetic { kind: "test.unsafe_once", ... }` and `ReplayPolicy::Never`.
-- A tool cannot authorize itself. Replay classification is tool metadata; policy remains a separate decision.
-- G003 MUST NOT include filesystem, process, network, MCP, or secret-bearing effect variants in exercised code.
-- Classification failure becomes a model-visible no-effect error.
-
-### 6.7 Policy contract
-
-The G003 policy seam is deterministic and synchronous:
-
-```rust
-pub trait ToolPolicy: Send + Sync {
-    fn evaluate(&self, input: &ToolPolicyInput) -> PolicyDecision;
-}
-```
-
-`ToolPolicyInput` contains the tool identity, the immutable validated arguments, their canonical digest, the effect descriptor, and the replay policy. It contains no WorkWeave Goal/Task semantics.
 
 Rules:
 
-- policy executes only after successful validation and effect/replay classification;
-- `Allow` permits preparation for execution;
-- `Deny` performs no effect;
-- denial produces one model-visible error result:
-  `{"code":"policy_denied","message":<reason>}`;
-- policy is called exactly once per preparation attempt;
-- `RequireApproval` is outside G003.
+- If a stage fails, later stages MUST NOT run.
+- `ww-agent-core` MUST NOT duplicate resolution, validation, digesting, effect/replay classification, or policy evaluation.
+- The preparation result MUST carry enough stable data for core to persist the already-defined `ToolCallPrepared` record.
+- A non-serializable executor handle MAY be retained internally for later execution, but MUST NOT create a second durable/public disposition model.
+- Preparation performs no external effect and owns no Agent operational identity.
+
+### 6.3 Identity, registry, and configured order
+
+- `ToolId` and `ToolVersion` MUST be non-empty.
+- Fixture IDs remain exactly `test.echo` and `test.unsafe_once`, both version `1`.
+- Duplicate `ToolId` registration rejects before a run.
+- Exact version mismatch rejects; no silent substitution.
+- The registry is immutable for one Agent run and owns no run state.
+- **Run configuration order is authoritative for model-visible tool order. Registration or availability order has no authority.**
+- Given an explicit ordered pin list, registry projection/resolution MUST return only those exact pins in that order.
+- A conformance fixture MUST use different registration and configured orders to prove this distinction.
+
+### 6.4 Offline JSON Schema profile
+
+T007 pins `jsonschema 0.52.1` with default resolver features disabled.
+
+Normative profile:
+
+- Draft 2020-12 selected explicitly.
+- G003 fixture schema roots are objects.
+- `$ref` and `$dynamicRef` MUST be self-contained fragment references only for G003.
+- A non-fragment `$ref` or `$dynamicRef` MUST reject before validator compilation with a WorkWeave-owned tool-definition error.
+- Local fragment references, including local `$dynamicRef`/`$dynamicAnchor`, MAY be used.
+- `$id` is not rejected merely for existing. It MUST NOT relax the fragment-only reference rule or cause retrieval.
+- HTTP/file retrieval is disabled.
+- Malformed schemas reject registration.
+- Validators compile once and are reused.
+- Coercion/default injection is forbidden.
+- `format` remains annotation-only for G003.
+- Validation errors are WorkWeave-owned and deterministically ordered.
+- `schemars` is not required in G003.
+
+### 6.5 Canonical arguments and digest
+
+- The exact parsed `Value` is passed unchanged through validation, classification, policy, and execution.
+- Deterministic canonical bytes use compact JSON with object keys recursively sorted.
+- `arguments_digest` is SHA-256 over those canonical bytes.
+- Nested objects differing only in key insertion order MUST produce identical canonical bytes and digest.
+- A semantically different value MUST produce a different digest.
+- Tests MUST inspect canonical bytes directly; digest equality alone is insufficient.
+- This is an internal G003 audit/recovery identity, not a cross-language canonicalization standard.
+
+### 6.6 Effect, replay, and policy
+
+- Classification occurs only after successful validation.
+- `test.echo` is `Pure` and `Safe`.
+- `test.unsafe_once` is `Synthetic` and `Never`.
+- A tool cannot authorize itself.
+- Policy runs only after validation and effect/replay classification.
+- Policy runs exactly once per preparation attempt.
+- At least one deterministic conformance policy MUST make its decision depend on `EffectDescriptor` and/or `ReplayPolicy`; a ToolId-only allow list cannot be the sole policy proof.
+- `Deny` returns a `NoEffect` preparation with stable `policy_denied` code/message and performs no effect.
+- Approval-bearing policy remains outside G003.
+
+### 6.7 Tool execution outcome and cancellation
+
+The tool execution API MUST make these outcomes machine-distinguishable at the `ww-agent-tools` → `ww-agent-core` boundary:
+
+1. **Output** — completed tool output;
+2. **OrdinaryError** — completed ordinary tool failure represented by `ToolExecutionError`;
+3. **Cancelled** — cooperative cancellation/control outcome, not `ToolExecutionError`.
+
+Equivalent idiomatic Rust encodings are allowed. The semantic distinction is mandatory.
+
+Rules:
+
+- `ToolContext` supplies the cancellation token.
+- `ToolExecutionError` MUST NOT encode cancellation.
+- Panic/impossible invariant/contract violation is not a normal tool outcome and MUST NOT be converted into Output, OrdinaryError, or Cancelled.
+- T007 proves the contract can represent all three normal outcomes.
+- T008 proves the kernel preserves the distinction.
+- T009 owns durable cancellation intent, common lifecycle mapping, and final replay-sensitive cancellation settlement.
 
 ### 6.8 Fixture behavior
 
 `test.echo`:
 
-- schema requires exactly one property named `value`;
-- additional properties are rejected;
-- returns `{"value": <input value>}`;
-- has no external side effect;
-- returns byte-equivalent normalized output for the same input.
+- requires exactly `value`;
+- rejects extra properties;
+- returns the same value structurally;
+- has no external effect;
+- is `Safe`.
 
 `test.unsafe_once`:
 
-- schema requires a non-empty string property named `key`;
-- additional properties are rejected;
-- invokes an injected test-only effect probe;
-- returns `{"applied":true,"key":<key>}` when the effect and result both complete;
-- is always `ReplayPolicy::Never`;
-- supports a test failpoint after the probe observes the effect and before the Agent commits the result;
+- requires a non-empty string `key`;
+- rejects extra properties;
+- invokes an injected test-only probe once per actual `execute` call;
+- returns `applied=true` plus the key when completed;
+- is `Never`;
 - exposes no public filesystem/process/network capability.
 
-Unit tests MAY use an in-memory probe. T011 process-restart tests MAY use a test-only durable probe outside the public tool surface to prove that restart does not repeat the effect.
+T007 unit tests MAY call fixture execution directly to prove fixture semantics. Such tests do **not** constitute commit-before-effect proof.
 
-## 7. Durable tool preparation and result model
+## 7. Durable tool grammar and reducer — T007
 
-### 7.1 Required identities
+### 7.1 Stable Agent-owned identities
 
-For each provider tool call, the Agent allocates once and persists:
+For each finalized provider tool call, core owns:
 
-- `LogicalToolCallId` — stable across retries;
-- `ToolAttemptId` — unique per handling/execution attempt;
-- reserved `AgentEntryId` for the eventual model-visible result;
-- assistant entry ID and zero-based provider source index;
-- provider call ID and requested tool name.
+- stable logical call identity;
+- unique attempt identity per handling/execution attempt;
+- reserved result-entry identity;
+- assistant entry identity and source index;
+- provider call ID and requested name.
 
-The logical ID is generated once when the finalized assistant entry is created. Recovery reads it from that entry; it is never regenerated from provider output.
+### 7.2 Existing durable vocabulary remains authoritative
 
-### 7.2 Required durable information and records
+D022 adds no durable record variant.
 
-Before any allowed effect starts, durable history MUST contain:
+T007 retains the v2 record grammar:
 
-- logical call and attempt IDs;
-- source assistant entry and source index;
-- provider call ID and requested tool name;
+- `ToolAttemptStarted`;
+- `ToolCallPrepared` with `Executable | NoEffect`;
+- `ToolEffectStarted`;
+- `ToolEffectCompleted` with normalized Output/Error;
+- `ToolAttemptRejected`;
+- existing `ToolAttemptDenied`;
+- `ToolAttemptCompleted`;
+- `ToolAttemptInterrupted`;
+- `ToolAttemptIntervention`.
+
+Before an allowed effect may execute in T008, durable state must be able to contain:
+
+- source/call/attempt/reserved-result identities;
 - exact tool identity/version;
-- reserved result-entry ID;
 - canonical arguments digest;
 - effect descriptor;
 - replay policy;
 - policy decision;
-- an explicit effect-start marker.
+- explicit `ToolEffectStarted` ambiguity marker.
 
-T007 MUST add these Agent-owned record shapes, with equivalent Rust field types already owned by `ww-agent-core` or `ww-agent-tools`:
+T007 proves this grammar and its reduction. T008 proves the production kernel commits it before execution.
 
-```rust
-pub enum ToolPreparationStage {
-    Resolve,
-    Validate,
-    Classify,
-    Policy,
-}
+### 7.3 No-effect taxonomy — Q008
 
-pub enum ToolPreparationDisposition {
-    Executable {
-        identity: ToolIdentity,
-        arguments_digest: String,
-        effect: EffectDescriptor,
-        replay: ReplayPolicy,
-        policy: PolicyDecision, // Allow only in this variant
-    },
-    NoEffect {
-        failed_at: ToolPreparationStage,
-        code: String,
-        message: String,
-        identity: Option<ToolIdentity>,
-        arguments_digest: Option<String>,
-        effect: Option<EffectDescriptor>,
-        replay: Option<ReplayPolicy>,
-        policy: Option<PolicyDecision>,
-    },
-}
+For Resolve, Validate, or Classify failure:
 
-pub enum ToolEffectResult {
-    Output { content: serde_json::Value },
-    Error { code: String, message: String },
-}
-
-pub enum AgentRecordData {
-    // existing variants remain
-    ToolCallPrepared {
-        attempt_id: ToolAttemptId,
-        logical_call_id: LogicalToolCallId,
-        assistant_entry_id: AgentEntryId,
-        source_index: u32,
-        provider_call_id: ToolCallId,
-        requested_tool_name: String,
-        result_entry_id: AgentEntryId,
-        disposition: ToolPreparationDisposition,
-    },
-    ToolEffectStarted { attempt_id: ToolAttemptId },
-    ToolEffectCompleted {
-        attempt_id: ToolAttemptId,
-        result: ToolEffectResult,
-    },
-    ToolAttemptRejected {
-        attempt_id: ToolAttemptId,
-        result_entry_id: AgentEntryId,
-        failed_at: ToolPreparationStage,
-    },
-    ToolAttemptInterrupted {
-        attempt_id: ToolAttemptId,
-        reason: String,
-    },
-}
+```text
+ToolCallPrepared::NoEffect.failed_at = actual stage
+→ ToolAttemptRejected.failed_at = same stage
 ```
 
-`ToolAttemptStarted` retains its existing meaning as the beginning of one durable handling attempt. It is **not**, by itself, evidence that the effect boundary was crossed. `ToolEffectStarted` is the ambiguity marker used by cancellation and restart recovery.
+For policy denial:
 
-The exact enum/module layout may follow existing Rust conventions, but the variants, fields, and distinction between handling start and effect start are normative for G003.
+```text
+ToolCallPrepared::NoEffect.failed_at = Policy
+ToolCallPrepared::NoEffect.policy = Deny
+→ ToolAttemptDenied
+```
 
-### 7.3 No-effect settlements
+`ToolAttemptDenied` MUST NOT gain a duplicate `failed_at` field.
 
-Unknown tool, invalid arguments, classification failure, and policy denial:
+No-effect preparation carries stable code/message sufficient for T008 to create exactly one model-visible error result. T007 does not claim the production result was persisted.
 
-- MUST invoke no effect;
-- MUST allocate one handling attempt and use the already-reserved result entry;
-- MUST atomically append, in this order: `ToolAttemptStarted`, `ToolCallPrepared::NoEffect`, the model-visible error entry, and one final no-effect attempt record;
-- MUST NOT append `ToolEffectStarted` or `ToolEffectCompleted`;
-- MUST append exactly one model-visible error result;
-- MUST preserve source order;
-- MUST be distinguishable by stable error code:
-  `tool_not_found`, `invalid_arguments`, `classification_failed`, or `policy_denied`.
-
-The final no-effect attempt record preserves failure taxonomy:
-
-- resolve, validation, or classification failure appends `ToolAttemptRejected` with the matching `failed_at` stage;
-- policy denial appends the existing `ToolAttemptDenied` and MUST have `failed_at: Policy` plus a durable `PolicyDecision::Deny`;
-- `ToolAttemptDenied` MUST NOT be reused as a generic preparation-failure record.
-
-For an invalid/unknown call, unavailable classification fields remain `None` rather than fabricated. The `failed_at` field records the preparation stage that failed.
-
-### 7.4 Allowed execution settlements and error taxonomy
-
-For an allowed call:
-
-1. atomically append, in this order: `ToolAttemptStarted`, `ToolCallPrepared::Executable`, and `ToolEffectStarted`;
-2. commit that append;
-3. execute once with a cancellation token;
-4. append and commit `ToolEffectCompleted` with normalized output/error;
-5. atomically append the one reserved model-visible result and `ToolAttemptCompleted`;
-6. commit before processing the next call or issuing another model request.
-
-This creates the required T011 repair boundary: `ToolEffectCompleted` may be durable while the model-visible result entry is absent.
-
-A returned ordinary `ToolExecutionError` is a completed effect outcome. It MUST be persisted as `ToolEffectCompleted::Error`, followed by exactly one reserved model-visible `is_error=true` result. It normally returns control to the model and does not automatically fail the Agent.
-
-Cancellation is not an ordinary `ToolExecutionError`: it follows the T009 cancellation/ambiguity rules and MUST NOT be rewritten into a generic model-visible tool error.
-
-A panic, impossible invariant, or kernel/tool contract violation MUST NOT be normalized into an ordinary model-visible tool error. It fails/crashes the kernel; restart behavior is determined only from the last committed durable boundary and the recorded replay policy.
-
-### 7.5 Attempt interruption
-
-The durable vocabulary MUST represent an interrupted tool attempt separately from denial, completion, and intervention.
-
-- `ToolAttemptStarted` without `ToolEffectStarted` means no effect boundary was crossed; recovery may settle/re-run preparation according to current durable state.
-- `ToolEffectStarted` without `ToolEffectCompleted` is effect ambiguity.
-- Safe ambiguous effect: append `ToolAttemptInterrupted`, then a new attempt may execute.
-- Never ambiguous effect: append `ToolAttemptIntervention` and terminalize `RequiresIntervention`.
-- Retries never mutate a prior attempt into success.
-
-### 7.6 Reducer invariants
+### 7.4 Reducer invariants
 
 The reducer MUST reject:
 
-- preparation for an unknown logical call or non-current assistant entry;
-- duplicate preparation of one attempt or preparation data that conflicts across attempts for the same logical call;
-- `ToolEffectStarted` before an executable preparation or after a no-effect disposition;
-- result entry ID different from the reserved ID;
-- effect completion without effect start, or for a denied/rejected call;
-- attempt completion without a durable effect result or no-effect disposition;
-- `ToolAttemptDenied` after `ToolEffectStarted`;
-- `ToolAttemptRejected` for a Policy failure or `ToolAttemptDenied` for a Resolve/Validate/Classify failure;
+- preparation for an unknown logical call/non-current assistant entry;
+- duplicate preparation of one attempt;
+- conflicting tool/version/digest/effect/replay/policy across attempts of one logical call;
+- effect start after `NoEffect` or before executable preparation;
+- effect completion without effect start;
+- wrong reserved result identity;
+- rejection/denial taxonomy mismatch;
 - more than one model-visible result per logical call;
-- tool attempts/results outside provider source order;
-- tool identity/version, arguments digest, effect, replay, or Allow/Deny decision changes across attempts for one logical call;
+- source-order violations;
 - records after terminal Agent result.
+
+The reducer MUST distinguish:
+
+- prepared executable;
+- no-effect rejected/denied;
+- effect in flight/ambiguous;
+- completed effect awaiting result repair;
+- settled logical result;
+- interrupted Safe attempt;
+- Never intervention.
+
+### 7.5 T007/T008 proof boundary
+
+T007 MUST prove:
+
+- preparation ordering and short-circuiting;
+- schema/policy/replay/canonicalization semantics;
+- fixture behavior;
+- cancellation outcome representability;
+- durable tool grammar and reducer reconstruction/corruption behavior.
+
+T007 MUST NOT claim that a real kernel effect was invoked only after a durable commit.
+
+T008 MUST prove:
+
+- core consumes the single preparation seam;
+- no-effect results are durably settled once with zero execution;
+- `ToolEffectStarted` is committed before any allowed fixture execution;
+- ordinary error, cancellation, and panic/invariant paths remain distinct;
+- ordered model-visible results reach the next provider request.
 
 ## 8. Functional Agent kernel — T008
 
 ### 8.1 Shape
 
-`ww-agent-core` owns a small functional driver. It is not a session object and does not own transport, database construction, or product UI.
+`ww-agent-core` owns a small functional driver over injected provider, tool registry/policy, AgentStore, ID/clock sources, cancellation token, and typed configuration.
 
-Its injected dependencies are:
+It is not a session object and owns no transport, database construction, UI, Flow, or Orchestration concerns.
 
-- `Arc<dyn ModelProvider>`;
-- immutable tool registry;
-- `Arc<dyn ToolPolicy>`;
-- `Arc<dyn AgentStore>`;
-- clock/ID sources where deterministic tests require them;
-- cancellation token;
-- typed Agent configuration.
+### 8.2 Run configuration and tool ordering
 
-### 8.2 Typed run configuration
+The typed run configuration pins provider, model, system prompt, ordered tool identities, and limits.
 
-The kernel MUST operate from a typed configuration equivalent to:
+Rules:
 
-```rust
-pub struct AgentRunConfiguration {
-    pub provider: ProviderId,
-    pub model: ModelId,
-    pub system_prompt: Option<String>,
-    pub tools: Vec<ToolIdentity>,
-    pub limits: AgentLimits,
-}
-```
+- decode/validate configuration before provider/tool work;
+- unavailable exact tool pin fails before work;
+- provider-visible tool specs follow the run's ordered pin list exactly;
+- registry registration order MUST NOT leak into the request;
+- an integration fixture MUST register tools in a different order from the run pins and verify the request follows run pins.
 
-Until G010, this may be serialized inside the existing configuration JSON field. The kernel MUST fail before provider/tool work if the stored configuration cannot be decoded or a pinned tool is unavailable. T008 may introduce `AgentLimits` with permissive/unbounded defaults so the configuration shape is stable; T010 owns limit validation and enforcement.
+### 8.3 Provider boundary
 
-If `AgentLimits` contains a deadline snapshot, it is not a second authority. T009/T010 MUST compare it with the linked common `ExecutionRecord.deadline`; mismatch is invalid/corrupt state and no provider/tool work may start.
+Before provider I/O, persist model-attempt identity, request ordinal, provider/model pin, and canonical request digest.
 
-### 8.3 Model request construction
+The production stream path MUST drain through EOF and finalize exactly once. Unexpected EOF, stream error, post-terminal event, malformed order, incomplete/truncated tool call, or provider failure creates no assistant entry/effect.
 
-The model request is derived only from:
+A finalized assistant entry and model-completion record commit before tool handling.
 
-- typed run configuration;
-- ordered durable context entries;
-- ordered pinned tool specs.
+### 8.4 Tool loop
 
-Entry mapping:
-
-- `UserInput` → user message;
-- `AssistantMessage` → assistant message;
-- `ModelVisibleToolResult` → tool result carrying the original provider call ID and tool name.
-
-Tool results MUST appear in provider source order.
-
-### 8.4 Model attempt boundary
-
-Before provider I/O, durable history MUST contain an attempt record with:
-
-- attempt ID;
-- request ordinal;
-- provider ID;
-- model ID;
-- canonical request digest.
-
-A recommended additive record is `ModelRequestPrepared`. It and `ModelAttemptStarted` may be appended atomically.
-
-The request digest is SHA-256 over the same recursively key-sorted compact JSON canonicalization used for tool arguments, applied to the normalized `ModelRequest`.
-
-`ModelProvider::stream` may fail before yielding a stream even though Pi's `StreamFn` encodes request failures inside its stream contract. G003 preserves the already-completed T002 Rust port and normalizes either form at the kernel boundary: an outer `ProviderError` appends one typed interrupted/failed model-attempt outcome, creates no assistant entry, launches no tool, and is not automatically retried.
-
-### 8.5 Mandatory stream finalization
-
-The production consumption path MUST:
-
-```rust
-while let Some(event) = stream.next().await {
-    assembler.push(event?)?;
-}
-assembler.finish()
-```
-
-It MUST drain through EOF even after a terminal event so post-terminal events are detected.
-
-Outcomes:
-
-- valid completion → immutable assistant entry;
-- provider `Failed` → interrupted/failed model attempt and terminal Agent failure;
-- provider `Aborted` due to durable cancellation → interrupted attempt and Agent cancellation;
-- stream item error or unexpected EOF → interrupted attempt, never a partial assistant entry;
-- malformed/truncated tool calls → protocol failure, no tool effect.
-
-### 8.6 Assistant persistence
-
-A finalized assistant response and `ModelAttemptCompleted` record MUST commit before any requested tool executes.
-
-For every tool call, allocate stable logical IDs in provider source order before serializing the assistant entry.
-
-`CompletionReason` behavior:
-
-- `Stop` with no tools → commit a successful terminal result;
-- `ToolUse` with completed calls → process those calls;
-- `Length` → preserve the assistant entry for audit but fail the Agent with code `model_length`;
-- inconsistent completion/tool structure is already rejected by the assembler.
-
-### 8.7 Tool loop
-
-Process each logical call sequentially only after T010 batch admission (when limits are enabled):
+For each admitted logical call in provider source order:
 
 ```text
-recover current call position
-→ classify/validate/policy
-→ persist pre-effect state
-→ execute or produce no-effect result
-→ persist effect output/error
-→ append one model-visible result
-→ finalize attempt
-→ continue to next source-order call
+call single tools preparation seam
+
+if NoEffect:
+    atomically persist handling start
+    + ToolCallPrepared::NoEffect
+    + one reserved model-visible error entry
+    + Rejected or Denied terminal attempt record
+    commit
+    execute zero times
+
+if Executable:
+    atomically persist handling start
+    + ToolCallPrepared::Executable
+    + ToolEffectStarted
+    commit
+    only then call execute once
+    persist outcome according to §8.5
 ```
 
-After all results are model-visible, append `TurnCommitted` with result IDs in source order and issue the next model request.
+Core MUST NOT reimplement preparation logic.
 
-An ordinary returned tool execution error follows §7.4 and may therefore be included in that next model request. Cancellation or invariant failure uses its distinct path and does not masquerade as a normal tool error.
+### 8.5 Execution outcome mapping
 
-### 8.8 Terminal behavior
+After `ToolEffectStarted` commits:
 
-Text-only success commits `AgentResultCommitted::Succeeded` after the assistant entry is durable.
+- **Output** → append `ToolEffectCompleted::Output`, then the reserved success result and `ToolAttemptCompleted`.
+- **OrdinaryError** → append `ToolEffectCompleted::Error`, then exactly one reserved model-visible `is_error=true` result and `ToolAttemptCompleted`; the model loop may continue.
+- **Cancelled** → do not normalize into `ToolEffectCompleted::Error` or a model-visible ordinary tool error; append interruption/control state as permitted by existing durable vocabulary and hand settlement to T009 rules.
+- **panic/invariant violation** → do not normalize; fail/crash the kernel and recover only from the last committed durable boundary.
 
-The T008 kernel does not yet own common G002 terminalization; T009 adds that binding.
+If cancellation is already observable before `ToolEffectStarted` is committed, the marker and execution MUST NOT occur.
 
-No automatic provider retry/backoff, parallel tools, follow-up queue, or compaction is added.
+### 8.6 Turn and terminal behavior
 
-### 8.9 Mutation ownership and optimistic conflicts
+- Tool calls execute sequentially.
+- Model-visible tool results preserve provider source order.
+- `TurnCommitted` follows all durable results and precedes the next provider request.
+- Text-only Stop commits successful Agent result.
+- `model → test.echo → model` commits successful Agent result.
+- Length is audited but not successful.
+- T008 does not own common G002 terminalization; T009 adds that binding.
 
-At most one kernel invocation may successfully own each mutation transition for one Agent run. Competing drivers may read concurrently, but every decision cycle MUST:
+### 8.7 Optimistic conflict rule
 
-1. read one `AgentHistorySnapshot` and its version;
-2. reduce that exact snapshot;
-3. choose one bounded next durable append or one external operation already authorized by committed state;
-4. append with the snapshot's expected version;
-5. cross an external provider/effect boundary only after the authorizing append commits.
+Each mutation cycle reads one versioned Agent snapshot, reduces it, proposes one append/external operation, and commits the authorizing append before external work.
 
-If append returns an optimistic conflict, the stale decision is discarded. The kernel MUST perform no external operation from that stale decision, reload/reduce, and either continue from the new state or return a typed ownership/conflict outcome. A conflict after another owner has already committed effect output/result is resolved from durable state and MUST NOT cause re-execution.
+If expected-version append loses:
 
-This adapts the Harness single-writer record protocol while retaining G002/T004 optimistic concurrency rather than introducing a new lease subsystem in G003.
+```text
+conflict → discard stale decision → reload/reduce → no external work from stale decision
+```
+
+No new lease subsystem is introduced.
 
 ## 9. Common lifecycle and cancellation — T009
 
-### 9.1 One-to-one identity
+### 9.1 Identity and start
 
-One Agent run maps to exactly one G002 common execution through the existing coordinator link.
+- One Agent run maps to exactly one G002 common execution of kind `agent`.
+- Missing/mismatched/non-agent link rejects before work.
+- Pending starts once; Running/Waiting resumes; matching terminal performs no work.
 
-The binding MUST reject:
+### 9.2 Durable cancellation
 
-- missing link;
-- mismatched link;
-- common execution kind other than `agent`;
-- conflicting terminal states without a defined repair.
+- Durable `request_cancel` commits before live root-token signal.
+- Repeated registrations observe one root; consumers receive child tokens.
+- Provider/tool work checks cancellation before launch.
+- Cancellation is checked again immediately before `ToolEffectStarted` commit.
+- Cancellation before that commit prevents marker and execution.
+- Cancellation after effect-start cannot erase ambiguity.
 
-### 9.2 Start behavior
+### 9.3 Replay-sensitive cancellation
 
-- Pending and not cancel-requested → atomically/optimistically transition common execution to Running, then run the Agent.
-- Running/Waiting after restart → reconstruct Agent state and continue.
-- Cancel requested before provider/tool start → commit Agent cancellation and settle common execution Cancelled without launching work.
-- Common terminal + matching Agent terminal → return the durable result without model/tool work.
+- provider cancelled before final response → no assistant entry; Agent Cancelled;
+- Safe tool Cancelled after effect-start → interrupted; caller cancellation remains terminal, no silent replay;
+- Never tool Cancelled after effect-start without durable completion → `RequiresIntervention`;
+- already durable completion is repaired rather than discarded.
 
-### 9.3 Cancellation token behavior
+### 9.4 Terminal mapping and precedence
 
-The common runtime owns the root token for an execution.
+Agent terminal dispositions map one-to-one to common terminal statuses. Agent-terminal/common-nonterminal repair is idempotent and invokes no provider/tool.
 
-- repeated local registrations MUST observe the same root cancellation;
-- consumers SHOULD receive child tokens so a consumer cannot cancel sibling work;
-- durable `request_cancel` commits before the root token is signaled;
-- provider and tool calls receive child tokens;
-- the kernel checks durable cancellation before every provider/tool launch;
-- after validation/classification/policy, the kernel checks cancellation again immediately before committing `ToolEffectStarted`; an already-durable request prevents that marker and prevents invocation;
-- once `ToolEffectStarted` commits, cancellation cannot erase ambiguity and the recorded replay policy governs settlement;
-- terminal settlement unregisters the root.
+Recovery precedence:
 
-### 9.4 Cancellation during ambiguity
-
-- provider cancellation before final response → no assistant entry; Agent Cancelled.
-- safe tool cancellation with no result → record interruption; because caller cancellation is terminal, do not retry.
-- never-replayable tool cancellation after start with no durable result → `RequiresIntervention`, because cancellation does not prove the effect did not occur.
-- a completed durable result is repaired/returned rather than discarded merely because cancellation arrived afterward.
-
-### 9.5 Terminal mapping and repair
-
-| Agent terminal result | Common execution |
-| --- | --- |
-| Succeeded | Succeeded |
-| Failed | Failed |
-| Cancelled | Cancelled |
-| TimedOut | TimedOut |
-| BudgetExhausted | BudgetExhausted |
-| RequiresIntervention | RequiresIntervention |
-
-Agent result is authoritative for Agent semantics. If the Agent result is durable and common execution is non-terminal, repair common terminal state idempotently without provider/tool replay.
-
-Generic G002 lifecycle methods/events needed for statuses already present in `ExecutionStatus` MAY be added, but Agent-specific DTOs MUST NOT enter shared runtime contracts.
-
-### 9.6 Deterministic recovery precedence
-
-When more than one condition is observable, the reducer/driver applies this order before launching work:
-
-1. corrupt or contradictory durable history fails closed without guessed repair;
-2. an existing Agent terminal result is returned and its common terminal state is repaired if needed;
-3. a started Never effect without durable completion settles `RequiresIntervention`;
-4. a durable cancellation request settles `Cancelled` when no higher condition applies;
-5. an expired canonical common deadline settles `TimedOut`;
-6. an exhausted count/token budget settles `BudgetExhausted`;
-7. otherwise the one recovery/next action derived from history may proceed.
-
-This order is fixed so restart does not choose a different disposition from the same durable state. In particular, cancellation, timeout, or budget exhaustion MUST NOT mask Never-effect ambiguity.
+1. corruption/contradiction;
+2. existing Agent terminal result;
+3. Never effect ambiguity;
+4. durable cancellation;
+5. expired canonical deadline;
+6. exhausted budget;
+7. otherwise next permitted action.
 
 ## 10. Deadlines and execution budgets — T010
 
-### 10.1 Limits model and deadline authority
+### 10.1 Deadline authority
 
-```rust
-pub struct AgentLimits {
-    pub deadline: Option<DateTime<Utc>>, // persisted snapshot; not authoritative
-    pub max_model_requests: u64,
-    pub max_turns: u64,
-    pub max_tool_calls: u64,
-    pub max_input_tokens: Option<u64>,
-    pub max_output_tokens: Option<u64>,
-    pub max_total_tokens: Option<u64>,
-}
-```
+The linked common `ExecutionRecord.deadline` is canonical. Any Agent deadline is a persisted matching snapshot only. Mismatch fails closed before work.
 
-Count limits MUST be positive.
+### 10.2 Durable counters
 
-The linked G002 `ExecutionRecord.deadline` is the authoritative deadline. `AgentLimits.deadline` is only a persisted Agent configuration snapshot for audit/reconstruction and MUST exactly equal the common deadline, including both being `None`. A mismatch is invalid/corrupt state and MUST fail closed before provider/tool work. There is no “earlier of two deadlines” rule.
+Derive from durable history:
 
-### 10.2 Durable counting semantics
+- model request starts;
+- completed model turns;
+- logical tool calls from finalized assistant responses;
+- input/output/total normalized tokens.
 
-- `model_requests` = number of durable model-attempt starts, including restart/retry attempts.
-- the `max_turns` budget = number of durable `ModelAttemptCompleted` records, including terminal assistant responses. Add a distinct derived `completed_model_turn_count` (or equivalently named field); do not repurpose the existing `AgentRecoveryState.turn_count`, which remains the number of durable `TurnCommitted` records established by T003.
-- `logical_tool_calls` = number of logical tool calls present in finalized durable assistant responses admitted under the run's tool-call budget. Add a distinct derived `logical_tool_call_count` (or equivalently named field); do not repurpose the existing T003 `tool_attempt_count`, which remains handling/execution-attempt audit state. Safe retries and no-effect attempts do not consume a second logical-call unit for the same logical call.
-- input/output/total tokens = sum of finalized normalized provider usage; cached-token fields do not reduce total-token accounting.
+Do not repurpose T003 `turn_count` or `tool_attempt_count` for different semantics.
 
-Counters are reconstructed from durable history, never process-local mutable counters.
+### 10.3 Enforcement
 
-### 10.3 Reservation and enforcement points
+Before provider launch:
 
-Before model attempt start:
+- cancellation/deadline checks;
+- model/turn capacity;
+- usage capability when token limits configured;
+- durable attempt reservation.
 
-- check durable cancellation and canonical common deadline;
-- verify the next model request fits `max_model_requests`;
-- verify the next completed model turn can fit `max_turns`;
-- if any token limit is configured, require the pinned provider/model to declare normalized usage capability before provider I/O;
-- persist/reserve the attempt before provider I/O.
+Before tools from one finalized assistant response:
 
-After a finalized assistant response and before the first requested tool is prepared/executed:
+- compute whole source-ordered logical-call batch;
+- admit whole batch or execute none;
+- an over-budget batch settles `BudgetExhausted`.
 
-- compute the complete source-ordered logical-call batch size from the durable assistant entry;
-- compare `logical_tool_call_count + batch_size` with `max_tool_calls`;
-- if the full batch does not fit, execute/prepare **none** of the response's tool calls and commit `BudgetExhausted`;
-- if the full batch fits, admit it as one deterministic budget decision, then process calls sequentially in source order;
-- a later Safe retry of an already admitted logical call creates another attempt but does not consume another logical-call budget unit.
+After provider usage:
 
-Before each admitted tool effect starts:
+- missing promised usage fails closed before another request;
+- reaching token limit prevents next request.
 
-- check cancellation/canonical deadline;
-- persist the attempt/pre-effect authorization boundary before effect execution.
-
-After finalized provider usage:
-
-- if the provider/model declared usage capability but finalized response usage is absent, fail closed as provider-protocol failure before another model request;
-- otherwise add usage durably;
-- when a token limit is reached or exceeded, do not issue another model request;
-- the already-finalized response remains durable.
-
-### 10.4 Boundary definitions
-
-- `now >= ExecutionRecord.deadline` means expired.
-- Reaching a model-request/turn limit is allowed for the operation just durably reserved; launching operation `limit + 1` is forbidden.
-- Tool-call capacity is all-or-none per finalized assistant batch; a batch exceeding remaining capacity executes zero calls rather than a prefix.
-- Token limits cannot predict unknown provider output; enforcement occurs before provider I/O when capability is unavailable and before the next model request after finalized usage.
-- A provider/model advertising usage support but omitting usage from a finalized response violates the configured token-limit contract and fails closed before another request.
-- Deadline during active provider/tool work cancels its child token and settles TimedOut unless never-replayable ambiguity requires intervention.
-- Budget exhaustion produces a typed Agent result and common `BudgetExhausted`, not a provider/tool failure.
+`now >= deadline` is expired. Never ambiguity outranks timeout/cancel/budget.
 
 ## 11. Recovery and fault matrix — T011
 
-The test harness MUST support deterministic interruption after these boundaries:
+Required fault states remain F1–F8:
 
-| Fault | Durable state | Required restart action |
-| --- | --- | --- |
-| F1 creation commit | common execution + Agent run + link + input exist | continue once from known IDs; do not create a second run |
-| F2 model start commit | model attempt started; no final response; subcases cover no event and transient partial deltas because deltas are not canonical durable entries | mark interrupted; create a new attempt only if cancellation/deadline/budget permit |
-| F3 model finalization commit | assistant entry and completion record exist | do not contact provider; perform T010 batch admission, then process pending tools or terminalize |
-| F4 safe effect-start before durable result | replay `Safe`, `ToolEffectStarted`, no `ToolEffectCompleted` | append interruption; execute a new attempt; one logical result |
-| F5 Never effect-start/effect ambiguity before durable result | replay `Never`, `ToolEffectStarted`, no `ToolEffectCompleted` | do not execute; append intervention; settle `RequiresIntervention` |
-| F6 tool effect output durable, model-visible entry absent | effect output exists with reserved result ID | append exactly the missing entry and completion; do not execute |
-| F7 all model-visible tool results durable, turn absent | ordered results exist | append one `TurnCommitted`; do not execute/provider-call |
-| F8 Agent result durable, common execution non-terminal | Agent terminal result exists | terminalize common execution once; no provider/tool work |
+| Fault | Required restart behavior |
+| --- | --- |
+| F1 creation committed | continue same run once |
+| F2 model attempt started/no final response | interrupt/new attempt only when permitted |
+| F3 finalized assistant durable | no provider repeat; process pending tools/terminal |
+| F4 Safe effect-start/no completion | new audited attempt; one logical result |
+| F5 Never effect-start/no completion | no execution; RequiresIntervention |
+| F6 effect completion durable/result entry absent | repair reserved result; no execute |
+| F7 all tool results durable/turn absent | append one turn commit |
+| F8 Agent terminal/common nonterminal | terminalize common once |
 
-Tests MUST restart in a distinct OS process against the same SQLite database for at least F1–F8.
+Tests run in distinct OS processes against the same SQLite database and include a second restart proving idempotency.
 
-A second restart after each repair MUST be a no-op with respect to external effects, logical results, and terminal events.
-
-### 11.1 Corrupt versus repairable
-
-Repair only states explicitly listed in the matrix.
-
-Unknown references, mismatched reserved IDs, duplicate logical results, source-order violations, policy/replay changes, deadline snapshot mismatch, or incompatible common/Agent terminal states MUST fail closed as corruption or intervention; they MUST NOT be guessed into a repaired state.
+States outside the explicit repair matrix fail closed.
 
 ## 12. Evaluations and terminal review — T012
 
-T012 MUST record current EvaluationRuns for:
+Record current EvaluationRuns for:
 
 1. Agent protocol conformance;
-2. Agent durable recovery safety;
-3. Agent kernel execution conformance.
+2. Tool preparation and policy conformance;
+3. Agent durable recovery safety;
+4. Agent kernel execution conformance;
+5. terminal architecture/scope review.
 
-Each run is appended under the corresponding check in `EVALUATIONS.md` and records:
-
-- evaluation/check name;
-- exact reviewed commit;
-- command/fixture;
-- result;
-- evidence location;
-- evaluator mode;
-- date.
-
-The terminal review MUST verify:
-
-- every G003 requirement maps to passing evidence;
-- no concrete transport/filesystem/product/Flow/Orchestration scope entered;
-- no unsafe replay path exists;
-- Agent and common lifecycle repair is idempotent;
-- all permanent gates pass on the exact reviewed commit;
-- no open G003 Stop Condition remains triggered.
+Each run pins exact commit, command/fixture, deterministic mode, result, date, and evidence.
 
 Goal acceptance remains a separate requester action.
 
 ## 13. Project structure
 
-Expected implementation shape:
+Expected responsibilities:
 
 ```text
-crates/
-  ww-agent-tools/
-    Cargo.toml
-    src/
-      lib.rs
-      identity.rs
-      schema.rs
-      registry.rs
-      policy.rs
-      fixtures.rs
-    tests/
-      tool_contract.rs
+ww-agent-tools
+    identity/schema/registry/policy/preparation/fixtures responsibilities
 
-  ww-agent-core/
-    src/
-      history.rs          durable entry/record vocabulary
-      reducer.rs          pure recovery projection
-      kernel.rs           functional provider/tool loop
-      limits.rs           durable limit decisions
-      lifecycle.rs        common execution binding/repair
-      lib.rs
-    tests/
-      recovery.rs
-      kernel.rs
-      lifecycle.rs
-      limits.rs
+ww-agent-core
+    history/reducer/kernel/limits/lifecycle responsibilities
 
-  ww-agent-store-sqlite/
-    src/bin/
-      agent-kernel-fixture.rs     test-only process driver
-    tests/
-      recovery_matrix.rs
+ww-agent-store-sqlite
+    persistence/coordinator + test-only restart driver
 ```
 
-Exact file names MAY vary. Module responsibilities and dependency direction MUST not.
+Exact source file/module names MAY vary. Do not create extra layers merely to match this diagram.
 
-The implementation SHOULD keep each internal work unit near five implementation files. More files are allowed when one coherent acceptance boundary would be weakened by an artificial split; record the rationale in the Task review.
+One Task/work unit should remain reviewable in one focused engineering session. Roughly five implementation files is a decomposition signal, not a prohibition.
 
 ## 14. Commands
 
@@ -1007,72 +676,57 @@ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --all-features --locked
 ```
 
-Focused commands expected during implementation:
-
-```bash
-cargo test -p ww-agent-tools --locked
-cargo test -p ww-agent-core --test recovery --locked
-cargo test -p ww-agent-core --test kernel --locked
-cargo test -p ww-agent-core --test lifecycle --locked
-cargo test -p ww-agent-core --test limits --locked
-cargo test -p ww-agent-store-sqlite --test recovery_matrix --locked
-```
-
-Package/test target names MUST match final files; update Task verification commands if an approved file name changes.
+Focused commands are defined in `TASKS.md` and MUST remain additive to the permanent D017 gate.
 
 ## 15. Testing strategy
 
-- Unit tests: identities, schema profile, deterministic digest, policy, fixture outputs, limit decisions.
-- Contract tests: registry/validation/policy ordering and zero-effect denial.
-- Reducer tests: valid transitions and every new corrupt-history case.
-- Kernel integration tests: text-only, model→tool→model, and ordinary tool execution error versus cancellation/invariant failure.
-- Runtime integration tests: lifecycle/cancellation/terminal repair.
-- Limit tests: canonical deadline consistency, usage-capability requirements, logical tool-call batch admission, token/count boundaries.
-- OS-process tests: F1–F8 restart matrix.
-- Full workspace gate: required before each Task is marked complete and for T012 exact-code review.
+- Tool unit/contract tests: identity, schema, canonical bytes/digest, configured-order projection, preparation ordering, effect-aware policy, execution outcome distinction, fixtures.
+- Reducer tests: durable grammar, valid reconstruction, every corrupt-history case.
+- Kernel integration tests: stream finalization, configured-order request projection, no-effect settlement, commit-before-effect probe, ordinary error versus cancellation/panic.
+- Runtime integration tests: durable cancellation and terminal repair.
+- Limit tests: canonical deadline, whole-batch admission, usage observability, durable counters.
+- OS-process tests: F1–F8 and second-restart idempotency.
 
-Tests MUST assert both positive outcomes and prohibited side effects/provider calls.
+Tests MUST assert both the required result and prohibited provider/effect invocations.
 
 ## 16. Boundaries
 
-### Always
+### Normal path first
 
-- reconstruct from durable history before deciding the next action;
-- validate exact parsed arguments before policy or execution;
-- persist ambiguity-sensitive identity/classification/start state before effect/provider work;
-- preserve provider source order;
-- treat common `ExecutionRecord.deadline` as canonical and validate any Agent snapshot against it;
-- require normalized usage observability whenever token limits are configured;
-- admit a whole logical tool-call batch before executing its first call;
-- keep ordinary returned tool errors distinct from cancellation and invariant failure;
-- use typed WorkWeave-owned errors at crate boundaries;
-- run focused tests and the permanent gate;
-- update Task and Verification evidence only after the code basis passes.
+For one tool call:
 
-### Ask first / escalate under governance
+```text
+finalized provider call
+→ prepare once in ww-agent-tools
+→ persist Agent-owned decision state in ww-agent-core
+→ commit
+→ execute only when Executable
+→ persist typed outcome
+→ append one ordered model-visible result
+```
 
-- change Goal or ADR-0003 boundaries;
-- renumber/redefine used Tasks;
-- add a concrete provider, real capability, new product surface, Flow/OWS, or Orchestration semantics;
-- add a new prerequisite Goal/Task;
-- replace Draft 2020-12, coercion policy, or replay model;
-- change the durable repair matrix beyond a clarification required by existing acceptance;
-- introduce a new crate other than the already specified `ww-agent-tools`.
+### If condition, then action
+
+- If validation fails, return `NoEffect(Validate)` and run no later preparation stage.
+- If classification fails, return `NoEffect(Classify)` and do not evaluate policy.
+- If policy denies, return `NoEffect(Policy)` and execute zero times.
+- If preparation is Executable, core must commit pre-effect state before calling execute.
+- If execution returns OrdinaryError, persist one model-visible ordinary tool error.
+- If execution returns Cancelled, follow cancellation control semantics; do not create ordinary tool error.
+- If expected-version append conflicts, discard the decision and reload before external work.
+- If a Never effect is ambiguous, require intervention.
 
 ### Never
 
-- execute invalid or denied calls;
-- partially execute an over-budget logical tool-call batch;
-- silently ignore unavailable/missing provider usage when token limits are configured;
-- silently replay `ReplayPolicy::Never`;
-- produce two model-visible results for one logical call;
-- treat EOF without finalization as success;
-- treat an Agent deadline snapshot as a competing authority;
-- normalize cancellation/panic/invariant failure into an ordinary model-visible tool error;
-- rely on process-local counters for recovery or limits;
-- mutate completed Task meanings/evidence;
-- persist secrets or hidden chain-of-thought;
-- bypass the AgentStore/common runtime seams with direct database access from the kernel.
+- never execute invalid or denied calls;
+- never use registration order as run tool order;
+- never silently retrieve external schema references;
+- never silently replay `ReplayPolicy::Never`;
+- never create two model-visible results for one logical call;
+- never treat EOF without finalization as success;
+- never treat cancellation/panic/invariant failure as ordinary tool error;
+- never let Agent DTOs enter shared `ww-store`;
+- never mutate completed T001–T006 semantics/evidence.
 
 ## 17. Normative requirement index
 
@@ -1080,129 +734,118 @@ Tests MUST assert both positive outcomes and prohibited side effects/provider ca
 
 | ID | Requirement |
 | --- | --- |
-| TOOL-01 | Stable non-empty tool identity/version and exact run pinning |
-| TOOL-02 | Immutable duplicate-rejecting registry and configured model-spec order |
+| TOOL-01 | Stable non-empty identity/version and exact run pinning |
+| TOOL-02 | Immutable registry; run configured pins, not registration order, define model-visible tool order |
 | TOOL-03 | Explicit self-contained Draft 2020-12 schema compiled at registration |
-| TOOL-04 | No HTTP/file external reference resolution |
+| TOOL-04 | Non-fragment `$ref` and `$dynamicRef` are rejected before compilation; `$id` alone is not forbidden |
 | TOOL-05 | Exact non-coercing argument validation with WorkWeave-owned errors |
 | TOOL-06 | Parsed `Value` is the sole executable argument authority |
-| TOOL-07 | Deterministic recursively key-sorted SHA-256 argument digest |
-| TOOL-08 | Validate before effect/replay classification; classify before policy |
-| TOOL-09 | Centralized deterministic Allow/Deny policy; tools do not authorize themselves |
-| TOOL-10 | Invalid/unknown/denied calls perform zero effect and create one ordered error result |
-| TOOL-11 | `test.echo` is deterministic, pure, and replay-safe |
-| TOOL-12 | `test.unsafe_once` is synthetic, probe-observable, and never replayable |
-| TOOL-13 | Tool public contracts contain no Agent-owned operational identity or core dependency |
+| TOOL-07 | Deterministic nested canonical JSON bytes and SHA-256 digest |
+| TOOL-08 | Validate → digest → effect/replay → policy ordering with short-circuiting |
+| TOOL-09 | Centralized deterministic Allow/Deny policy; effect/replay-aware conformance is required |
+| TOOL-10 | Preparation denial/rejection performs zero effect and exposes stable no-effect code/message |
+| TOOL-11 | `test.echo` is deterministic, pure, Safe |
+| TOOL-12 | `test.unsafe_once` is synthetic, probe-observable, Never |
+| TOOL-13 | Public tools contracts contain no Agent-owned operational identity/core dependency |
+| TOOL-14 | Exactly one production tool-preparation seam exists in `ww-agent-tools`; core does not duplicate it |
+| TOOL-15 | Tool execution distinguishes Output, OrdinaryError, and Cancelled; panic/invariant is outside normal outcomes |
 
 ### Durability requirements
 
 | ID | Requirement |
 | --- | --- |
-| DUR-01 | Logical call, attempt, source position, provider call, and reserved result identities are stable |
-| DUR-02 | Tool/version, digest, effect, replay, policy, and explicit effect-start marker are durable before allowed effect invocation |
-| DUR-03 | No-effect dispositions are atomic, distinguish their failed preparation stage, and contain no effect-start record |
-| DUR-04 | Effect output/error is durable before the model-visible result repair boundary |
-| DUR-05 | Safe interruption and Never intervention are distinct append-only attempt outcomes |
-| DUR-06 | Retries create new attempts and never rewrite previous attempts |
-| DUR-07 | Reducer fails closed on unknown/mismatched/duplicate/out-of-order tool history |
-| DUR-08 | One logical call has at most one reserved/committed model-visible result in source order |
-| DUR-09 | Reject/reload optimistic conflicts before external work; stale decisions never authorize provider/tool execution |
-| DUR-10 | Preparation rejection and policy denial use distinct terminal attempt records |
+| DUR-01 | Logical call/attempt/source/provider/reserved-result identities are stable |
+| DUR-02 | Existing record grammar can represent tool/version/digest/effect/replay/policy plus explicit effect-start ambiguity |
+| DUR-03 | No-effect dispositions identify the failed stage and contain no effect-start/completion |
+| DUR-04 | Effect completion may be durable before model-visible result for repair |
+| DUR-05 | Safe interruption and Never intervention are distinct append-only outcomes |
+| DUR-06 | Retries create new attempts; prior attempts are not rewritten |
+| DUR-07 | Reducer fails closed on unknown/mismatched/duplicate/out-of-order history |
+| DUR-08 | One logical call has at most one committed model-visible result in source order |
+| DUR-09 | Optimistic conflict discards stale decisions before external work |
+| DUR-10 | Rejected = Resolve/Validate/Classify; Denied = Policy; Q008 adds no duplicate field |
 
 ### Kernel requirements
 
 | ID | Requirement |
 | --- | --- |
-| KERN-01 | Typed stored configuration and exact pinned tools are validated before work |
-| KERN-02 | Model requests derive only from ordered durable entries and configuration |
-| KERN-03 | Provider/model/request digest attempt state is durable before provider I/O |
+| KERN-01 | Typed configuration and exact pins validate before work |
+| KERN-02 | Provider request tool specs follow ordered run pins, independent of registry registration order |
+| KERN-03 | Provider/model/request attempt state is durable before provider I/O |
 | KERN-04 | Provider streams drain through EOF and finalize exactly once |
-| KERN-05 | Finalized assistant entry/usage commits before tool handling |
-| KERN-06 | Tool calls execute sequentially and return ordered model-visible results |
-| KERN-07 | Turn commit follows all durable results and precedes the next provider request |
-| KERN-08 | Text success, tool round trip, failures, cancellation, and Length have explicit dispositions |
-| KERN-09 | Kernel owns no concrete transport, SQLite, capability, Flow, or product surface |
-| KERN-10 | Outer provider dispatch errors normalize to one durable failed/interrupted attempt with no assistant/effect |
-| KERN-11 | Each mutation cycle derives from one versioned snapshot and discards stale decisions on conflict |
-| KERN-12 | Ordinary returned ToolExecutionError is one durable model-visible error; cancellation and panic/invariant failure are distinct paths |
+| KERN-05 | Finalized assistant state commits before tool handling |
+| KERN-06 | Core consumes the single tool-preparation seam and does not duplicate preparation |
+| KERN-07 | No-effect calls settle once with zero execution |
+| KERN-08 | Allowed effect invocation occurs only after the append containing `ToolEffectStarted` commits |
+| KERN-09 | Output/OrdinaryError/Cancelled/panic-invariant paths remain semantically distinct |
+| KERN-10 | Tool results preserve source order and turn commit precedes next provider request |
+| KERN-11 | Text-only and model→tool→model paths terminate explicitly; Length is not success |
+| KERN-12 | Kernel owns no concrete transport, SQLite, capability, Flow, or product surface |
+| KERN-13 | Outer provider-dispatch errors produce one durable failed/interrupted attempt and no assistant/effect |
+| KERN-14 | Each mutation derives from one versioned snapshot; stale conflict launches no external work |
 
 ### Lifecycle requirements
 
 | ID | Requirement |
 | --- | --- |
-| LIFE-01 | One Agent run links to one common execution of kind `agent` |
+| LIFE-01 | One Agent run links to one common `agent` execution |
 | LIFE-02 | Pending starts once; Running/Waiting resumes; matching terminal performs no work |
 | LIFE-03 | Durable cancellation request precedes live root-token signal |
-| LIFE-04 | Provider/tool consumers receive cancellation children from one execution root |
-| LIFE-05 | Cancellation launches no new work and preserves already durable results |
-| LIFE-06 | Never-replayable ambiguity maps to RequiresIntervention |
-| LIFE-07 | Agent/common terminal mapping and repair are idempotent and semantically separated |
-| LIFE-08 | Corruption, durable terminal state, Never ambiguity, cancellation, deadline, and budget use fixed recovery precedence |
+| LIFE-04 | Provider/tool consumers receive cancellation children from one root |
+| LIFE-05 | Cancellation before effect-start prevents marker and execution |
+| LIFE-06 | Cancelled tool execution is not ordinary tool error; replay policy controls post-start ambiguity |
+| LIFE-07 | Never ambiguity maps to RequiresIntervention |
+| LIFE-08 | Agent/common terminal repair is idempotent and uses fixed recovery precedence |
 
 ### Limit requirements
 
 | ID | Requirement |
 | --- | --- |
-| LIMIT-01 | Common `ExecutionRecord.deadline` is authoritative; Agent deadline is a matching snapshot only |
-| LIMIT-02 | Model request, completed-model-turn, logical-tool-call, and token counters derive from specified durable state without reinterpreting T003 counters |
-| LIMIT-03 | Provider capacity and admitted tool batches are checked before launch |
-| LIMIT-04 | Provider request `limit + 1` is never launched; an over-budget logical tool-call batch executes zero calls |
+| LIMIT-01 | Common deadline is authoritative; Agent deadline is matching snapshot only |
+| LIMIT-02 | Model/turn/logical-tool/token counters derive from durable history without reinterpreting T003 counters |
+| LIMIT-03 | Provider capacity and whole tool batches are checked before launch |
+| LIMIT-04 | Provider `limit+1` never launches; over-budget tool batch executes zero calls |
 | LIMIT-05 | Finalized provider usage accumulates durably |
-| LIMIT-06 | Token limit stops before the next provider request |
-| LIMIT-07 | `now >=` canonical common deadline expires; active expiry cancels child work |
-| LIMIT-08 | BudgetExhausted/TimedOut are explicit unless Never ambiguity requires intervention |
-| LIMIT-09 | Configured token limits require provider/model normalized usage capability before provider I/O |
-| LIMIT-10 | Declared usage capability with missing finalized usage fails closed before another model request |
-| LIMIT-11 | Logical tool-call budget admits complete finalized assistant batches atomically; safe retries remain attempt audit, not new logical calls |
+| LIMIT-06 | Token limit stops before next provider request |
+| LIMIT-07 | `now >=` deadline expires; active expiry cancels child work |
+| LIMIT-08 | BudgetExhausted/TimedOut are explicit unless Never ambiguity outranks them |
+| LIMIT-09 | Token limits require provider/model normalized usage capability before I/O |
+| LIMIT-10 | Missing promised finalized usage fails closed before another request |
+| LIMIT-11 | Safe retries remain attempt audit, not new logical-tool budget units |
 
 ### Recovery requirements
 
 | ID | Requirement |
 | --- | --- |
-| REC-01 | F1 creation restart continues the existing run once |
-| REC-02 | F2 started model attempt becomes an interrupted/new audited attempt when allowed |
-| REC-03 | F3 finalized model response is never re-requested before pending handling |
-| REC-04 | F4 Safe effect-start/no-result retries as a new attempt with one logical result |
-| REC-05 | F5 Never effect-start/no-result never re-executes and requires intervention |
-| REC-06 | F6 durable effect output repairs exactly the reserved result without execution |
-| REC-07 | F7 missing turn commit repairs once without provider/tool work |
-| REC-08 | F8 Agent terminal/common nonterminal repairs once without provider/tool work |
-| REC-09 | F1–F8 execute across real OS-process restart and a second restart is idempotent |
-| REC-10 | States outside the explicit matrix fail closed rather than guessed repair |
-| REC-11 | F2 covers both pre-event and transient-partial-stream process loss without treating partial deltas as durable assistant state |
+| REC-01…REC-08 | F1–F8 follow the explicit matrix in §11 |
+| REC-09 | F1–F8 run across real OS-process restart; second restart is idempotent |
+| REC-10 | States outside the matrix fail closed |
+| REC-11 | F2 partial transient deltas never become durable assistant state |
 
 ### Evaluation requirements
 
 | ID | Requirement |
 | --- | --- |
-| EVAL-01 | Current EvaluationRuns pin exact commit, command/fixture, mode, result, date, and evidence |
-| EVAL-02 | Every normative requirement maps to passing Verification/Evaluation evidence |
-| EVAL-03 | Exact reviewed commit passes the permanent local and hosted gate |
-| EVAL-04 | Independent review confirms architecture, scope, durability, and replay boundaries |
-| EVAL-05 | Goal acceptance is explicit requester action, not inferred from branch placement |
+| EVAL-01 | Current EvaluationRuns pin exact commit, command/fixture, mode, result, date, evidence |
+| EVAL-02 | Every normative requirement maps to Verification/Evaluation evidence |
+| EVAL-03 | Exact reviewed commit passes local/permanent and hosted gates |
+| EVAL-04 | Independent review confirms architecture, scope, durability, replay boundaries |
+| EVAL-05 | Goal acceptance is explicit requester action |
 
 ## 18. Requirement traceability
 
-| Requirement family | Primary Task | Verification section |
+| Requirement family | Primary Task | Verification |
 | --- | --- | --- |
-| TOOL-01…TOOL-13 | T007 | `V-T007` |
+| TOOL-01…TOOL-15 | T007 | `V-T007` |
 | DUR-01…DUR-10 | T007/T008/T011 | `V-T007`, `V-T008`, `V-T011` |
-| KERN-01…KERN-12 | T008 | `V-T008` |
+| KERN-01…KERN-14 | T008 | `V-T008` |
 | LIFE-01…LIFE-08 | T009 | `V-T009` |
 | LIMIT-01…LIMIT-11 | T010 | `V-T010` |
 | REC-01…REC-11 | T011 | `V-T011` |
 | EVAL-01…EVAL-05 | T012 | `V-T012` |
 
-The detailed check identifiers live in `VERIFICATION.md`.
-
 ## 19. Open questions
 
-No unresolved question blocks implementation of this approved specification.
+No unresolved technical question is intentionally left for the implementing agent in T007/T008.
 
-Later, separately governed work may revisit:
-
-- durable schema/payload evolution and cross-language canonicalization in proposed G010;
-- approval-bearing policy decisions;
-- idempotency-key replay policy;
-- parallel tools;
-- concrete providers and bounded filesystem capability in G004.
+This candidate remains under `REPLAN_LOCK` until requester approval. Later separately governed work may revisit durable format evolution, approval-bearing policy, idempotency keys, parallel tools, concrete providers, and real capabilities.

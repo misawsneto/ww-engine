@@ -1,224 +1,173 @@
 # G003 Builder Handoff
 
-- Status: current implementation orientation
+- Status: planning reconciliation under D022; implementation blocked while `REPLAN_LOCK` exists
 - Goal: `G003 — Durable Agent Kernel`
-- Next Task: `T007 — tool contract, schema validation, policy, and replay fixtures`
+- Next implementation Task after approval/unlock: `T007`
 - Governing architecture: `ADR-0003`
-- Planning basis: approved `SPEC v2`, `PLAN v2`, `TASKS.md`, `VERIFICATION.md`, and `EVALUATIONS.md`
-- Refinement authority: `D021`
+- Candidate planning basis: `SPEC v3-candidate`, `PLAN v3-candidate`, `TASKS.md`, `VERIFICATION.md`, `EVALUATIONS.md`
+- Refinement authority: D021 baseline + resumed D022
 
 ## Purpose
 
-This is the live handoff for the implementing agent. It is an orientation layer, not a second specification or plan.
+This is orientation, not a second specification.
 
-When this file conflicts with a governing record, follow this authority order:
+Authority:
 
 ```text
 accepted Decisions + ADR-0003
         ↓
-GOAL.md
+GOAL
         ↓
-SPEC.md
+SPEC
         ↓
-PLAN.md
+PLAN
         ↓
-TASKS.md
+TASKS
         ↓
-VERIFICATION.md / EVALUATIONS.md
+VERIFICATION / EVALUATIONS
         ↓
-this HANDOFF.md
+HANDOFF
         ↓
 implementation
 ```
 
-Historical handoffs under `docs/memories/recall/` are evidence only. Do not use their old branch instructions or execution checkpoints as current authority.
+Historical handoffs and dry-run artifacts are evidence only. The A004 dry-run snippets are not source-code authority.
 
 ## Builder profile
 
 Operate as a **Rust systems builder specialized in CLI agents and workflow automation**.
 
-Your expected strengths are:
+Expected strengths:
 
-- idiomatic Rust 2024, async traits, ownership, typed errors, deterministic state reduction, and testable ports;
-- model/provider and tool execution seams for coding/CLI agents;
-- durable execution, SQLite-backed recovery, optimistic concurrency, cancellation, limits, and restart behavior;
-- command-line and workflow-engine architecture, while respecting that G003 itself deliberately adds no public CLI or Flow surface;
+- idiomatic Rust 2024, async traits, ownership, typed errors, pure reduction, testable ports;
+- provider/tool seams for coding/CLI agents;
+- durable execution, SQLite recovery, optimistic concurrency, cancellation, limits, restart behavior;
 - small composable crates and dependency direction rather than framework-heavy abstractions;
-- TDD and fault-oriented verification for behavior that must survive process failure.
+- TDD and fault-oriented verification.
 
-Your role is **builder, not roadmap owner**. Implement the accepted architecture and Task outcome. Do not redesign the Goal because another design looks cleaner or more general.
+You are the builder, not the roadmap owner. Implement the governed Task outcome; do not redesign the Goal because another architecture looks more general.
 
 ## Engineering principles
 
-1. **Simplest compliant path.** Prefer the smallest design that satisfies the Task acceptance and SPEC invariants.
-2. **Contract before machinery.** Stabilize the narrow types/ports needed by the current Task before adding orchestration objects or helpers.
-3. **Durable before ambiguity.** Provider or tool work may cross an ambiguity boundary only after the durable record that authorizes that work commits.
-4. **Recovery from durable truth.** Restart behavior is derived from entries, records, common execution state, and pinned configuration—not process memory.
-5. **Keep kernels separate.** Agent, Flow, provider, tools, common runtime, and Orchestration keep their ownership boundaries.
-6. **Fail closed.** Unknown durable states, unsafe replay ambiguity, malformed model output, and invalid tool input do not get guessed into success.
-7. **One coherent Task at a time.** Do not pull later Task acceptance forward merely because adjacent code is convenient to change.
-8. **Always-green `main`.** A Task increment lands only after its focused proof and the complete permanent D017 gate pass.
-9. **Reference implementations are evidence.** Preserve/adapt/reject their design lessons as specified; do not copy their product machinery or terminology indiscriminately.
-10. **Debt is not automatically scope.** Non-blocking improvements are recorded or deferred, not converted into prerequisite cleanup work.
+1. **Simplest compliant path.** Delete unnecessary machinery before adding another layer.
+2. **Contract before machinery.** Stabilize the current Task seam first.
+3. **One preparation authority.** Tool preparation lives once in `ww-agent-tools`; core consumes it.
+4. **Durable before ambiguity.** Provider/effect work starts only after authorizing state commits.
+5. **Recovery from durable truth.** Never infer restart state from process memory.
+6. **Fail closed.** Unknown/corrupt/unsafe ambiguity is not guessed into success.
+7. **One coherent Task at a time.** Do not pull T008/T009 acceptance into T007 for convenience.
+8. **Always-green main.** Focused proof + complete D017 gate before Task closure.
+9. **Reference projects are evidence.** Preserve/adapt/reject their seams; do not clone product machinery.
+10. **Debt is not scope.** Defer non-blocking hardening rather than inserting cleanup gates.
 
-## Task-outcome decision ladder
+## Decision ladder
 
-Use this ladder whenever implementation produces an unexpected result.
+### 1. Current Task acceptance is not satisfied
 
-### 1. The current Task acceptance is not yet satisfied
+Stay in the Task. Add/tighten the failing test, make the minimum compliant change, rerun focused proof.
 
-Stay inside the Task. Write or tighten the failing test, make the minimum compliant implementation change, and rerun the focused proof.
+### 2. A test exposes an implementation defect inside the accepted contract
 
-Do not escalate merely because implementation is difficult.
+Fix it with TDD. No new Decision is required.
 
-### 2. A test exposes an implementation defect inside the approved contract
+### 3. SPEC permits multiple implementations
 
-Fix it with TDD inside the current Task.
+Choose the smallest implementation preserving ownership, recovery, and verification. Record a short Task-review rationale only when the choice materially affects a contract.
 
-Examples:
+### 4. Finding is useful but not required for current acceptance
 
-- invalid arguments reached policy;
-- a stale writer could launch an effect;
-- a provider stream was not finalized through EOF;
-- ordering or result uniqueness is wrong.
+Record/defer it. Do not create a cleanup gate or prerequisite.
 
-No new Decision is required when the accepted SPEC already determines the correct behavior.
+### 5. Task cannot be completed safely under accepted architecture
 
-### 3. The SPEC permits more than one implementation
+Stop when architecture/Goal/ADR would be violated, acceptance is impossible, or an explicit Stop Condition fires. Raise the conflict before implementation relies on a changed direction.
 
-Choose the simplest implementation that preserves ownership, recovery, and verification semantics.
+### 6. SPEC/PLAN must change
 
-If the choice materially affects future maintainability or a public/internal contract, record a short rationale in the Task review. Do not create a durable Decision for ordinary local design.
+Use `ww-refine-goal`; do not patch lower-authority records around a higher-authority conflict.
 
-### 4. A finding is useful but not required for the current Task outcome
+### 7. Durable state is ambiguous and no governed repair exists
 
-Record/defer it and continue.
+Fail closed. A started Never effect without durable completion is the canonical intervention case.
 
-Do not insert a cleanup gate, prerequisite Task, or future-Goal dependency unless existing acceptance or a Stop Condition actually requires it.
+## TDD discipline
 
-### 5. The current Task cannot be completed safely under the accepted architecture
+Before code:
 
-Stop implementation when any of these is true:
+1. read Task outcome/acceptance;
+2. read matching SPEC requirement IDs;
+3. read matching `V-T00N` checks and Evaluations;
+4. inspect current implementation/reference seam only as needed;
+5. choose the smallest observable red test.
 
-- accepted architecture would be violated;
-- the Task acceptance is impossible under the current SPEC;
-- an explicit PLAN Stop Condition fires;
-- satisfying the Task requires changing the Goal boundary, used Task identity, or accepted ADR direction.
+Red → Green → Refactor:
 
-Raise the conflict for requester review. If architecture changes, amend/supersede the governing ADR before implementation relies on the new direction.
+- Red must fail for the intended missing behavior.
+- Green is the smallest coherent implementation.
+- Refactor removes duplication without expanding architecture.
 
-### 6. Specification or planning must change
+Every work-unit checkpoint runs focused tests plus the complete permanent gate.
 
-Do not edit the executable planning basis casually during implementation.
+## T007 orientation — after approval/unlock
 
-Use `docs/skills/ww-refine-goal/SKILL.md`:
-
-```text
-short requester-approved Decision
-        ↓
-Goal REPLAN_LOCK in AGENTS.md
-        ↓
-refine SPEC + PLAN + open Tasks + V&V
-        ↓
-requester approval + verification
-        ↓
-remove lock
-        ↓
-implementation resumes
-```
-
-### 7. Durable state is ambiguous and no approved repair exists
-
-Fail closed. Do not invent recovery behavior in code.
-
-For G003, a started `ReplayPolicy::Never` effect without durable completion is the canonical example: it requires intervention rather than silent replay.
-
-## TDD execution discipline
-
-Use test-driven development for each work unit.
-
-### Before code
-
-1. Read the current Task description, acceptance criteria, dependencies, and likely files.
-2. Read the SPEC requirement IDs exercised by that Task.
-3. Read the matching `V-T00N` checks and Evaluation expectations.
-4. Inspect the existing implementation and the pinned reference seam only as needed.
-5. Identify the smallest observable behavior that should fail first.
-
-### Red
-
-Add or tighten a focused test that expresses one Task requirement.
-
-The test must fail for the expected missing/wrong behavior, not because the fixture is broken or compilation is unrelatedly failing.
-
-For durability work, prefer tests that assert both:
-
-- the required durable state/result; and
-- prohibited provider/effect invocations.
-
-### Green
-
-Implement the smallest coherent change that makes the focused test pass while preserving the SPEC boundaries.
-
-Do not implement later acceptance preemptively.
-
-### Refactor
-
-After the behavior is green:
-
-- remove duplication;
-- improve names and module seams;
-- keep WorkWeave-owned errors/types at boundaries;
-- preserve the same observable tests.
-
-Do not use refactoring as a reason to expand architecture.
-
-### Task checkpoint
-
-Run the focused commands listed in `TASKS.md`, then the complete permanent gate:
-
-```bash
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-cargo test --workspace --all-features --locked
-```
-
-The permanent architecture-boundary checks in `.github/workflows/ci.yml` are also mandatory under D017.
-
-A Task is not complete until the exact closure commit has hosted CI success and its Verification evidence is recorded.
-
-## T007 starting orientation
-
-T007 is the next implementation slice. Execute its internal work units in the PLAN order:
+T007 proves **tool preparation + durable grammar**, not real Agent effect ordering.
 
 ```text
-A. ww-agent-tools identity + offline Draft 2020-12 schema contract
+A. identity + schema + configured-order projection
         ↓
-B. registry + digest + effect/replay + Allow/Deny policy + fixtures
+B. canonical bytes/digest + one tools preparation seam
         ↓
-C. Agent-owned durable preparation/effect/result vocabulary + reducer
+C. effect/replay-aware policy + fixtures + distinct execution outcome contract
         ↓
-T007 verification + full gate
+D. Agent-owned durable tool grammar + reducer
+        ↓
+T007 Verification + full gate
 ```
 
-Keep these boundaries explicit:
+Hard boundaries:
 
-- `ww-agent-tools` must not depend on `ww-agent-core`;
-- parsed `serde_json::Value` is the sole executable argument authority;
-- invalid/unknown/denied calls perform zero effect;
-- allowed effect execution starts only after durable authorization state commits;
-- `test.echo` is pure/Safe;
-- `test.unsafe_once` is synthetic/Never;
-- T007 does not implement the model→tool→model loop; that remains T008.
+- parsed `serde_json::Value` is sole executable argument authority;
+- one tools preparation seam owns resolve → validate → digest → effect/replay → policy;
+- core does not duplicate preparation;
+- run configured pin order outranks registry registration order;
+- non-fragment `$ref` and `$dynamicRef` are forbidden in G003; `$id` alone is not;
+- policy conformance must depend on effect/replay metadata;
+- Output, OrdinaryError, and Cancelled are distinct normal tool execution outcomes;
+- `ToolExecutionError` never means cancellation;
+- `ToolEffectStarted` is an ambiguity marker only;
+- Q008: Policy stage lives in `ToolCallPrepared::NoEffect`; `ToolAttemptDenied` gains no stage field;
+- T007 may directly execute fixtures for fixture tests, but does not claim commit-before-effect proof.
+
+Function/module names are conventional. Prefer direct Rust naming; do not add a manager/service layer just to wrap the preparation seam.
+
+## T008 orientation
+
+T008 is where production execution begins.
+
+```text
+T007 preparation outcome
+        ↓
+core persists Agent-owned attempt/preparation state
+        ↓
+Executable? persist ToolEffectStarted + COMMIT
+        ↓
+only then execute
+        ↓
+map Output | OrdinaryError | Cancelled distinctly
+        ↓
+one ordered model-visible result when applicable
+```
+
+T008 must prove with an effect probe that failed/conflicted pre-effect commit invokes executor zero times.
 
 ## Completion behavior
 
-When a Task outcome is satisfied and verified:
+When one Task is satisfied:
 
-1. record the exact evidence in `VERIFICATION.md`;
+1. record exact Verification evidence;
 2. mark only that Task complete;
-3. ensure `PROJECT_STATE.md` still identifies the correct next Task;
+3. update current state/next Task;
 4. keep `main` green;
-5. continue only to the dependency-ready next Task.
+5. continue only to dependency-ready work.
 
-Task completion is not Goal acceptance. G003 closes only after T012 Evaluations/review and explicit requester acceptance.
+Task completion is not Goal acceptance.

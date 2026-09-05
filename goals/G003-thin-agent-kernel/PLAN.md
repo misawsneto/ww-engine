@@ -1,426 +1,302 @@
 # Plan — G003 Durable Agent Kernel
 
-- Version: `v2`
-- Approval: `approved by requester 2026-09-04 under D021`
-- Specification basis: `G003 SPEC v2`
-- Refinement: `D021`
+- Version: `v3-candidate`
+- Approval: `pending requester approval under resumed D022`
+- Specification basis: `G003 SPEC v3-candidate`
 - Goal state: `active`
-- Implementation readiness: T007 is next; implementation may begin only when no matching `REPLAN_LOCK` is present in `AGENTS.md`
+- Implementation readiness: blocked while G003 `REPLAN_LOCK` is present
+- Task topology: unchanged — `T007 → T008 → T009 → T010 → T011 → T012`
 
 ## 1. Planning contract
 
-This plan makes the remaining accepted G003 sequence executable. It preserves:
+This plan reconciles the A004 dry-run findings and the subsequent critique without creating new Tasks, Goals, ADRs, or domain concepts.
 
-```text
-T007 → T008 → T009 → T010 → T011 → T012
-```
+Rules:
 
-T001–T006 remain complete. Work units below are implementation checkpoints inside existing Tasks, not new Task identities.
-
-The Addy Osmani planning model is adapted as follows:
-
-- the Goal packet remains the task-list target; no parallel `tasks/todo.md` is created;
-- dependency order and vertical proof slices are retained;
-- likely files, acceptance, verification, risks, and checkpoints are explicit;
-- approximately five implementation files per work unit is a strong sizing recommendation, not a rejection rule.
+- completed T001–T006 remain unchanged;
+- work units are checkpoints inside existing Tasks, not new Task identities;
+- architecture contracts come from SPEC; Tasks define delivery; Verification/Evaluations define proof;
+- reference projects are evidence, not implementation authority;
+- prefer deletion and reuse over new layers;
+- roughly five implementation files per work unit is a decomposition signal, not a gate.
 
 ## 2. Dependency graph
 
 ```text
-T002 provider protocol ──→ T006 RecordedProvider ────────────┐
-                                                            │
-T003 durable model ──→ T004 store ──→ T005 coordinator ─────┼──→ T008 kernel
-                                                            │          ↓
-T007 tool contract + durable preparation ───────────────────┘        T009 lifecycle/cancel
-                                                                       ↓
-                                                                    T010 limits
-                                                                       ↓
-                                                                    T011 restart matrix
-                                                                       ↓
-                                                                    T012 evaluations/review
+T002 provider protocol ─→ T006 RecordedProvider ──────────────┐
+                                                              │
+T003 durable model ─→ T004 store ─→ T005 coordinator ────────┼─→ T008 kernel
+                                                              │       ↓
+T007 tools preparation + durable grammar ─────────────────────┘     T009 lifecycle/cancel
+                                                                      ↓
+                                                                   T010 limits
+                                                                      ↓
+                                                                   T011 restart matrix
+                                                                      ↓
+                                                                   T012 evaluations/review
 ```
 
-No T008 implementation begins until T007 is complete and verified.
-
-### 2.1 Design-lineage rule
-
-Each open Task implements a WorkWeave contract, not a reference-project clone:
-
-- T007 translates Pi's validate/preflight/result ordering plus Harness source-index/reserved-result reduction into a provider-independent tool contract.
-- T008 translates Pi's injected `StreamFn` and small `runLoop` into a durable functional driver over WorkWeave ports.
-- T009 combines Pi's propagated abort signal with G002's durable-request-before-live-signal lifecycle.
-- T010 applies the dossier's reserve-before-work budget rule using durable Agent records instead of Pi callback-local state.
-- T011 applies Harness corruption/reduction discipline and LangGraph checkpoint/pending-write lessons without adopting graph execution or unsafe node re-execution.
-- T012 proves those adaptations behaviorally; it does not require source or API parity with Pi, Harness, or LangGraph.
-
-The exact immutable source paths and preserve/adapt/reject decisions are recorded in SPEC §4. Implementation reviews MUST cite the SPEC requirement being satisfied rather than appeal directly to an upstream implementation.
-
-### 2.2 Requester-approved D021 boundary decisions
-
-The requester approved these four implementation boundaries on 2026-09-04. They are part of the v2 planning basis:
-
-1. **Deadline authority:** the linked G002 `ExecutionRecord.deadline` is canonical. Any Agent-configuration deadline is a persisted snapshot and must exactly match it; mismatch is invalid/corrupt state before provider/tool work.
-2. **Token-limit observability:** when any token limit is configured, the pinned provider/model must declare normalized usage support before provider I/O. If usage support is declared but a finalized response omits usage, fail closed as a provider-protocol failure before another model request.
-3. **Tool-call budget batches:** `max_tool_calls` counts logical model-requested calls, not retry attempts. A finalized multi-call response is admitted as one source-ordered batch before the first call executes; if the full batch exceeds remaining capacity, execute none and settle `BudgetExhausted`.
-4. **Tool execution errors:** an ordinary returned `ToolExecutionError` becomes one durable model-visible error result and the loop may continue. Cancellation follows cancellation semantics. A panic or impossible invariant/contract violation is not normalized into an ordinary tool error; it fails/crashes the kernel and recovery follows durable state.
-
-These decisions refine T008/T010 behavior without changing the T007→T012 Task topology.
+T008 does not start until T007 is complete and verified.
 
 ## 3. Implementation strategy
 
-### Phase A — T007 tool safety and replay contract
+### Phase A — T007: tool preparation and durable grammar
 
-Deliver one complete vertical tool-preparation path:
+T007 proves **what a tool call means and whether it is executable**. It does not claim production commit-before-effect execution.
 
-```text
-registered fixture
-→ compiled offline schema
-→ exact argument validation
-→ effect/replay classification
-→ deterministic policy
-→ durable pre-effect metadata
-→ allowed execution or no-effect result
-→ reducer reconstruction
-```
-
-#### T007 work unit A — crate boundary, identity, schema
-
-Likely files:
-
-- root `Cargo.toml`
-- `Cargo.lock`
-- `crates/ww-agent-tools/Cargo.toml`
-- `crates/ww-agent-tools/src/lib.rs`
-- `crates/ww-agent-tools/src/identity.rs`
-- `crates/ww-agent-tools/src/schema.rs`
+#### Work unit A — identity, schema, and configured-order projection
 
 Deliver:
 
-- crate added with permitted dependencies only;
-- `ToolId`, `ToolVersion`, `ToolIdentity`, `ToolSpec`;
-- tools-owned request/context types that contain no Agent run/call/attempt/entry identity;
-- Draft 2020-12 schema validation with `jsonschema 0.52.1`, default features disabled;
-- external-reference rejection;
-- non-coercing deterministic validation errors.
+- `ww-agent-tools` crate with allowed dependencies only;
+- stable tool identity/version/spec contracts;
+- immutable duplicate-rejecting registry;
+- exact-pin lookup/projection driven by an explicit ordered run pin list;
+- registration order deliberately different from configured order in conformance tests;
+- Draft 2020-12 reusable validator;
+- non-fragment `$ref` and `$dynamicRef` rejection before compile;
+- `$id` accepted as metadata/base identity without enabling external retrieval;
+- exact non-coercing validation.
 
 Checkpoint:
 
 ```bash
 cargo test -p ww-agent-tools --locked
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-cargo test --workspace --all-features --locked
+# then permanent D017 gate
 ```
 
-#### T007 work unit B — registry, policy, effect/replay, fixtures
+#### Work unit B — canonical arguments and the single preparation seam
 
-Likely files:
+Deliver one production `ww-agent-tools` preparation boundary with this semantic order:
 
-- `crates/ww-agent-tools/src/registry.rs`
-- `crates/ww-agent-tools/src/policy.rs`
-- `crates/ww-agent-tools/src/fixtures.rs`
-- `crates/ww-agent-tools/tests/tool_contract.rs`
-- exports in `src/lib.rs`
+```text
+resolve
+→ validate
+→ canonical bytes/digest
+→ effect
+→ replay
+→ policy
+→ Executable | NoEffect
+```
 
-Deliver:
+Requirements:
 
-- immutable duplicate-rejecting registry;
-- deterministic model-spec ordering;
-- canonical argument digest;
-- `EffectDescriptor`, `ReplayPolicy`, `PolicyDecision`;
-- `test.echo` and injected-probe `test.unsafe_once`;
-- zero-effect validation failure and policy denial tests.
+- later stages do not run after earlier failure;
+- core does not duplicate preparation;
+- nested canonical bytes are tested directly;
+- effect/replay-aware policy fixture proves policy sees classification metadata;
+- function/module naming follows normal Rust conventions; do not create a manager/service layer merely to name the seam.
 
-Checkpoint: focused tool tests + permanent gate.
+Checkpoint: preparation conformance target + permanent gate.
 
-#### T007 work unit C — Agent durable preparation/recovery vocabulary
-
-Likely files:
-
-- `crates/ww-agent-core/Cargo.toml`
-- `crates/ww-agent-core/src/history.rs`
-- `crates/ww-agent-core/src/reducer.rs`
-- `crates/ww-agent-core/src/lib.rs`
-- `crates/ww-agent-core/tests/recovery.rs`
+#### Work unit C — execution contract and fixtures
 
 Deliver:
 
-- durable call classification/preparation snapshot;
+- `test.echo` and `test.unsafe_once`;
+- injected effect probe;
+- tool execution API with machine-distinguishable Output / OrdinaryError / Cancelled semantics;
+- panic/invariant remains outside normal outcomes;
+- direct fixture tests prove execution behavior only, not Agent durability ordering.
+
+#### Work unit D — Agent-owned durable grammar and reducer
+
+Deliver the already-approved record/reducer vocabulary:
+
+- preparation disposition/stage;
 - reserved result identity;
-- explicit `ToolEffectStarted`, effect-output, and interrupted-attempt state;
-- distinct `ToolAttemptRejected` preparation failure and `ToolAttemptDenied` policy failure;
-- reducer support for executable, denied/rejected, completed, interrupted, and intervention states;
-- corruption tests for changed replay/policy, duplicate result, wrong reserved ID, and source-order violations.
+- effect-start ambiguity marker;
+- effect completion;
+- rejected/denied/completed/interrupted/intervention attempt states;
+- Q008 taxonomy exactly as SPEC v3 §7.3;
+- corruption tests for conflicting metadata, wrong result identity, illegal effect start/completion, duplicate result, and source-order violations;
+- reopen reconstruction proof.
 
-Checkpoint: core recovery tests + permanent gate.
+T007 tests may construct histories directly. Do not build the T008 kernel to make reducer tests easier.
 
 #### T007 closure checkpoint
 
 T007 closes only when:
 
 - every `V-T007` check passes;
-- all new durable metadata reconstructs identically after SQLite reopen;
-- `TASKS.md` and `VERIFICATION.md` contain exact evidence;
-- no T008 loop code or G004 capability was introduced.
+- the tools crate has one preparation seam and no core dependency;
+- the reducer reconstructs/corrupt-checks the full durable grammar;
+- no production effect-order claim is attributed to T007;
+- no G004 capability or T008 loop is introduced;
+- focused tests and full D017 gate pass on the closure commit.
 
-### Phase B — T008 functional kernel
+### Phase B — T008: functional kernel and real effect boundary
 
-Deliver the first real Agent execution, still independent from common lifecycle settlement.
+T008 proves **when an executable call may actually run**.
 
-#### T008 work unit A — request builder and model-attempt finalization
-
-Likely files:
-
-- `crates/ww-agent-core/src/kernel.rs`
-- optional `crates/ww-agent-core/src/model.rs`
-- `crates/ww-agent-core/src/history.rs`
-- `crates/ww-agent-core/src/reducer.rs`
-- `crates/ww-agent-core/src/lib.rs`
-- `crates/ww-agent-core/tests/kernel.rs`
+#### Work unit A — request builder and model-attempt finalization
 
 Deliver:
 
 - typed run configuration;
 - deterministic request construction from durable entries;
-- request digest/pin record;
-- one production stream-drain/finalize path;
-- normalized outer provider-dispatch failure with no assistant/effect;
-- versioned snapshot → reduce → expected-version append mutation cycle;
-- immutable assistant persistence or typed interruption.
+- provider-visible tool specs in exact run pin order, independent of registry registration order;
+- request digest/provider/model attempt state before provider I/O;
+- one production stream drain → EOF → `finish()` path;
+- immutable finalized assistant persistence;
+- typed outer provider-dispatch failure.
 
-#### T008 work unit B — sequential tool loop and terminal result
+#### Work unit B — no-effect settlement
 
-Likely files:
+Kernel calls the single T007 preparation seam.
 
-- `kernel.rs`
-- `tests/kernel.rs`
-- minimal supporting core modules already introduced
+If `NoEffect`:
 
-Deliver:
+```text
+persist handling start
++ ToolCallPrepared::NoEffect
++ exactly one reserved model-visible error entry
++ Rejected or Denied terminal attempt record
+→ commit
+→ execute zero times
+```
 
-- source-ordered preparation/execution/result handling;
-- policy denial and ordinary returned tool failure as one durable model-visible error result;
-- cancellation remains cancellation and is not converted into ordinary tool failure;
-- panic/impossible invariant failure is not normalized into a model-visible tool error;
-- `TurnCommitted`;
-- second provider request sees ordered results;
-- text-only and model→tool→model success.
+This work unit proves actual result persistence for invalid/unknown/classification/policy-denied calls.
 
-Checkpoint: kernel tests + permanent gate.
+#### Work unit C — commit-before-effect and outcome mapping
 
-T008 MUST remain a small functional driver. Discovery of a need for session queues, compaction, hooks, parallel scheduling, or a broad Agent object is scope escalation, not implementation discretion.
+If `Executable`:
 
-### Phase C — T009 common lifecycle and cancellation
+```text
+persist handling start
++ ToolCallPrepared::Executable
++ ToolEffectStarted
+→ commit succeeds
+→ execute once
+```
 
-#### T009 work unit A — runtime cancellation/terminal primitives
+Then:
 
-Likely files:
+- Output → effect completion + reserved success result;
+- OrdinaryError → effect completion error + one model-visible ordinary tool error;
+- Cancelled → control/interruption path, never ordinary tool error;
+- panic/invariant → kernel failure from last durable boundary.
 
-- `crates/ww-runtime/src/cancellation.rs`
-- `crates/ww-runtime/src/service.rs`
-- runtime tests
-- shared event/reducer files only when an already-declared status lacks a legal event transition
+A probe MUST prove the executor is never called before the `ToolEffectStarted` append commits.
 
-Deliver:
-
-- one root token per execution with child tokens for consumers;
-- durable cancel intent before live signal;
-- generic terminal methods for declared common statuses needed by Agent settlement.
-
-#### T009 work unit B — Agent lifecycle binding and repair
-
-Likely files:
-
-- `crates/ww-agent-core/src/lifecycle.rs`
-- `crates/ww-agent-core/src/kernel.rs`
-- `crates/ww-agent-core/src/lib.rs`
-- `crates/ww-agent-core/tests/lifecycle.rs`
-- coordinator/link integration tests as needed
+#### Work unit D — turn and walking skeleton
 
 Deliver:
 
-- one-to-one link validation;
-- pending start, running resume, pre-start cancellation;
-- provider/tool token propagation;
-- cancellation recheck immediately before `ToolEffectStarted` plus fixed recovery precedence;
-- Agent-terminal/common-nonterminal idempotent repair;
-- never-replayable cancellation ambiguity becomes intervention.
+- sequential source-order tool handling;
+- ordered result IDs in `TurnCommitted`;
+- second provider request sees ordered tool results;
+- text-only success;
+- `model → test.echo → model` success;
+- Length is not success;
+- stale expected-version decisions launch no external work.
 
-Checkpoint: lifecycle tests + permanent gate.
+T008 remains a small functional driver. Session façade, hooks, queues, compaction, parallel tools, transport, SDK/CLI, and common terminalization remain outside.
 
-### Phase D — T010 durable limits
-
-#### T010 work unit A — limit model and pure decisions
-
-Likely files:
-
-- `crates/ww-agent-core/src/limits.rs`
-- `crates/ww-agent-core/src/history.rs`
-- `crates/ww-agent-core/src/reducer.rs`
-- `crates/ww-agent-core/src/lib.rs`
-- `crates/ww-agent-core/tests/limits.rs`
+### Phase C — T009: common lifecycle and durable cancellation
 
 Deliver:
 
-- typed positive limits;
-- common `ExecutionRecord.deadline` as canonical deadline plus Agent snapshot consistency validation;
-- durable model/completed-model-turn/logical-tool-call/token counts;
-- `tool_attempt_count` remains attempt audit state and is not reused as the logical tool-call budget;
-- provider usage-capability validation when token limits are configured;
-- pure “may start next operation/batch?” decisions;
-- exact deadline and inclusive/exclusive boundary tests.
+- one Agent run ↔ one common `agent` execution;
+- durable cancellation request before live root-token signal;
+- child tokens to provider/tool consumers;
+- pre-launch and pre-effect-start cancellation checks;
+- distinct handling of tool Cancelled outcome;
+- Never ambiguity → intervention;
+- idempotent Agent-terminal/common-nonterminal repair;
+- fixed recovery precedence from SPEC §9.
 
-#### T010 work unit B — enforcement and common settlement
-
-Likely files:
-
-- `kernel.rs`
-- `lifecycle.rs`
-- shared runtime event/service files if required
-- `tests/limits.rs`
+### Phase D — T010: durable limits
 
 Deliver:
 
-- reserve before provider launch;
-- admit an entire finalized logical tool-call batch before its first execution;
-- if a batch exceeds remaining `max_tool_calls`, execute none of that batch and settle `BudgetExhausted`;
-- no logical model/tool work `limit + 1`;
-- token stop before next model request;
-- declared usage capability with missing finalized usage fails before another model request;
-- deadline cancellation during active work;
-- BudgetExhausted/TimedOut terminal mapping.
+- canonical common deadline + matching Agent snapshot validation;
+- durable model/completed-turn/logical-tool/token counts;
+- usage-capability validation for token limits;
+- whole assistant tool-call batch admission before preparation/execution;
+- no `limit + 1` provider request;
+- no partially executed over-budget tool batch;
+- token/deadline/budget terminal settlement.
 
-Checkpoint: limits tests + permanent gate.
-
-### Phase E — T011 fault/restart matrix
-
-#### T011 work unit A — deterministic fault harness
-
-Likely files:
-
-- `crates/ww-agent-core/src/fault.rs` or test-only equivalent
-- `crates/ww-agent-store-sqlite/src/bin/agent-kernel-fixture.rs`
-- `crates/ww-agent-store-sqlite/Cargo.toml`
-- test fixture support files
+### Phase E — T011: restart matrix
 
 Deliver:
 
-- named F1–F8 failpoints;
-- F2 pre-event and transient-partial-delta subcases;
-- seed/resume/inspect process commands;
-- test-only durable unsafe-effect probe;
-- no public CLI/SDK surface.
-
-#### T011 work unit B — process restart matrix
-
-Likely files:
-
-- `crates/ww-agent-store-sqlite/tests/recovery_matrix.rs`
-- supporting fixture code only
-
-Deliver:
-
-- one test per F1–F8;
+- deterministic F1–F8 failpoints;
+- distinct-process resume against the same SQLite database;
+- durable unsafe-effect probe;
+- Safe retry, Never no-replay, result repair, turn repair, terminal repair;
+- competing-resumer proof;
 - second-restart idempotency;
-- provider/effect invocation counters;
-- exact durable history assertions;
-- corrupt-state cases reject rather than repair.
+- corruption outside the matrix fails closed.
 
-Checkpoint: recovery matrix focused command + permanent gate.
-
-### Phase F — T012 exact-code evaluation and terminal review
-
-Likely files:
-
-- `goals/G003-thin-agent-kernel/EVALUATIONS.md`
-- `VERIFICATION.md`
-- `REVIEWS.md`
-- `TASKS.md`
-- `PROJECT_STATE.md`
-- Decision/ADR only if review discovers a governed change
+### Phase F — T012: exact-code evaluations and review
 
 Deliver:
 
-- current EvaluationRuns for every required check;
+- current EvaluationRuns for every active evaluation;
 - exact reviewed commit pin;
-- final architecture/dependency/recovery review;
-- complete evidence ledger;
-- requester acceptance remains separate.
+- requirement-to-evidence ledger;
+- architecture/dependency/scope review;
+- permanent local/hosted gate;
+- explicit requester Goal acceptance request.
 
 ## 4. Verification checkpoints
 
 Every work unit:
 
-1. run its focused test target;
+1. run focused tests;
 2. run formatting;
-3. run workspace clippy with `--locked -D warnings`;
-4. run full workspace tests with `--locked`;
-5. land only a coherent green increment on `main`.
+3. run architecture-boundary checks;
+4. run locked Clippy with warnings denied;
+5. run full locked workspace tests;
+6. land only a coherent green increment on `main`.
 
-Task closure additionally requires:
-
-- Task-specific acceptance;
-- updated verification evidence;
-- hosted CI success on the exact closure commit.
-
-No temporary verifier may omit a permanent gate.
+Task closure additionally requires hosted CI success on the exact closure commit and recorded Verification evidence.
 
 ## 5. Parallelization
 
-Safe after its provider contract is stable:
+Safe:
 
-- writing table-driven tests for an already-defined module;
+- table-driven tests for already-set contracts;
 - documentation/evidence updates;
 - independent negative fixtures.
 
-Must remain sequential:
+Sequential:
 
-- T007 contracts before T008;
-- durable record/reducer changes before kernel reliance;
+- T007 preparation contract before T008;
+- durable grammar before kernel reliance;
 - lifecycle before limits;
 - limits before restart matrix;
 - EvaluationRuns after final code basis.
 
-Two agents MUST NOT concurrently edit the same durable record vocabulary or Task evidence without explicit coordination.
+Two agents MUST NOT concurrently alter the durable record vocabulary or the same Task evidence without explicit coordination.
 
 ## 6. Risks and mitigations
 
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
-| T007 grows into generic policy/sandbox infrastructure | high | G003 Allow/Deny + synthetic effects only; defer approvals/real capabilities |
-| schema validator imports network/filesystem | high | `jsonschema 0.52.1`, `default-features = false`, explicit external-ref rejection |
-| tool contract acquires Agent-owned IDs and creates a dependency cycle | high | keep run/logical-call/attempt/entry IDs in core; tool request is execution-only and tools-owned |
-| raw and parsed arguments diverge semantically | high | parsed `Value` is sole authority; deterministic digest from it |
-| preparation rejection is mislabeled as policy denial | medium | add `ToolAttemptRejected`; reserve `ToolAttemptDenied` for an actual Deny decision |
-| durable pre-effect data is incomplete or handling start is confused with effect start | high | explicit `ToolEffectStarted`; `V-T007` asserts every required field and marker exist before fixture probe invocation |
-| kernel stops reading after terminal event | high | drain stream to EOF, then `finish()` |
-| safe retry creates duplicate logical result | high | reserved result ID + reducer uniqueness + F4/F6 tests |
-| Never effect is replayed after ambiguous crash | critical | replay pin and `ToolEffectStarted` durable before invocation; F5 effect counter remains one |
-| cancellation maps unsafe ambiguity to Cancelled | high | Never + started + no result maps to intervention |
-| deadline has two competing authorities | high | common `ExecutionRecord.deadline` is canonical; Agent deadline field is a matching snapshot only |
-| token limits silently become advisory | high | require provider usage capability; missing promised finalized usage fails closed before next request |
-| multi-call response partially executes beyond tool budget | high | admit whole logical-call batch before first call; over-budget batch executes zero effects |
-| tool execution failure is conflated with cancellation or invariant failure | medium | ordinary returned ToolExecutionError is model-visible; cancellation and panic/invariant paths remain distinct |
-| limits use process-local counters | high | derive all counters from records and entries |
-| stale concurrent driver launches work from a rejected append | critical | expected-version append must commit before I/O; on conflict discard decision, reload and reduce |
-| cancel/deadline masks unsafe ambiguity | critical | fixed recovery precedence with Never ambiguity ahead of cancel/deadline/budget |
-| Goal expands into G004/G010 work | high | D021 approved boundary, explicit exclusions, existing Stop Conditions |
-| Task/file scope becomes too large | medium | use internal work units; ~5 files is a strong signal, not a hard gate |
+| Risk | Mitigation |
+| --- | --- |
+| tools logic fragments across core and tools | one production preparation seam; core consumes, never duplicates |
+| run tool order leaks registry insertion order | configured-pin projection tests in T007 + request integration test in T008 |
+| schema silently reaches external resources | fragment-only `$ref`/`$dynamicRef`; disabled resolver features; explicit rejection |
+| canonical digest test false-greens | assert nested canonical bytes, then digest |
+| policy seam is structurally present but behaviorally unused | effect/replay-aware conformance policy |
+| cancellation becomes ordinary tool error | machine-distinguishable Cancelled execution outcome + T008/T009 mapping |
+| T007 claims a proof it cannot perform | T007 proves grammar; T008 owns real commit-before-effect probe |
+| `ToolEffectStarted` is misread as effect receipt | treat only as ambiguity boundary |
+| Task wording conflicts with SPEC flexibility | SPEC owns semantics; function/module names are conventional, not normative |
+| Goal expands into G004/G010 | existing exclusions and Stop Conditions remain |
 
 ## 7. Stop and escalation rules
 
-Stop implementation and retain current durable state if:
+Stop and retain durable state if:
 
+- satisfying the Task requires changing Goal/ADR-0003 boundaries;
 - Agent DTOs must enter shared `ww-store`;
-- provider/tool output can cross an effect boundary before validation/finalization;
-- one logical call can acquire two committed model-visible results;
-- a Never attempt can be silently re-executed;
-- counters require process-local truth;
-- core requires concrete transport/SQLite/filesystem/Flow/Orchestration;
-- an internal work unit cannot remain a focused verifiable increment.
+- a provider/tool external operation would occur before its authorizing durable commit;
+- the single preparation seam cannot preserve tools/core dependency direction;
+- cancellation cannot remain distinct from ordinary error;
+- safe completion requires a new durable record/state not already governed;
+- a new prerequisite Task/Goal appears necessary.
 
-A non-blocking improvement does not stop the Goal. Record it and map it to an existing Task only when needed for acceptance; otherwise defer it.
-
-## 8. Rollback
-
-A failed open Task may be reverted while retaining its evidence and findings. T001–T006 and ADR-0003 remain valid. Do not renumber Tasks or insert a generic cleanup gate.
+Otherwise, keep implementation inside the current Task and prefer the simplest compliant path.

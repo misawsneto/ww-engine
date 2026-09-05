@@ -5,11 +5,9 @@ WorkWeave Engine is a Rust execution platform with two independent execution ker
 - **WorkWeave Agent** — a bounded probabilistic model/tool worker;
 - **WorkWeave Flow** — a deterministic durable OWS workflow worker.
 
-WorkWeave Orchestration remains a layer above the engine. It owns Goal-, Task-, Question-, Decision-, Evaluation-, Review-, epistemic-, deontic-, and temporal-work semantics. The engine executes bounded Agent and Flow runs; it does not become a second orchestration domain model.
+WorkWeave Orchestration remains above the engine and owns Goal/Task/Question/Decision/Evaluation/Review plus epistemic/deontic/temporal work semantics. The engine executes bounded Agent and Flow runs; it does not become a second orchestration domain model.
 
 ## Architecture
-
-The architecture is deliberately split:
 
 ```text
 WorkWeave Orchestration
@@ -31,32 +29,43 @@ The Flow kernel owns OWS flow-definition loading, bindings, guards, actions, tok
 
 - `AGENTS.md` — repository operating rules and current refinement locks.
 - `CLAUDE.md` — Git symlink to `AGENTS.md`.
-- `DECISIONS.md` — accepted and superseded durable direction.
-- `QUESTIONS.md` — unresolved project questions.
+- `DECISIONS.md` — accepted/superseded durable direction.
+- `QUESTIONS.md` — project questions and resolutions.
 - `PROJECT_STATE.md` — canonical current state and next work.
 - `WARNINGS.md` — anti-drift guardrails.
-- `LEARNINGS.md` — accumulated architectural/project learning.
-- `docs/architecture/WORKWEAVE-ENGINE-ARCHITECTURE-DOSSIER.md` — proposed engine architecture baseline.
-- `docs/architecture/RUST-CONTRACTS.md` — proposed Rust crate and interface contracts.
+- `LEARNINGS.md` — accumulated learning.
+- `docs/architecture/WORKWEAVE-ENGINE-ARCHITECTURE-DOSSIER.md` — architecture baseline.
+- `docs/architecture/RUST-CONTRACTS.md` — Rust contract baseline.
 - `docs/architecture/SOURCE-REGISTER.md` — immutable evidence pins.
-- `docs/adr/` — Goal-linked architecture decisions; every Goal must have an ADR before activation.
-- `docs/orchestration/` — references canonical WorkWeave Orchestration v0.5; this repository does not fork that model.
-- `docs/skills/` — repository-local authoring/refinement procedures.
-- `docs/templates/` — reusable Goal/Plan/Task/Decision/Question/Evaluation/Review/ADR authoring supports.
-- `goals/` — Goal packets and project bookkeeping.
+- `docs/adr/` — Goal-linked architecture decisions.
+- `docs/orchestration/` — references canonical WorkWeave Orchestration; this repository does not fork that model.
+- `docs/skills/` — repository-local procedures.
+- `docs/templates/` — reusable authoring supports.
+- `goals/` — Goal packets and bookkeeping.
 
 ## Current Goal
 
 `G003 — Durable Agent Kernel` is active under accepted ADR-0003. G002 is achieved after independent owner review.
 
-G003 is intentionally limited to the durable provider-neutral kernel/recovery proof using recorded provider/tool fixtures. T002 provider protocol/assembler, T003 Agent history/recovery reducer, T004 Agent SQLite persistence, T005 atomic common/Agent SQLite transaction coordination, and T006 RecordedProvider conformance are verified.
+T002 provider protocol/assembler, T003 Agent history/recovery reducer, T004 Agent SQLite persistence, T005 atomic common/Agent transaction coordination, and T006 RecordedProvider conformance are complete and verified.
 
-D021's refined G003 `SPEC v2`, `PLAN v2`, open T007–T012 acceptance, Verification, and Evaluations are requester-approved. The four final refinements are settled: the common execution owns the canonical deadline; token limits require normalized usage observability; logical tool-call batches are admitted all-or-none against `max_tool_calls`; and ordinary tool execution errors remain distinct from cancellation/panic/invariant failure.
+D021 established the approved v2 basis. D022 was later resumed after review found the first dry-run hardening pass had placed material architecture requirements only in lower-authority `TASKS.md` and unlocked before reconciling SPEC/PLAN/V&V.
 
-Approval-reconciliation commit `2cde0a9ceb7abf448bed57cd363065dce5494a22` passed hosted CI run `33881904717`, so the D021 `REPLAN_LOCK` has been removed.
+The **G003 D022 `REPLAN_LOCK` is active**. Implementation is blocked until the corrected packet is approved and the lock is removed.
 
-The current builder orientation is `goals/G003-thin-agent-kernel/HANDOFF.md`. T007 tool contract, schema validation, policy, replay fixtures, and durable preparation metadata is ready to implement next.
+The candidate corrected basis is:
 
-`G004 — Agent Provider and Surface` remains proposed. It adds the first OpenAI-protocol adapter, bounded `fs.read`, and Rust SDK/CLI surface only after G003 is accepted. Deterministic OWS Flow work begins at G005.
+- `SPEC v3-candidate`;
+- `PLAN v3-candidate`;
+- reconciled open Tasks;
+- `VERIFICATION v3-candidate` with stable D022 checks;
+- `EVALUATIONS v3-candidate`;
+- updated `HANDOFF.md`.
 
-`G010 — Durable Storage Evolution and Recovery Hardening` is proposed as a separate, non-blocking home for persistence evolution findings. It is not automatically a prerequisite for G004.
+The corrected boundary keeps T007 focused on tool preparation + durable tool grammar/reducer, while T008 owns the real production commit-before-effect execution proof. Tool cancellation is machine-distinguishable from ordinary tool error, Draft 2020-12 offline validation covers `$ref` and `$dynamicRef`, and run configured tool-pin order—not registry insertion order—is authoritative.
+
+After requester approval and unlock, T007 is the next implementation Task.
+
+`G004 — Agent Provider and Surface` remains proposed. It adds the first concrete provider, bounded `fs.read`, and Rust SDK/CLI surface only after G003 is accepted. Deterministic OWS Flow work begins at G005.
+
+`G010 — Durable Storage Evolution and Recovery Hardening` remains a proposed non-blocking home for persistence evolution findings.
