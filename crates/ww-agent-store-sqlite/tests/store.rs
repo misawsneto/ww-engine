@@ -4,9 +4,14 @@ use tempfile::TempDir;
 use ww_agent_core::{
     AgentAppend, AgentAssistantContent, AgentEntry, AgentEntryData, AgentEntryId, AgentPhase,
     AgentRecord, AgentRecordData, AgentRunId, AgentStore, AgentStoreError, AgentTerminalResult,
-    CompletionReason, DurableAssistantMessage, ModelAttemptId, NewAgentRun, reduce_agent_history,
+    AgentToolCall, CompletionReason, DurableAssistantMessage, LogicalToolCallId, ModelAttemptId,
+    NewAgentRun, ToolAttemptId, ToolAttemptStatus, ToolCallId, reduce_agent_history,
 };
 use ww_agent_store_sqlite::SqliteAgentStore;
+use ww_agent_tools::{
+    EffectDescriptor, PolicyDecision, ReplayPolicy, ToolId, ToolIdentity,
+    ToolPreparationDisposition, ToolVersion,
+};
 
 async fn migrated_store(temp: &TempDir) -> SqliteAgentStore {
     let store = SqliteAgentStore::new(temp.path().join("runtime.db"));
@@ -122,6 +127,178 @@ async fn create_append_reopen_reconstructs_identical_terminal_state() {
     assert_eq!(before, after);
     assert_eq!(before_state, after_state);
     assert_eq!(after_state.phase, AgentPhase::Terminal);
+}
+
+/// One assistant turn whose single tool call is prepared and in flight.
+fn effect_in_flight_append(
+    run_id: AgentRunId,
+    assistant_id: AgentEntryId,
+    reserved_result_id: AgentEntryId,
+) -> AgentAppend {
+    let model_attempt = ModelAttemptId::new();
+    let tool_attempt = ToolAttemptId::new();
+    let logical_call_id = LogicalToolCallId::new();
+    let provider_call_id = ToolCallId::new("provider-0").expect("provider call id");
+    let now = Utc::now();
+    AgentAppend {
+        run_id,
+        expected_version: 1,
+        entries: vec![AgentEntry {
+            id: assistant_id,
+            run_id,
+            ordinal: 2,
+            created_at: now,
+            data: AgentEntryData::AssistantMessage {
+                attempt_id: model_attempt,
+                message: DurableAssistantMessage {
+                    content: vec![AgentAssistantContent::ToolCall {
+                        call: AgentToolCall {
+                            logical_id: logical_call_id,
+                            provider_call_id: provider_call_id.clone(),
+                            name: "test.echo".to_owned(),
+                            arguments_json: r#"{"value":"a"}"#.to_owned(),
+                            arguments: json!({"value": "a"}),
+                        },
+                    }],
+                    stop_reason: CompletionReason::ToolUse,
+                    usage: None,
+                    provider_request_id: None,
+                },
+            },
+        }],
+        records: vec![
+            AgentRecord {
+                run_id,
+                sequence: 1,
+                recorded_at: now,
+                data: AgentRecordData::ModelAttemptStarted {
+                    attempt_id: model_attempt,
+                    request_ordinal: 1,
+                },
+            },
+            AgentRecord {
+                run_id,
+                sequence: 2,
+                recorded_at: now,
+                data: AgentRecordData::ModelAttemptCompleted {
+                    attempt_id: model_attempt,
+                    assistant_entry_id: assistant_id,
+                },
+            },
+            AgentRecord {
+                run_id,
+                sequence: 3,
+                recorded_at: now,
+                data: AgentRecordData::ToolAttemptStarted {
+                    attempt_id: tool_attempt,
+                    logical_call_id,
+                },
+            },
+            AgentRecord {
+                run_id,
+                sequence: 4,
+                recorded_at: now,
+                data: AgentRecordData::ToolCallPrepared {
+                    attempt_id: tool_attempt,
+                    logical_call_id,
+                    assistant_entry_id: assistant_id,
+                    source_index: 0,
+                    provider_call_id,
+                    requested_tool_name: "test.echo".to_owned(),
+                    result_entry_id: reserved_result_id,
+                    disposition: Box::new(ToolPreparationDisposition::Executable {
+                        identity: ToolIdentity {
+                            id: ToolId::new("test.echo").expect("tool id"),
+                            version: ToolVersion::new("1").expect("tool version"),
+                            implementation_digest: None,
+                        },
+                        arguments_digest: "digest-a".to_owned(),
+                        effect: EffectDescriptor::Pure {
+                            kind: "test.echo".to_owned(),
+                        },
+                        replay: ReplayPolicy::Safe,
+                        policy: PolicyDecision::Allow,
+                    }),
+                },
+            },
+            AgentRecord {
+                run_id,
+                sequence: 5,
+                recorded_at: now,
+                data: AgentRecordData::ToolEffectStarted {
+                    attempt_id: tool_attempt,
+                },
+            },
+        ],
+    }
+}
+
+// V-T007-28 — the durable tool grammar survives a real SQLite reopen.
+#[tokio::test]
+async fn reopen_reconstructs_identical_tool_preparation_and_effect_state() {
+    let temp = TempDir::new().expect("temp dir");
+    let store = migrated_store(&temp).await;
+    let run_id = AgentRunId::new();
+    let assistant_id = AgentEntryId::new();
+    let reserved_result_id = AgentEntryId::new();
+    store
+        .create_run(NewAgentRun {
+            id: run_id,
+            configuration: json!({"model": "recorded"}),
+            created_at: Utc::now(),
+            initial_entry: initial_entry(run_id),
+        })
+        .await
+        .expect("create run");
+    store
+        .append(effect_in_flight_append(
+            run_id,
+            assistant_id,
+            reserved_result_id,
+        ))
+        .await
+        .expect("append tool history");
+
+    let before = store
+        .load_history(run_id)
+        .await
+        .expect("load before reopen");
+    let before_state = reduce_agent_history(run_id, &before.entries, &before.records)
+        .expect("reduce before reopen");
+    drop(store);
+
+    let reopened = migrated_store(&temp).await;
+    let after = reopened
+        .load_history(run_id)
+        .await
+        .expect("load after reopen");
+    let after_state =
+        reduce_agent_history(run_id, &after.entries, &after.records).expect("reduce after reopen");
+
+    assert_eq!(before, after, "records round-trip through SQLite unchanged");
+    assert_eq!(before_state, after_state);
+    assert_eq!(after_state.phase, AgentPhase::ToolInFlight);
+
+    let (logical_call_id, preparation) = after_state
+        .tool_preparations
+        .iter()
+        .next()
+        .expect("one durable preparation");
+    assert_eq!(preparation.result_entry_id, reserved_result_id);
+    assert_eq!(preparation.requested_tool_name, "test.echo");
+    assert!(matches!(
+        preparation.disposition,
+        ToolPreparationDisposition::Executable { .. }
+    ));
+    assert_eq!(
+        after_state.tool_attempts[logical_call_id]
+            .last()
+            .expect("one attempt")
+            .status,
+        ToolAttemptStatus::EffectInFlight,
+        "the ambiguity boundary survives the reopen"
+    );
+    assert!(after_state.completed_tool_results.is_empty());
 }
 
 #[tokio::test]

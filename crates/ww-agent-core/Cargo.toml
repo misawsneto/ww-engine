@@ -12,3 +12,4 @@ serde_json.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
 ww-agent-provider = { path = "../ww-agent-provider" }
+ww-agent-tools = { path = "../ww-agent-tools" }

@@ -70,27 +70,27 @@ Focused checks are additive and never replace this gate.
 
 ### Durable grammar and reducer
 
-- [ ] `V-T007-24` durable `ToolEffectCompleted` with reserved model-visible result absent reconstructs a repairable completed-awaiting-result state
-- [ ] `V-T007-25` interrupted Safe and intervention Never histories are distinct
-- [ ] `V-T007-26` reducer rejects changed tool/version/digest/effect/replay/policy across attempts of one logical call
-- [ ] `V-T007-27` reducer rejects wrong reserved result ID, effect on NoEffect, duplicate preparation/result, and source-order violation
-- [ ] `V-T007-28` Agent history reconstructs the same tool state after SQLite reopen
+- [x] `V-T007-24` durable `ToolEffectCompleted` with reserved model-visible result absent reconstructs a repairable completed-awaiting-result state
+- [x] `V-T007-25` interrupted Safe and intervention Never histories are distinct
+- [x] `V-T007-26` reducer rejects changed tool/version/digest/effect/replay/policy across attempts of one logical call
+- [x] `V-T007-27` reducer rejects wrong reserved result ID, effect on NoEffect, duplicate preparation/result, and source-order violation
+- [x] `V-T007-28` Agent history reconstructs the same tool state after SQLite reopen
 - [x] `V-T007-29` tools crate imports no Agent core/runtime/store/SQLite/filesystem/process/network/Flow/Orchestration dependency
 - [x] `V-T007-30` tools public request/context types contain no Agent run/logical-call/attempt/entry identity and no core dependency
-- [ ] `V-T007-31` Resolve/Validate/Classify terminate as Rejected; only Policy Deny terminates as Denied
+- [x] `V-T007-31` Resolve/Validate/Classify terminate as Rejected; only Policy Deny terminates as Denied
 
 ### D022 preparation-contract checks
 
 - [x] `V-T007-32` exactly one production tools preparation seam is exercised end-to-end; core exposes no competing preparation pipeline
 - [x] `V-T007-33` `ToolPolicyInput.effect` and `.replay` are non-optional in the public contract; an effect/replay-aware policy changes decision when classification metadata is substituted, and instrumentation proves it observes the exact classified values before evaluation
 - [x] `V-T007-34` canonicalization test asserts nested canonical serialized bytes directly; digest equality alone cannot satisfy the check
-- [ ] `V-T007-35` Q008 placement is exact: `ToolCallPrepared::NoEffect.failed_at=Policy` + Deny; `ToolAttemptDenied` has no duplicate stage field
+- [x] `V-T007-35` Q008 placement is exact: `ToolCallPrepared::NoEffect.failed_at=Policy` + Deny; `ToolAttemptDenied` has no duplicate stage field
 - [x] `V-T007-36` tool execution contract represents Output, OrdinaryError, and Cancelled as machine-distinguishable normal outcomes; panic/invariant is outside that outcome contract
 - [x] `V-T007-37` policy Deny returns stable `NoEffect(Policy)` data containing `policy_denied` code/message and durable `PolicyDecision::Deny`; this check does not claim model-visible result persistence
-- [ ] `V-T007-38` handcrafted executable history contains source/call/attempt/reserved-result identities plus pinned tool/version, digest, effect, replay, policy, and `ToolEffectStarted`; reducer reconstructs the expected effect-in-flight ambiguity state
-- [ ] `V-T007-39` reducer treats `ToolEffectStarted` as an ambiguity boundary, not evidence that an external effect definitely occurred; T007 performs no commit-before-effect production proof
-- [ ] `V-T007-40` Resolve/Validate/Classify/Policy `NoEffect` histories contain no effect-start/effect-completion record and reconstruct the matching no-effect state
-- [ ] `V-T007-41` `ToolPreparationDisposition` and `ToolPreparationStage` are defined in `ww-agent-tools`; `ww-agent-core` embeds those exact types in Agent-owned durable records without redefining equivalents or introducing a tools→core dependency
+- [x] `V-T007-38` handcrafted executable history contains source/call/attempt/reserved-result identities plus pinned tool/version, digest, effect, replay, policy, and `ToolEffectStarted`; reducer reconstructs the expected effect-in-flight ambiguity state
+- [x] `V-T007-39` reducer treats `ToolEffectStarted` as an ambiguity boundary, not evidence that an external effect definitely occurred; T007 performs no commit-before-effect production proof
+- [x] `V-T007-40` Resolve/Validate/Classify/Policy `NoEffect` histories contain no effect-start/effect-completion record and reconstruct the matching no-effect state
+- [x] `V-T007-41` `ToolPreparationDisposition` and `ToolPreparationStage` are defined in `ww-agent-tools`; `ww-agent-core` embeds those exact types in Agent-owned durable records without redefining equivalents or introducing a tools→core dependency
 
 ### Published check identities superseded by D022
 
@@ -156,13 +156,49 @@ transport, capability, Flow, or Orchestration dependency and imports none, so
 its public `ToolRequest`/`ToolContext` cannot carry Agent run, logical-call,
 attempt, or entry identity.
 
-`V-T007-41` remains open. Its tools half is done; the check closes when
-`ww-agent-core` embeds these exact types in work unit 5.
+`V-T007-24` .. `V-T007-28`, `V-T007-31`, `V-T007-35`, and `V-T007-38` ..
+`V-T007-41` are satisfied by T007 work unit 5. `AgentRecordData` gains
+`ToolCallPrepared`, `ToolEffectStarted`, `ToolEffectCompleted`,
+`ToolAttemptRejected`, and `ToolAttemptInterrupted`; the reducer gains
+`tool_preparations` and the `Prepared` / `EffectInFlight` / `EffectSettled` /
+`Rejected` / `Interrupted` attempt statuses.
+
+`crates/ww-agent-core/tests/recovery.rs` proves each rejection against a
+handcrafted history: a conflicting preparation across two attempts of one
+logical call, a settlement on the wrong reserved result entry, an effect start
+on a `NoEffect` disposition, a second preparation of one attempt, an effect
+completion with no effect start, and both Q008 taxonomy mismatches. It also
+proves the positive distinctions — effect-in-flight ambiguity, an effect
+settled while its model-visible entry is still missing, and an interrupted
+Safe attempt against a Never intervention.
+
+`V-T007-39` holds by construction. `ToolEffectStarted` moves the attempt to
+`EffectInFlight` and leaves `completed_tool_results` empty; the reducer never
+infers that the external effect ran. T007 makes no commit-before-effect
+production claim, which stays with `V-T008-24`.
+
+`V-T007-41` closes here. `ww-agent-core` embeds
+`ToolPreparationDisposition` and `ToolPreparationStage` from `ww-agent-tools`
+and defines no equivalent; the record field is boxed so one large preparation
+does not widen every record variant, which changes no serialized form. The
+dependency runs core → tools only, and the permanent boundary gate keeps
+`ww-agent-tools` free of any core import.
+
+`V-T007-28` is proved on real SQLite in
+`crates/ww-agent-store-sqlite/tests/store.rs`. An effect-in-flight history is
+appended, loaded, reduced, the store is dropped, the database is reopened, and
+the reloaded history reduces to an identical state — same preparation, same
+reserved result entry, same `EffectInFlight` ambiguity.
+
+Evidence: full permanent gate on Rust 1.98.0 — fmt, seven architecture-boundary
+checks, locked clippy with warnings denied, and the whole workspace suite at
+101/101.
 
 ```bash
 cargo test -p ww-agent-tools --test preparation --locked
 cargo test -p ww-agent-tools --locked
 cargo test -p ww-agent-core --test recovery --locked
+cargo test -p ww-agent-store-sqlite --test store --locked
 ```
 
 ## V-T008 — Functional Agent kernel

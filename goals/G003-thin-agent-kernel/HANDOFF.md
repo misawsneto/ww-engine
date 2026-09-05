@@ -2,7 +2,7 @@
 
 - Status: current implementation orientation; the D022 `REPLAN_LOCK` is removed
 - Goal: `G003 — Durable Agent Kernel`
-- Next implementation Task: `T007`
+- Next implementation Task: `T008`
 - Governing architecture: `ADR-0003`
 - Approved planning basis: `SPEC v3`, `PLAN v3`, `TASKS.md`, `VERIFICATION.md`, `EVALUATIONS.md`
 - Refinement authority: D021 baseline + resumed D022

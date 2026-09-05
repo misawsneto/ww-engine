@@ -20,3 +20,4 @@ ww-store = { path = "../ww-store" }
 
 [dev-dependencies]
 tempfile.workspace = true
+ww-agent-tools = { path = "../ww-agent-tools" }

@@ -1439,6 +1439,7 @@ dependencies = [
  "thiserror",
  "uuid",
  "ww-agent-provider",
+ "ww-agent-tools",
 ]
 
 [[package]]
@@ -1470,6 +1471,7 @@ dependencies = [
  "tokio",
  "uuid",
  "ww-agent-core",
+ "ww-agent-tools",
  "ww-store",
  "ww-store-sqlite",
  "ww-types",

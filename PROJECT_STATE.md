@@ -20,7 +20,7 @@
 - Run configured tool pin order is authoritative; registry registration order has no model-visible authority.
 - Q008 remains resolved for A004-builder: Policy stage belongs in `ToolCallPrepared::NoEffect`; `ToolAttemptDenied` gains no duplicate stage field.
 - Published Verification identifiers remain consumed. D022 no longer repurposes `V-T007-18`, `V-T007-21`, `V-T007-22`, or `V-T007-23`; their changed proof obligations are mapped to new/current checks.
-- T007 is the next implementation Task; the approved basis is the v3 generation.
+- T007 is complete and verified on the v3 basis. All 37 active `V-T007` checks pass; the durable tool grammar, the tools-owned preparation embedding, and the reducer corruption rules are landed. T008 is the next implementation Task.
 - Proposed following Goal: `G004 — Agent Provider and Surface`; first concrete provider, bounded `fs.read`, SDK/CLI; proposed `ADR-0004`.
 - G005 is deterministic OWS Flow kernel; G006 is restart-safe Flow → Agent integration.
 - `G010 — Durable Storage Evolution and Recovery Hardening` remains proposed and non-blocking unless later evidence activates it.
@@ -51,8 +51,8 @@ T003 Agent history + recovery reducer     complete / verified
 T004 Agent SQLite persistence             complete / verified
 T005 common/Agent transaction seam        complete / verified
 T006 recorded provider                    complete / verified
-T007 tool preparation + durable grammar   open / NEXT
-T008 functional Agent kernel              open
+T007 tool preparation + durable grammar   complete / verified
+T008 functional Agent kernel              open / NEXT
 T009 lifecycle + cancellation             open
 T010 durable limits                       open
 T011 crash/restart matrix                 open
@@ -74,7 +74,7 @@ EVALUATIONS v3         approved; preparation/effect-boundary split
 HANDOFF                 aligned to v3 authority
 Q008                    resolved
 REPLAN_LOCK             none
-next implementation     T007
+next implementation     T008
 ```
 
 The approved implementation basis is the v3 generation. Approval promoted this same generation from draft; it did not mint another version solely for lifecycle state.
@@ -84,7 +84,7 @@ The approved implementation basis is the v3 generation. Approval promoted this s
 ```text
 G002 Shared Runtime                 achieved
   ↓
-G003 Durable Agent Kernel           ACTIVE — T007 next
+G003 Durable Agent Kernel           ACTIVE — T008 next
   ↓
 G004 Agent Provider and Surface
   ↓

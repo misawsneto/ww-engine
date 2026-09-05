@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::fmt;
 use uuid::Uuid;
 use ww_agent_provider::{CompletionReason, ModelUsage, ToolCallId};
+use ww_agent_tools::{ToolPreparationDisposition, ToolPreparationStage};
 
 macro_rules! uuid_id {
     ($name:ident) => {
@@ -129,6 +130,14 @@ pub enum AgentTerminalResult {
     RequiresIntervention { reason: String },
 }
 
+/// The normalized outcome of one tool effect, before any model-visible entry.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+pub enum ToolEffectResult {
+    Output { content: Value },
+    Error { code: String, message: String },
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AgentRecordData {
@@ -147,6 +156,37 @@ pub enum AgentRecordData {
     ToolAttemptStarted {
         attempt_id: ToolAttemptId,
         logical_call_id: LogicalToolCallId,
+    },
+    /// Agent-owned record embedding the tools-owned preparation taxonomy.
+    ToolCallPrepared {
+        attempt_id: ToolAttemptId,
+        logical_call_id: LogicalToolCallId,
+        assistant_entry_id: AgentEntryId,
+        source_index: u32,
+        provider_call_id: ToolCallId,
+        requested_tool_name: String,
+        result_entry_id: AgentEntryId,
+        /// Boxed so one large preparation does not widen every record variant.
+        disposition: Box<ToolPreparationDisposition>,
+    },
+    /// The ambiguity boundary. It never proves the external effect occurred.
+    ToolEffectStarted {
+        attempt_id: ToolAttemptId,
+    },
+    ToolEffectCompleted {
+        attempt_id: ToolAttemptId,
+        result: ToolEffectResult,
+    },
+    /// Resolve, Validate, or Classify no-effect settlement. Policy uses
+    /// `ToolAttemptDenied`, which carries no duplicate stage field.
+    ToolAttemptRejected {
+        attempt_id: ToolAttemptId,
+        result_entry_id: AgentEntryId,
+        failed_at: ToolPreparationStage,
+    },
+    ToolAttemptInterrupted {
+        attempt_id: ToolAttemptId,
+        reason: String,
     },
     ToolAttemptDenied {
         attempt_id: ToolAttemptId,
@@ -177,6 +217,11 @@ impl AgentRecordData {
             Self::ModelAttemptInterrupted { .. } => "model_attempt_interrupted",
             Self::ModelAttemptCompleted { .. } => "model_attempt_completed",
             Self::ToolAttemptStarted { .. } => "tool_attempt_started",
+            Self::ToolCallPrepared { .. } => "tool_call_prepared",
+            Self::ToolEffectStarted { .. } => "tool_effect_started",
+            Self::ToolEffectCompleted { .. } => "tool_effect_completed",
+            Self::ToolAttemptRejected { .. } => "tool_attempt_rejected",
+            Self::ToolAttemptInterrupted { .. } => "tool_attempt_interrupted",
             Self::ToolAttemptDenied { .. } => "tool_attempt_denied",
             Self::ToolAttemptCompleted { .. } => "tool_attempt_completed",
             Self::ToolAttemptIntervention { .. } => "tool_attempt_intervention",

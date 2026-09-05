@@ -17,8 +17,8 @@
 | T004 Implement Agent SQLite persistence and reconstruction | complete | Agent-owned persistence + reopen/restart + stale-writer rejection | T003 |
 | T005 Prove common/Agent SQLite transaction coordination | complete | atomic create/link + rollback; no Agent DTO leakage | T004 |
 | T006 Implement recorded provider and provider conformance fixtures | complete | deterministic provider fixtures and protocol conformance | T002 |
-| T007 Implement tool contract, preparation seam, policy/replay fixtures, and durable tool grammar | open | complete `V-T007`; one tools-owned preparation seam, offline schema, exact ordering/canonicalization/policy semantics, distinct cancellation outcome, fixtures, and reducer grammar; no production commit-before-effect claim | T002, T003, T004 |
-| T008 Implement functional recorded-provider model → tool → model kernel | open | complete `V-T008`; real kernel consumes T007 preparation, persists no-effect results, proves commit-before-effect before execution, preserves cancellation/error distinction, and completes text/tool round trips | T005, T006, T007 |
+| T007 Implement tool contract, preparation seam, policy/replay fixtures, and durable tool grammar | complete / verified | complete `V-T007`; one tools-owned preparation seam, offline schema, exact ordering/canonicalization/policy semantics, distinct cancellation outcome, fixtures, and reducer grammar; no production commit-before-effect claim | T002, T003, T004 |
+| T008 Implement functional recorded-provider model → tool → model kernel | open / NEXT | complete `V-T008`; real kernel consumes T007 preparation, persists no-effect results, proves commit-before-effect before execution, preserves cancellation/error distinction, and completes text/tool round trips | T005, T006, T007 |
 | T009 Integrate G002 lifecycle and durable cancellation | open | complete `V-T009`; one Agent run ↔ one common execution; durable cancellation and idempotent terminal repair; Never ambiguity requires intervention | T008 |
 | T010 Implement durable deadlines and execution budgets | open | complete `V-T010`; canonical common deadline, durable counters, usage observability, whole-batch tool admission, deterministic terminal limits | T009 |
 | T011 Prove crash/restart and ambiguous-effect recovery matrix | open | complete `V-T011`; distinct-process F1–F8 + second restart + no duplicate result/Never replay | T010 |
@@ -121,29 +121,29 @@ Resolve/Validate/Classify failure:
 
 ### Acceptance criteria
 
-- [ ] tools crate dependency direction matches SPEC §5.
-- [ ] one production preparation seam exists and core has no competing preparation pipeline.
-- [ ] `ToolPreparationDisposition` and `ToolPreparationStage` are tools-owned; core embeds those exact types without duplicate definitions or tools→core dependency.
-- [ ] exact configured pin/version resolution rejects missing/mismatched tools.
-- [ ] configured order is proved independently of registration order.
-- [ ] malformed schema rejects registration.
-- [ ] non-fragment `$ref` and `$dynamicRef` reject before compile with no retrieval.
-- [ ] `$id` alone does not cause rejection/retrieval.
-- [ ] local fragment/dynamic reference fixture validates.
-- [ ] validation is exact/non-coercing and raw provider JSON is never reparsed.
-- [ ] invalid args invoke classification 0, policy 0, execution 0.
-- [ ] nested canonical bytes and digest behavior are explicitly proved.
-- [ ] preparation order and short-circuit behavior are observed through the production seam.
-- [ ] policy input structurally requires effect/replay; behavioral proof covers exact observation and substituted classification values.
-- [ ] policy denial invokes execution/probe 0 and exposes stable `policy_denied` no-effect data.
-- [ ] `test.echo` is deterministic/Safe; `test.unsafe_once` is probe-observable/Never.
-- [ ] tool execution API distinguishes output, ordinary error, and cancellation; panic/invariant is outside normal outcomes.
-- [ ] durable history/reducer can represent executable, rejected, denied, effect-in-flight, completed-awaiting-result, settled, interrupted, and intervention states.
-- [ ] `ToolEffectStarted` is treated only as an ambiguity marker.
-- [ ] Q008 taxonomy is enforced with no duplicate denial stage field.
-- [ ] reducer rejects SPEC §7 corruption cases and reconstructs identically after reopen.
-- [ ] T007 does **not** claim a real kernel effect was invoked only after durable commit.
-- [ ] no concrete capability, approval workflow, parallel scheduling, generic policy engine, or T008 kernel loop is added.
+- [x] tools crate dependency direction matches SPEC §5.
+- [x] one production preparation seam exists and core has no competing preparation pipeline.
+- [x] `ToolPreparationDisposition` and `ToolPreparationStage` are tools-owned; core embeds those exact types without duplicate definitions or tools→core dependency.
+- [x] exact configured pin/version resolution rejects missing/mismatched tools.
+- [x] configured order is proved independently of registration order.
+- [x] malformed schema rejects registration.
+- [x] non-fragment `$ref` and `$dynamicRef` reject before compile with no retrieval.
+- [x] `$id` alone does not cause rejection/retrieval.
+- [x] local fragment/dynamic reference fixture validates.
+- [x] validation is exact/non-coercing and raw provider JSON is never reparsed.
+- [x] invalid args invoke classification 0, policy 0, execution 0.
+- [x] nested canonical bytes and digest behavior are explicitly proved.
+- [x] preparation order and short-circuit behavior are observed through the production seam.
+- [x] policy input structurally requires effect/replay; behavioral proof covers exact observation and substituted classification values.
+- [x] policy denial invokes execution/probe 0 and exposes stable `policy_denied` no-effect data.
+- [x] `test.echo` is deterministic/Safe; `test.unsafe_once` is probe-observable/Never.
+- [x] tool execution API distinguishes output, ordinary error, and cancellation; panic/invariant is outside normal outcomes.
+- [x] durable history/reducer can represent executable, rejected, denied, effect-in-flight, completed-awaiting-result, settled, interrupted, and intervention states.
+- [x] `ToolEffectStarted` is treated only as an ambiguity marker.
+- [x] Q008 taxonomy is enforced with no duplicate denial stage field.
+- [x] reducer rejects SPEC §7 corruption cases and reconstructs identically after reopen.
+- [x] T007 does **not** claim a real kernel effect was invoked only after durable commit.
+- [x] no concrete capability, approval workflow, parallel scheduling, generic policy engine, or T008 kernel loop is added.
 
 ### Verification
 
