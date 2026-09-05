@@ -3,7 +3,7 @@
 //! Covers `V-T007-17`, `V-T007-19`, `V-T007-20`, `V-T007-33`, and
 //! `V-T007-37`. Production commit-before-effect ordering remains T008.
 
-use serde_json::{Value, json};
+use serde_json::json;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicUsize, Ordering},
