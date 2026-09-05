@@ -9,14 +9,22 @@ description: Review a WorkWeave implementation dry run against the governed Goal
 
 ## Purpose
 
-Review a dry run as an implementation hypothesis before code relies on it.
+Review a dry run as an **implementation hypothesis** before code relies on it.
 
-A dry run is useful when it exposes hidden design choices, false-green tests, incorrect seam ownership, or proof obligations that the existing planning packet leaves implicit.
+A dry run is not specification authority. It may expose:
 
-A dry run is **not** specification authority.
+- hidden implementation choices;
+- seam or ownership mistakes;
+- reference-architecture drift;
+- false-green tests;
+- proof assigned to the wrong Task;
+- unresolved failure, cancellation, or recovery behavior;
+- questions the implementing agent should not guess.
+
+This skill reviews and classifies findings. It does **not** perform replanning.
 
 ```text
-current governed records
+governed Goal packet
         +
 current code
         +
@@ -26,30 +34,12 @@ dry run
         ↓
 review
         ↓
-proceed | implementation guidance | refine Goal | governance change | defer
+implement | implementation guidance | ww-refine-goal | governance change | defer
 ```
-
-The goal of the review is not to grade prose. It is to answer:
-
-> If an implementing agent follows this dry run, will it build the governed design correctly and prove the right things at the right boundaries?
-
-## Authorization
-
-This skill is review-only by default and needs no new Decision.
-
-Run it when the requester asks to review, critique, validate, or assess an implementation dry run.
-
-Do not mutate governed Goal records merely because the review found an improvement.
-
-If the requester asks to apply findings:
-
-- implementation guidance already inside the accepted contract may remain implementation guidance;
-- normative specification/planning changes use `ww-refine-goal`;
-- Goal, domain-model, or accepted-architecture changes require the appropriate requester Decision/ADR change before reliance.
 
 ## Authority
 
-Review against the repository's actual authority order:
+Review against the current repository authority:
 
 ```text
 accepted Decisions + ADRs
@@ -67,44 +57,27 @@ VERIFICATION / EVALUATIONS
 HANDOFF
         ↓
 dry-run artifact
-        ↓
-implementation sketch
 ```
 
-The dry run may explain or challenge higher records. It may not silently override them.
+The dry run may challenge a governed record. It may not override one.
 
-When a dry-run recommendation conflicts with a higher-authority record, report the conflict. Do not ask the builder to choose which record to obey.
+When a dry-run recommendation conflicts with higher authority, report the conflict. Do not leave the implementing agent to choose which instruction wins.
 
 ## Review basis
 
-Read the smallest complete basis needed to judge the dry run:
+Read only the material needed to judge the target Task:
 
 - current canonical integration head;
 - `AGENTS.md` and any active `REPLAN_LOCK`;
-- the dry-run artifact;
-- authorizing Decisions and governing ADRs;
-- `GOAL.md`;
-- current `SPEC.md`;
-- `PLAN.md`;
-- target Task in `TASKS.md`;
-- matching `VERIFICATION.md` and `EVALUATIONS.md`;
-- `HANDOFF.md` when present;
-- `PROJECT_STATE.md` when readiness/current state matters;
-- actual implementation files and dependency graph touched by the dry run;
-- only the pinned reference-architecture source needed to validate material claims.
+- dry-run artifact;
+- governing Decision/ADR;
+- Goal, SPEC, PLAN, target Task;
+- matching Verification/Evaluations;
+- current handoff when present;
+- actual code and dependency seams implicated by the dry run;
+- pinned reference source for material reference claims.
 
-Do not rely on a historical handoff or stale branch when current records exist.
-
-## Core review rule
-
-Treat every dry-run prescription as one of four things:
-
-1. **already governed** — directly required by higher authority;
-2. **implementation choice** — one valid way to satisfy the governed contract;
-3. **new normative requirement** — changes what implementation or evidence must satisfy;
-4. **future/deferred improvement** — useful but not required for the current Task.
-
-The review must not let category 2 or 4 silently become category 3.
+Prefer current governed records over historical handoffs or recall material.
 
 ## Procedure
 
@@ -112,122 +85,120 @@ The review must not let category 2 or 4 silently become category 3.
 
 Confirm:
 
-- exact current `main` head;
+- exact current head;
 - target Goal and Task;
-- whether implementation has started;
-- whether a planning lock is active;
-- whether the dry run is code-free, partially executable, or compiled/tested;
-- which permanent gate applies.
+- implementation status;
+- active planning lock, if any;
+- whether the dry run is prose/pseudocode, compiled code, or tested code;
+- permanent verification gate that applies.
 
-A green repository proves only the current repository state. It does not prove that dry-run pseudocode compiles or that the proposed design satisfies unimplemented acceptance.
+A green repository does not prove dry-run pseudocode compiles or that an unimplemented design satisfies acceptance.
 
-### 2. Read the dry run as a hypothesis
+### 2. Extract material dry-run claims
 
-Extract the dry run's material claims:
+Ignore cosmetic code shape unless it implies a contract decision.
 
-- proposed seams and ownership;
-- type/API shape;
+Extract claims about:
+
+- seams and ownership;
+- public/internal API shape;
+- dependency direction;
 - ordering and lifecycle;
 - persistence/effect boundaries;
 - failure and cancellation behavior;
-- test strategy;
+- replay/recovery behavior;
+- tests and evidence;
 - file/crate changes;
-- reference-project claims;
-- questions and assumptions.
+- reference-project behavior;
+- open questions and assumptions.
 
-Ignore cosmetic code unless it implies an architectural or contract decision.
+Treat illustrative code as a proposed shape, not source authority.
 
-Do not promote illustrative snippets into normative API requirements merely because they are concrete.
+### 3. Check domain-model impact first
 
-### 3. Check repository realism
+Ask:
 
-Verify the dry run against the actual codebase.
+> Does this finding require a new domain entity, identity, relationship, state, lifecycle, authority, durable semantic record, or changed meaning of an existing one?
+
+Classify:
+
+- **no domain-model change** — implementation or specification architecture may still need refinement;
+- **domain-model change required** — require deeper validation/governance before implementation relies on it.
+
+Do not infer that "no domain-model change" means a Task-only edit is sufficient.
+
+### 4. Check repository realism
+
+Compare the dry run with actual code.
 
 Look for:
 
 - existing ports that already satisfy the need;
-- invented ports, managers, state machines, or crates;
+- invented managers, services, state machines, crates, or transaction seams;
 - dependency-direction violations;
-- incorrect assumptions about current types/APIs;
-- duplicated logic across boundaries;
-- file/module plans that are unnecessarily prescriptive;
-- tests that could pass accidentally because of current library behavior;
-- pseudo-code that was never compile-validated.
+- duplicate logic across layers;
+- incorrect assumptions about current APIs;
+- unnecessary file/module prescription;
+- pseudocode presented as if compile-proven.
 
 Prefer reuse and deletion over added machinery.
 
-If the existing seam is sufficient, flag a proposed replacement as unnecessary even when the replacement is elegant.
+### 5. Check reference alignment
 
-### 4. Check domain-model impact first
+Verify material claims against the pinned reference revision.
 
-Before recommending planning changes, answer explicitly:
+Distinguish:
 
-> Does the dry-run finding require a new domain entity, identity, relationship, state, lifecycle, authority, durable semantic record, or changed meaning of an existing one?
-
-Classify:
-
-- **No domain-model change** — implementation/specification architecture may still need refinement.
-- **Domain-model change required** — stop ordinary Task hardening and require deeper validation/governance before implementation relies on it.
-
-Do not confuse "no domain-model change" with "Task-only edit is sufficient."
-
-### 5. Check reference fidelity
-
-For each material upstream claim:
-
-- verify it against the pinned source;
-- distinguish production behavior from experimental/future scaffolding;
-- distinguish observed reference behavior from WorkWeave adaptation;
-- verify that WorkWeave is preserving the intended seam rather than copying product machinery;
-- verify that deliberate deviations are explicit.
+- observed production behavior;
+- future/experimental reference scaffolding;
+- WorkWeave adaptation;
+- deliberate WorkWeave deviation.
 
 For Pi-oriented Agent work, pay particular attention to:
 
 - small functional loop versus product/session façade;
-- provider-neutral streaming seam;
-- preparation versus execution separation;
+- provider-neutral streaming;
+- preparation versus execution;
 - source-ordered tool results;
 - cancellation propagation;
-- entry/record separation and pure recovery reduction;
+- entry/record separation and pure reduction;
 - replay ambiguity;
-- avoiding queues/hooks/parallel/session machinery when the Goal excludes them.
+- avoiding queues, hooks, parallelism, or session machinery when the Goal excludes them.
 
-Reference parity is behavioral. Package names and implementation structure do not need to match upstream.
+Reference parity is behavioral, not package or file-layout parity.
 
 ### 6. Check seam and ownership quality
 
-For every proposed seam, ask:
+For each proposed seam, answer:
 
 - who owns the decision?
 - who owns durable identity?
 - who owns execution?
-- which direction may dependencies flow?
-- does another layer duplicate the same logic?
-- does the seam carry domain identities it does not need?
-- is a generic manager/service object being introduced where a function/trait/port is enough?
+- what dependency direction is legal?
+- is the same logic duplicated elsewhere?
+- does the seam carry identities it does not need?
+- is a manager/service object being introduced where a function, trait, or existing port is enough?
 
-A strong dry run makes one authority obvious for each responsibility.
+A strong dry run leaves one obvious authority for each responsibility.
 
 ### 7. Check proof ownership
 
-Every acceptance claim must belong to a Task capable of producing the evidence.
+A Task can prove only a boundary it actually exercises.
 
 Examples:
 
-- a pure preparation Task can prove classification order and reducer grammar;
-- only the real kernel can prove an external effect occurs after a durable commit;
-- only lifecycle integration can prove durable cancellation reaches live work;
-- only restart tests can prove process-loss behavior.
+- preparation can prove classification ordering;
+- the real kernel proves commit-before-effect execution ordering;
+- lifecycle integration proves durable cancellation reaches live work;
+- process-restart tests prove crash recovery.
 
-Flag a verification check when the assigned Task cannot actually produce its evidence.
+Flag any acceptance or Verification check assigned to a Task that cannot produce the evidence.
 
-Do not allow a manually constructed history to masquerade as proof that the production driver persisted that history in the required order.
+A handcrafted history proves reducer behavior. It does not prove the production driver persisted that history correctly.
 
-### 8. Check failure, cancellation, and recovery algebra
+### 8. Check failure and recovery algebra
 
-Inspect the dry run for conflated outcomes.
-
-Keep distinct when the governed design requires it:
+Ensure required outcomes remain distinguishable:
 
 - ordinary operational error;
 - cooperative cancellation;
@@ -237,145 +208,76 @@ Keep distinct when the governed design requires it:
 - unsafe ambiguity requiring intervention;
 - corruption.
 
-If the API cannot represent distinctions required by the higher-level behavior, treat that as an architecture-contract gap rather than leaving the implementer to improvise.
+If the API cannot represent a distinction required by governed behavior, classify it as a specification/architecture gap rather than leaving the builder to improvise.
 
 ### 9. Check tests for false confidence
 
-Look for tests that prove the wrong thing or can pass accidentally.
+Look for:
 
-Typical risks:
-
-- equality without observing canonical bytes/order;
+- equality tests that do not observe the actual canonical bytes/order;
 - mocks that bypass the production seam;
-- manually constructed history used as production ordering proof;
-- fixture registration order accidentally matching configured order;
-- disabled network features assumed to provide a stable WorkWeave error contract;
-- a type carrying metadata that no behavior actually consumes;
-- tests of helpers when acceptance requires the production boundary.
+- handcrafted history used as production-order proof;
+- registration order accidentally matching configured order;
+- disabled library features mistaken for a stable WorkWeave error contract;
+- metadata present in types but never behaviorally consumed;
+- helper tests where acceptance requires the production boundary.
 
-Require the smallest test that observes the real invariant.
+Prefer the smallest test that observes the real invariant.
 
-### 10. Check authority consistency
+### 10. Classify every material finding
 
-Compare dry-run recommendations with SPEC/PLAN/TASKS/V&V/HANDOFF.
+Use exactly one disposition:
 
-Flag:
+- **implementation guidance** — already inside the governed contract; no planning mutation required;
+- **refine current Goal** — normative SPEC/PLAN/Task/Verification/Evaluation clarification is required; hand off to `ww-refine-goal`;
+- **governance change required** — Goal/domain model/accepted architecture must change; Decision/ADR first;
+- **defer** — useful but not required for current acceptance;
+- **reject dry-run claim** — unsupported, incorrect, or contrary to governing authority.
 
-- new MUSTs that exist only in a Task or handoff;
-- Task wording that contradicts SPEC flexibility;
-- verification requirements with no stable check ID;
-- Evaluations that still test an older contract;
-- current-state docs saying implementation-ready while a refinement is incomplete;
-- a review finding recorded as mandatory scope without higher-authority basis.
+Do not turn an implementation preference or deferred improvement into a new requirement.
 
-No implementing agent should have to decide which governed record wins.
+### 11. Answer dry-run questions
 
-### 11. Classify findings
+Resolve questions when existing authority/evidence determines the answer.
 
-Use severity based on implementation risk, not prose quality.
+If the question requires requester choice, say so explicitly.
 
-| Severity | Meaning |
-| --- | --- |
-| **Blocker** | implementation would violate Goal/ADR/domain model, cross an unsafe boundary, or rely on contradictory authority |
-| **High** | likely to misdirect architecture, assign proof to the wrong Task, or leave cancellation/recovery/effect behavior undefined |
-| **Medium** | material conformance/test/realism gap that should be corrected before Task closure |
-| **Low** | maintainability, naming, organization, or documentation issue with no acceptance/safety effect |
+Do not mutate `QUESTIONS.md` unless the requester asks to apply the review findings.
 
-For each finding record one disposition:
+## Output
 
-- `implementation-guidance`;
-- `refine-current-goal`;
-- `governance-change-required`;
-- `defer`;
-- `reject-dry-run-claim`.
+Return:
 
-### 12. Decide implementation readiness
+1. **Verdict** — implementation-ready, ready with guidance, needs refinement, or blocked by governance;
+2. **What the dry run got right**;
+3. **Findings** — severity, issue, evidence/rationale, disposition;
+4. **Reference-alignment assessment**;
+5. **Domain-model impact**;
+6. **Open questions resolved or still requiring requester choice**;
+7. **Recommended next action**.
 
-End with one explicit status:
+Keep implementation guidance separate from governed changes.
 
-- **ready** — no blocking/high unresolved architecture or authority issue;
-- **ready with implementation guidance** — contract is complete; findings do not require record changes;
-- **not ready — refinement required** — governed records must be reconciled through `ww-refine-goal`;
-- **not ready — governance change required** — Goal/domain/ADR change must be settled first.
+## Applying findings
 
-Do not equate green CI with implementation readiness.
+This skill does not mutate the Goal packet by itself.
 
-## Integration with `ww-refine-goal`
+If the requester asks to apply findings:
 
-When this review finds a material normative gap and the requester asks to apply it:
+- implementation guidance may be handed directly to the builder;
+- `refine current Goal` findings use `ww-refine-goal`;
+- governance findings require the appropriate Decision/ADR first;
+- deferred findings remain deferred.
 
-```text
-dry-run finding
-        ↓
-domain / ADR / Goal change?
-    yes → governance first
-    no
-        ↓
-accepted refinement Decision exists?
-    yes → resume/use that Decision
-    no  → requester-approved refinement Decision
-        ↓
-ww-refine-goal
-        ↓
-SPEC → PLAN → TASKS → V&V → HANDOFF/current state
-        ↓
-requester approval
-        ↓
-unlock
-```
-
-Do not patch TASKS alone when the finding changes architecture, ownership, failure behavior, or acceptance proof.
-
-If a prior refinement was unlocked prematurely and the original Decision still covers the correction, restore the lock and resume the same Decision instead of creating a bookkeeping Decision.
-
-## Record handling
-
-By default, the review may be delivered in chat without repository mutation.
-
-When the requester asks to persist it:
-
-- record current findings/disposition in the Goal's canonical `REVIEWS.md`;
-- leave the original dry-run artifact unchanged as evidence;
-- record builder-raised unresolved questions in the canonical Questions record when useful;
-- do not rewrite historical recall files to match current conclusions.
-
-If the review triggers refinement, let `ww-refine-goal` own the governed record mutation transaction.
-
-## Output contract
-
-A useful dry-run review contains:
-
-1. **Verdict** — ready/not ready and why.
-2. **Domain-model impact** — explicit yes/no plus affected concepts if yes.
-3. **Reference alignment** — preserve/adapt/reject assessment for material seams.
-4. **Findings** — severity, evidence, risk, disposition.
-5. **Proof ownership** — which Task must prove each disputed invariant.
-6. **Record impact** — no change / implementation guidance / records needing refinement / governance change.
-7. **Open questions** — only decisions the implementation agent must not guess.
-
-Keep the conclusion direct. Do not bury a blocker under general praise.
-
-## Stop conditions
-
-Stop and require governance/refinement before implementation when:
-
-- the dry run requires a domain-model or accepted-architecture change;
-- higher-authority records contradict the proposed implementation;
-- one required safety/durability invariant has no owner capable of proving it;
-- cancellation/recovery/effect ambiguity cannot be represented by the accepted contract;
-- the dry run introduces a new prerequisite/Task/Goal without an existing Stop Condition;
-- an implementation agent would have to choose between contradictory normative records.
+Do not reproduce the `ww-refine-goal` procedure inside this skill.
 
 ## Completion criteria
 
 The review is complete when:
 
-- exact repository and dry-run basis are identified;
-- material dry-run claims are checked against current code and governing records;
-- relevant reference claims are grounded in pinned source;
-- domain-model impact is explicitly classified;
-- seam ownership and proof ownership are assessed;
-- false-green and recovery/cancellation risks are assessed;
-- findings have severity and disposition;
-- implementation readiness is explicit;
-- any required refinement/governance route is identified without silently mutating scope.
+- the dry run was checked against current authority, code, and material reference evidence;
+- domain-model impact is explicit;
+- seam/ownership and proof ownership were assessed;
+- false-confidence tests and unresolved failure/recovery semantics were considered;
+- every material finding has one disposition;
+- implementation readiness and next action are explicit.
