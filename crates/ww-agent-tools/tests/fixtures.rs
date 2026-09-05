@@ -80,13 +80,7 @@ fn policy_deny_is_stable_no_effect_and_invokes_probe_zero_times() {
     let policy = EffectReplayPolicy::default();
     let arguments = json!({"key": "alpha"});
     let expected_digest = arguments_digest(&arguments);
-    let prepared = prepare_tool_call(
-        &registry,
-        &pins(),
-        &policy,
-        "test.unsafe_once",
-        &arguments,
-    );
+    let prepared = prepare_tool_call(&registry, &pins(), &policy, "test.unsafe_once", &arguments);
 
     let ToolPreparationDisposition::NoEffect {
         failed_at,
