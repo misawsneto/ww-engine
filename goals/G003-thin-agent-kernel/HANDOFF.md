@@ -4,7 +4,7 @@
 - Goal: `G003 — Durable Agent Kernel`
 - Next implementation Task after approval/unlock: `T007`
 - Governing architecture: `ADR-0003`
-- Candidate planning basis: `SPEC v3-candidate`, `PLAN v3-candidate`, `TASKS.md`, `VERIFICATION.md`, `EVALUATIONS.md`
+- Draft planning basis: `SPEC v3`, `PLAN v3`, `TASKS.md`, `VERIFICATION.md`, `EVALUATIONS.md`
 - Refinement authority: D021 baseline + resumed D022
 
 ## Purpose
@@ -128,10 +128,12 @@ Hard boundaries:
 
 - parsed `serde_json::Value` is sole executable argument authority;
 - one tools preparation seam owns resolve → validate → digest → effect/replay → policy;
-- core does not duplicate preparation;
+- `ToolPreparationDisposition` and `ToolPreparationStage` are defined in `ww-agent-tools` and returned by that seam;
+- `ww-agent-core` embeds those exact tools-owned types in Agent-owned durable records; it does not duplicate the preparation taxonomy;
+- there is no tools→core dependency;
 - run configured pin order outranks registry registration order;
 - non-fragment `$ref` and `$dynamicRef` are forbidden in G003; `$id` alone is not;
-- policy conformance must depend on effect/replay metadata;
+- policy input requires effect/replay structurally, and behavioral conformance proves exact observation plus substitution sensitivity;
 - Output, OrdinaryError, and Cancelled are distinct normal tool execution outcomes;
 - `ToolExecutionError` never means cancellation;
 - `ToolEffectStarted` is an ambiguity marker only;
@@ -145,9 +147,9 @@ Function/module names are conventional. Prefer direct Rust naming; do not add a 
 T008 is where production execution begins.
 
 ```text
-T007 preparation outcome
+tools-owned T007 preparation outcome
         ↓
-core persists Agent-owned attempt/preparation state
+core embeds it in Agent-owned attempt/preparation state
         ↓
 Executable? persist ToolEffectStarted + COMMIT
         ↓
