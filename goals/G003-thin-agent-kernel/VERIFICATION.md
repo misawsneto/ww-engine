@@ -82,7 +82,7 @@ Focused checks are additive and never replace this gate.
 ### D022 preparation-contract checks
 
 - [ ] `V-T007-32` exactly one production tools preparation seam is exercised end-to-end; core exposes no competing preparation pipeline
-- [ ] `V-T007-33` an effect/replay-aware policy fixture changes decision based on `EffectDescriptor` and/or `ReplayPolicy`; omitting/substituting/late classification metadata fails the proof
+- [ ] `V-T007-33` `ToolPolicyInput.effect` and `.replay` are non-optional in the public contract; an effect/replay-aware policy changes decision when classification metadata is substituted, and instrumentation proves it observes the exact classified values before evaluation
 - [ ] `V-T007-34` canonicalization test asserts nested canonical serialized bytes directly; digest equality alone cannot satisfy the check
 - [ ] `V-T007-35` Q008 placement is exact: `ToolCallPrepared::NoEffect.failed_at=Policy` + Deny; `ToolAttemptDenied` has no duplicate stage field
 - [ ] `V-T007-36` tool execution contract represents Output, OrdinaryError, and Cancelled as machine-distinguishable normal outcomes; panic/invariant is outside that outcome contract
@@ -90,6 +90,7 @@ Focused checks are additive and never replace this gate.
 - [ ] `V-T007-38` handcrafted executable history contains source/call/attempt/reserved-result identities plus pinned tool/version, digest, effect, replay, policy, and `ToolEffectStarted`; reducer reconstructs the expected effect-in-flight ambiguity state
 - [ ] `V-T007-39` reducer treats `ToolEffectStarted` as an ambiguity boundary, not evidence that an external effect definitely occurred; T007 performs no commit-before-effect production proof
 - [ ] `V-T007-40` Resolve/Validate/Classify/Policy `NoEffect` histories contain no effect-start/effect-completion record and reconstruct the matching no-effect state
+- [ ] `V-T007-41` `ToolPreparationDisposition` and `ToolPreparationStage` are defined in `ww-agent-tools`; `ww-agent-core` embeds those exact types in Agent-owned durable records without redefining equivalents or introducing a tools→core dependency
 
 ### Published check identities superseded by D022
 
