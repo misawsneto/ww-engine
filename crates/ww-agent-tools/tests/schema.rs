@@ -141,16 +141,24 @@ fn violations_are_workweave_owned_and_deterministically_ordered() {
     let first = schema.validate(&instance).expect_err("instance is invalid");
     let second = schema.validate(&instance).expect_err("instance is invalid");
 
-    let paths: Vec<&str> = first.iter().map(|v| v.instance_path.as_str()).collect();
+    let paths: Vec<&str> = first
+        .violations
+        .iter()
+        .map(|v| v.instance_path.as_str())
+        .collect();
     assert_eq!(
         paths,
         vec!["/a", "/b", "/c"],
         "paths must sort deterministically"
     );
 
-    let repeat: Vec<&str> = second.iter().map(|v| v.instance_path.as_str()).collect();
+    let repeat: Vec<&str> = second
+        .violations
+        .iter()
+        .map(|v| v.instance_path.as_str())
+        .collect();
     assert_eq!(paths, repeat, "ordering must be stable across runs");
-    assert!(first.iter().all(|v| !v.message.is_empty()));
+    assert!(first.violations.iter().all(|v| !v.message.is_empty()));
 }
 
 // V-T007-10

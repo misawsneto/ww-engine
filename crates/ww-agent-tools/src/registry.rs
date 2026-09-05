@@ -28,6 +28,7 @@ impl RegisteredTool {
         &self.schema
     }
 
+    /// The executor the preparation seam retains for an allowed call.
     pub fn tool(&self) -> &Arc<dyn Tool> {
         &self.tool
     }
@@ -59,16 +60,7 @@ impl ToolRegistry {
             if entries.contains_key(&id) {
                 return Err(ToolDefinitionError::DuplicateId { id });
             }
-            let schema =
-                CompiledSchema::compile(&spec.input_schema).map_err(|error| match error {
-                    ToolDefinitionError::InvalidSchema { message, .. } => {
-                        ToolDefinitionError::InvalidSchema {
-                            id: Some(id.clone()),
-                            message,
-                        }
-                    }
-                    other => other,
-                })?;
+            let schema = CompiledSchema::compile(&spec.input_schema)?;
             entries.insert(id, RegisteredTool { tool, spec, schema });
         }
         Ok(Self { entries })

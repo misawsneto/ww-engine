@@ -42,19 +42,19 @@ Focused checks are additive and never replace this gate.
 
 ### Identity and configured order
 
-- [ ] `V-T007-01` empty ToolId/ToolVersion rejects
-- [ ] `V-T007-02` duplicate ToolId rejects before run start
-- [ ] `V-T007-03` exact pinned version resolves; missing/mismatched version rejects with no substitution
-- [ ] `V-T007-04` registry availability/registration order differs from run pin order; projection returns only exact configured pins in configured order
+- [x] `V-T007-01` empty ToolId/ToolVersion rejects
+- [x] `V-T007-02` duplicate ToolId rejects before run start
+- [x] `V-T007-03` exact pinned version resolves; missing/mismatched version rejects with no substitution
+- [x] `V-T007-04` registry availability/registration order differs from run pin order; projection returns only exact configured pins in configured order
 
 ### Schema profile
 
-- [ ] `V-T007-05` valid self-contained Draft 2020-12 schema compiles once and validates repeatedly
-- [ ] `V-T007-06` malformed schema rejects registry construction
-- [ ] `V-T007-07` non-fragment `$ref` and non-fragment `$dynamicRef` reject before validator compilation with no retrieval; `$id` alone does not reject or retrieve
-- [ ] `V-T007-08` local fragment `$ref` and local `$dynamicRef`/`$dynamicAnchor` fixture validates
-- [ ] `V-T007-09` invalid instance reports deterministic WorkWeave-owned path/message ordering
-- [ ] `V-T007-10` validation is non-coercing and leaves the authoritative parsed Value unchanged
+- [x] `V-T007-05` valid self-contained Draft 2020-12 schema compiles once and validates repeatedly
+- [x] `V-T007-06` malformed schema rejects registry construction
+- [x] `V-T007-07` non-fragment `$ref` and non-fragment `$dynamicRef` reject before validator compilation with no retrieval; `$id` alone does not reject or retrieve
+- [x] `V-T007-08` local fragment `$ref` and local `$dynamicRef`/`$dynamicAnchor` fixture validates
+- [x] `V-T007-09` invalid instance reports deterministic WorkWeave-owned path/message ordering
+- [x] `V-T007-10` validation is non-coercing and leaves the authoritative parsed Value unchanged
 - [ ] `V-T007-11` invalid arguments invoke classification 0, policy 0, execution 0
 
 ### Canonical arguments and preparation ordering
@@ -102,6 +102,23 @@ These identifiers were published under v2 and remain consumed. D022 changed proo
 - `V-T007-23` — v2 proposition: unknown/invalid/classification/denied paths produce one no-effect audited result with no effect-start/completion. The grammar portion is now `V-T007-40`; production result settlement is `V-T008-09`.
 
 Focused evidence:
+
+`V-T007-01` .. `V-T007-10` are satisfied by T007 work unit 1 on commit
+`c71de74`, extended by the ponytail trim that follows it. Evidence: full
+permanent gate on Rust 1.98.0 — fmt, seven architecture-boundary checks,
+locked clippy with warnings denied, and the whole workspace suite at 72/72.
+`crates/ww-agent-tools/tests/registry.rs` proves identity rejection, duplicate
+rejection, exact-version resolution without substitution, and configured-order
+projection against a deliberately different registration order.
+`crates/ww-agent-tools/tests/schema.rs` proves compile/reuse, malformed
+rejection, non-fragment `$ref`/`$dynamicRef` rejection before compilation,
+`$id` acceptance without retrieval, local fragment and dynamic-anchor
+validation, deterministic violation ordering, and non-coercing validation.
+
+The permanent architecture-boundary gate was repaired in the same commit.
+Bash ignores `set -e` for a status inverted with `!`, so the previous block
+gated only on its last check. Checks now record failures explicitly and the
+step exits non-zero, proved by injecting a violation into the first check.
 
 ```bash
 cargo test -p ww-agent-tools --test preparation --locked

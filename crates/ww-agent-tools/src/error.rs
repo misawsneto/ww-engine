@@ -9,7 +9,7 @@ pub enum ToolDefinitionError {
     #[error("duplicate tool id {id}")]
     DuplicateId { id: ToolId },
     #[error("invalid tool input schema: {message}")]
-    InvalidSchema { id: Option<ToolId>, message: String },
+    InvalidSchema { message: String },
     #[error("schema reference {reference} is not a self-contained fragment")]
     ExternalReference { reference: String },
 }
@@ -39,19 +39,4 @@ pub struct ArgumentViolation {
 #[error("tool arguments failed validation ({} violation(s))", .violations.len())]
 pub struct ArgumentValidationError {
     pub violations: Vec<ArgumentViolation>,
-}
-
-impl ArgumentValidationError {
-    pub fn iter(&self) -> std::slice::Iter<'_, ArgumentViolation> {
-        self.violations.iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a ArgumentValidationError {
-    type Item = &'a ArgumentViolation;
-    type IntoIter = std::slice::Iter<'a, ArgumentViolation>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.violations.iter()
-    }
 }

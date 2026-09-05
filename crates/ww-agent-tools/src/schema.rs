@@ -19,7 +19,6 @@ impl CompiledSchema {
             .with_draft(Draft::Draft202012)
             .build(schema)
             .map_err(|error| ToolDefinitionError::InvalidSchema {
-                id: None,
                 message: error.to_string(),
             })?;
         Ok(Self { validator })
@@ -62,7 +61,6 @@ fn reject_non_fragment_references(schema: &Value) -> Result<(), ToolDefinitionEr
                 if let Some(value) = map.get(key) {
                     let Value::String(reference) = value else {
                         return Err(ToolDefinitionError::InvalidSchema {
-                            id: None,
                             message: format!("{key} must be a string"),
                         });
                     };
