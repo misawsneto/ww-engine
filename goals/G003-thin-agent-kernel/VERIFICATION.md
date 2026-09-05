@@ -55,15 +55,15 @@ Focused checks are additive and never replace this gate.
 - [x] `V-T007-08` local fragment `$ref` and local `$dynamicRef`/`$dynamicAnchor` fixture validates
 - [x] `V-T007-09` invalid instance reports deterministic WorkWeave-owned path/message ordering
 - [x] `V-T007-10` validation is non-coercing and leaves the authoritative parsed Value unchanged
-- [ ] `V-T007-11` invalid arguments invoke classification 0, policy 0, execution 0
+- [x] `V-T007-11` invalid arguments invoke classification 0, policy 0, execution 0
 
 ### Canonical arguments and preparation ordering
 
-- [ ] `V-T007-12` two nested objects differing only in insertion/key order produce equal canonical bytes and equal digest
-- [ ] `V-T007-13` semantically different parsed value produces different canonical bytes/digest
-- [ ] `V-T007-14` validation occurs before digest/effect/replay classification
-- [ ] `V-T007-15` effect/replay classification occurs before policy
-- [ ] `V-T007-16` policy evaluates exactly once per preparation attempt
+- [x] `V-T007-12` two nested objects differing only in insertion/key order produce equal canonical bytes and equal digest
+- [x] `V-T007-13` semantically different parsed value produces different canonical bytes/digest
+- [x] `V-T007-14` validation occurs before digest/effect/replay classification
+- [x] `V-T007-15` effect/replay classification occurs before policy
+- [x] `V-T007-16` policy evaluates exactly once per preparation attempt
 - [ ] `V-T007-17` policy Deny invokes executor/probe 0 times
 - [ ] `V-T007-19` `test.echo` returns deterministic structured output and is Safe
 - [ ] `V-T007-20` `test.unsafe_once` invokes its probe once per direct execute and is Never
@@ -81,9 +81,9 @@ Focused checks are additive and never replace this gate.
 
 ### D022 preparation-contract checks
 
-- [ ] `V-T007-32` exactly one production tools preparation seam is exercised end-to-end; core exposes no competing preparation pipeline
+- [x] `V-T007-32` exactly one production tools preparation seam is exercised end-to-end; core exposes no competing preparation pipeline
 - [ ] `V-T007-33` `ToolPolicyInput.effect` and `.replay` are non-optional in the public contract; an effect/replay-aware policy changes decision when classification metadata is substituted, and instrumentation proves it observes the exact classified values before evaluation
-- [ ] `V-T007-34` canonicalization test asserts nested canonical serialized bytes directly; digest equality alone cannot satisfy the check
+- [x] `V-T007-34` canonicalization test asserts nested canonical serialized bytes directly; digest equality alone cannot satisfy the check
 - [ ] `V-T007-35` Q008 placement is exact: `ToolCallPrepared::NoEffect.failed_at=Policy` + Deny; `ToolAttemptDenied` has no duplicate stage field
 - [ ] `V-T007-36` tool execution contract represents Output, OrdinaryError, and Cancelled as machine-distinguishable normal outcomes; panic/invariant is outside that outcome contract
 - [ ] `V-T007-37` policy Deny returns stable `NoEffect(Policy)` data containing `policy_denied` code/message and durable `PolicyDecision::Deny`; this check does not claim model-visible result persistence
@@ -119,6 +119,21 @@ The permanent architecture-boundary gate was repaired in the same commit.
 Bash ignores `set -e` for a status inverted with `!`, so the previous block
 gated only on its last check. Checks now record failures explicitly and the
 step exits non-zero, proved by injecting a violation into the first check.
+
+`V-T007-11` .. `V-T007-16`, `V-T007-32`, and `V-T007-34` are satisfied by T007
+work unit 2. `crates/ww-agent-tools/tests/preparation.rs` drives the single
+production seam end-to-end and counts every stage, proving that an unknown
+name stops at Resolve, invalid arguments stop at Validate with classification,
+policy, and execution all at zero, a classification failure stops before
+policy, and policy is evaluated exactly once per attempt with the exact
+classified effect and replay values. `V-T007-34` asserts the nested canonical
+bytes directly rather than digest equality, so the false green the dry run
+warned about cannot occur.
+
+Canonicalization needs no recursive sort. `serde_json::Map` is a `BTreeMap`
+while `preserve_order` is disabled, so serialization already emits recursively
+sorted keys; the byte assertion is what would fail if that feature were ever
+enabled.
 
 ```bash
 cargo test -p ww-agent-tools --test preparation --locked
