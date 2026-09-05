@@ -22,6 +22,8 @@ refine PLAN
         ↓
 reconcile open TASKS + Verification/Evaluations
         ↓
+consistency reconciliation
+        ↓
 requester approves complete refined packet
         ↓
 record evidence
@@ -126,6 +128,28 @@ Do not add an architectural `MUST` only to TASKS or HANDOFF when SPEC does not c
 
 A lower-authority record may be more concrete. It must not contradict flexibility preserved by higher authority.
 
+### Identity and version reconciliation safeguard
+
+Refinement must preserve the identity and lineage conventions already used by each record family.
+
+**Explicit identifiers**
+
+- If a record family already publishes explicit identifiers such as Goal, Task, Decision, Question, Verification-check, or similar labels, a published identifier is **consumed** and remains attached to the same semantic subject.
+- Do not renumber, compact, backfill, or reuse a published identifier because a record was cancelled, resolved, superseded, deprecated, or moved.
+- Tightening wording may retain an identifier only when the underlying proposition or semantic subject remains the same.
+- If the proposition or semantic subject changes materially, allocate a new identifier according to that family's existing convention and record an explicit supersession/replacement mapping when continuity matters.
+- Do not move an existing identifier to another Task merely because proof ownership moved; preserve the old identity and map it to the new proof/check.
+- If a record family is title-addressed and does not use explicit identifiers, do **not** introduce an ID scheme solely for refinement bookkeeping.
+
+**Version and state lineage**
+
+- Follow the record family's existing version/state convention. Do not introduce numeric versions or generic revisions into a family that does not already use them.
+- If the Goal packet already uses explicit SPEC/PLAN versions, refinement advances the version identity once and tracks lifecycle separately: for example, `Version: v3` with `State: draft` while pending approval, then the same `v3` becomes active/approved.
+- Do not encode lifecycle into the version identity merely for convenience, such as creating a separate `v3-candidate` identity when state/approval already expresses candidacy.
+- Approval of a candidate promotes the same candidate generation; it does not create another version solely because state changed.
+- A candidate does not supersede the currently approved generation until requester approval is recorded.
+- Existing evidence remains attached to the contract/version under which it was produced. Refinement must not retroactively make old evidence prove a changed proposition.
+
 ## Procedure
 
 ### 1. Establish the refinement basis
@@ -146,6 +170,8 @@ Read the current canonical head and the target Goal packet:
 
 Identify complete and open Tasks. Completed Task acceptance/evidence are historical facts and remain unchanged.
 
+Identify the existing addressability convention for each record family before creating or changing IDs. Identify the existing version/state convention before changing SPEC/PLAN generation labels.
+
 If refinement follows `ww-dryrun-review`, carry forward only findings classified **refine current Goal**. Do not promote implementation guidance or deferred findings into requirements.
 
 Surface material unresolved choices rather than guessing.
@@ -158,7 +184,9 @@ Do not implement while the lock exists.
 
 ### 3. Refine SPEC
 
-Create a new explicit SPEC version and keep it candidate/pending until requester approval.
+Create the next candidate SPEC generation **only when the existing Goal packet uses explicit SPEC versions**. Otherwise preserve the record family's existing state-based convention and rely on Git history rather than inventing a version number.
+
+Keep candidate lifecycle/state separate from version identity.
 
 Clarify only what is needed inside the accepted Goal, including where relevant:
 
@@ -176,7 +204,7 @@ Do not turn ordinary file/module/function naming into architecture unless the na
 
 ### 4. Refine PLAN
 
-Update PLAN to the refined SPEC version.
+Update PLAN to the candidate SPEC generation or state used by this Goal packet.
 
 Make sequencing, dependencies, integration points, risks, and checkpoints explicit enough that implementation does not choose architecture implicitly.
 
@@ -202,6 +230,7 @@ Make the packet internally consistent:
 
 - each new normative requirement has an observable Verification check;
 - proof is assigned to a Task capable of producing it;
+- existing published check identifiers retain their semantic proposition; changed propositions receive new identifiers or explicit supersession mappings;
 - `EVALUATIONS.md` remains aligned with Goal-level behavior;
 - HANDOFF reflects but does not strengthen the governed packet;
 - questions resolved during refinement are reflected where they affect governed behavior;
@@ -210,17 +239,35 @@ Make the packet internally consistent:
 
 Keep Decision writing concise. Record detailed refinement history in review/verification evidence.
 
-### 7. Consistency safeguard before unlock
+### 7. Consistency reconciliation before unlock
 
-Before requesting approval, check:
+Before requesting approval, validate the packet as one coherent generation:
+
+**Authority**
 
 - SPEC → PLAN → TASKS → VERIFICATION/EVALUATIONS are mutually consistent;
 - no architectural requirement exists only in a lower-authority record;
 - no Task contradicts SPEC/PLAN flexibility;
+- HANDOFF introduces no stronger rule than the governed packet.
+
+**Identity**
+
+- no published explicit identifier was renumbered, reused, compacted, or silently repurposed;
+- materially changed propositions use a new identifier or explicit supersession/replacement mapping;
+- no new ID scheme was invented for a title-addressed family.
+
+**Version / state lineage**
+
+- SPEC, PLAN, Tasks, Verification/Evaluations, HANDOFF, and current-state guidance reference the same candidate generation/state;
+- version identity and lifecycle state are not conflated;
+- the last approved generation remains the approved basis until the candidate is approved;
+- evidence remains attributed to the generation/proposition it actually proved.
+
+**Proof ownership and readiness**
+
 - every Verification claim belongs to a Task capable of producing that evidence;
-- HANDOFF introduces no stronger rule than the governed packet;
 - current-state records do not claim implementation-ready/unlocked while the lock is active;
-- no stale version/status reference remains in current records.
+- no stale version/status/reference remains in current records.
 
 If any item fails, refinement is not ready for approval or unlock.
 
@@ -234,6 +281,7 @@ Present the requester with a compact review of:
 - PLAN changes;
 - open Task changes;
 - Verification/Evaluation changes;
+- identifier or version-lineage reconciliations;
 - proof ownership changes;
 - assumptions/questions resolved or open;
 - findings deliberately deferred;
@@ -247,9 +295,9 @@ Do not remove the lock until approval is explicit.
 
 After requester approval:
 
-1. promote candidate status/version to approved;
+1. promote the candidate generation/state to approved/active without minting another version solely for the state transition;
 2. record requester approval and evidence;
-3. ensure current references point to approved records;
+3. ensure current references point to the approved generation/state;
 4. run any required exact-head verification after approval reconciliation;
 5. remove only the target Goal's lock;
 6. leave Goal state unchanged;
@@ -262,12 +310,13 @@ If approval is withheld or work is interrupted, leave the lock in place.
 The skill is complete only when:
 
 - authorizing Decision is accepted;
-- SPEC has a new explicit approved version;
-- PLAN is reconciled to that SPEC;
+- SPEC/PLAN generation or state follows the Goal packet's established convention;
 - open Tasks are consistent with SPEC/PLAN;
 - each new normative requirement has current Verification/Evaluation coverage;
+- published identifiers retain semantic continuity or explicit supersession mappings;
+- no artificial ID/version scheme was introduced where the record family does not use one;
 - proof ownership matches the Task capable of producing the evidence;
-- HANDOFF/current-state records are consistent;
+- HANDOFF/current-state records reference one coherent approved basis;
 - completed Task meanings and used IDs remain stable;
 - required verification passes;
 - requester approval of the complete packet is recorded;
