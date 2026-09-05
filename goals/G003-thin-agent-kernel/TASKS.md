@@ -1,6 +1,6 @@
 # G003 Tasks
 
-- Planning basis: `SPEC v3-candidate` + `PLAN v3-candidate`
+- Planning basis: `SPEC v3 (draft)` + `PLAN v3 (draft)`
 - Refinement authority: D021 baseline + resumed D022
 - Approval: pending requester approval of the corrected D022 packet
 - Completed T001–T006 retain their original meaning and evidence.
@@ -48,7 +48,7 @@
 3. `ww-agent-core` MUST NOT duplicate resolution, validation, digesting, effect/replay classification, or policy evaluation.
 4. `ww-agent-tools` MUST NOT depend on Agent core/runtime/store/SQLite/capability/Flow/Orchestration crates.
 5. Preparation owns no Agent run/logical-call/attempt/entry identity and performs no external effect.
-6. Durable semantic vocabulary remains `ToolPreparationDisposition::{Executable, NoEffect}` and `ToolPreparationStage::{Resolve, Validate, Classify, Policy}`.
+6. `ToolPreparationDisposition::{Executable, NoEffect}` and `ToolPreparationStage::{Resolve, Validate, Classify, Policy}` are **defined in `ww-agent-tools`**. `ww-agent-core` embeds those exact tools-owned types in Agent-owned durable records and MUST NOT define an equivalent second taxonomy.
 7. Function/module/file names are implementation choices. Prefer a direct preparation function and small modules; do not introduce a generic manager/service/orchestrator to wrap the seam.
 8. `ToolRegistry` is immutable per run and owns no run state.
 9. Run configured pin order is authoritative. Registration order has no model-visible ordering authority.
@@ -78,9 +78,11 @@
 ### Policy requirements
 
 - Validation precedes classification; classification precedes policy.
+- `ToolPolicyInput.effect` and `ToolPolicyInput.replay` are non-optional. Type construction prevents omission; no runtime "missing metadata" case is required.
 - Policy runs exactly once per preparation attempt.
 - At least one deterministic conformance policy MUST depend on `EffectDescriptor` and/or `ReplayPolicy`.
 - ToolId-only allow-list behavior MAY exist but cannot be the sole policy proof.
+- Behavioral proof MUST show that substituting effect/replay metadata can change the decision and that policy observes the exact classified values before evaluation.
 - Policy denial returns `NoEffect(Policy)` with stable `policy_denied` code/message and invokes no effect.
 
 ### Cancellation/execution contract requirements
@@ -112,15 +114,16 @@ Resolve/Validate/Classify failure:
 ### Work units
 
 1. Identity, registry, configured-order projection, schema profile.
-2. Canonical bytes/digest and single preparation seam.
+2. Canonical bytes/digest and single preparation seam returning the tools-owned preparation disposition.
 3. Effect/replay-aware policy and `test.echo` / `test.unsafe_once` fixtures.
 4. Distinct tool execution outcome contract.
-5. Agent durable grammar/reducer and corruption/reopen tests.
+5. Agent durable grammar/reducer embedding the tools-owned preparation types, plus corruption/reopen tests.
 
 ### Acceptance criteria
 
 - [ ] tools crate dependency direction matches SPEC §5.
 - [ ] one production preparation seam exists and core has no competing preparation pipeline.
+- [ ] `ToolPreparationDisposition` and `ToolPreparationStage` are tools-owned; core embeds those exact types without duplicate definitions or tools→core dependency.
 - [ ] exact configured pin/version resolution rejects missing/mismatched tools.
 - [ ] configured order is proved independently of registration order.
 - [ ] malformed schema rejects registration.
@@ -131,7 +134,7 @@ Resolve/Validate/Classify failure:
 - [ ] invalid args invoke classification 0, policy 0, execution 0.
 - [ ] nested canonical bytes and digest behavior are explicitly proved.
 - [ ] preparation order and short-circuit behavior are observed through the production seam.
-- [ ] effect/replay-aware policy proof fails if classification metadata is absent/substituted/late.
+- [ ] policy input structurally requires effect/replay; behavioral proof covers exact observation and substituted classification values.
 - [ ] policy denial invokes execution/probe 0 and exposes stable `policy_denied` no-effect data.
 - [ ] `test.echo` is deterministic/Safe; `test.unsafe_once` is probe-observable/Never.
 - [ ] tool execution API distinguishes output, ordinary error, and cancellation; panic/invariant is outside normal outcomes.
@@ -164,8 +167,8 @@ The focused preparation target MUST call the production preparation seam. Direct
 ### Hard architecture requirements
 
 - Kernel dependencies are injected; core constructs no database or transport.
-- Kernel uses the single T007 preparation seam.
-- Kernel never reimplements preparation.
+- Kernel uses the single T007 preparation seam and the tools-owned preparation disposition/stage types.
+- Kernel never reimplements preparation or defines a duplicate preparation taxonomy.
 - Provider-visible tool specs come from ordered run pins, not registration order.
 - Finalized assistant state commits before tool handling.
 - No-effect paths persist one model-visible error result and invoke execution zero times.
