@@ -1,15 +1,16 @@
 # Plan — G003 Durable Agent Kernel
 
-- Version: `v3-candidate`
+- Version: `v3`
+- State: `draft`
 - Approval: `pending requester approval under resumed D022`
-- Specification basis: `G003 SPEC v3-candidate`
+- Specification basis: `G003 SPEC v3 (draft)`
 - Goal state: `active`
 - Implementation readiness: blocked while G003 `REPLAN_LOCK` is present
 - Task topology: unchanged — `T007 → T008 → T009 → T010 → T011 → T012`
 
 ## 1. Planning contract
 
-This plan reconciles the A004 dry-run findings and the subsequent critique without creating new Tasks, Goals, ADRs, or domain concepts.
+This plan reconciles the A004 dry-run findings and subsequent critique without creating new Tasks, Goals, ADRs, or domain concepts.
 
 Rules:
 
@@ -76,15 +77,18 @@ resolve
 → effect
 → replay
 → policy
-→ Executable | NoEffect
+→ ToolPreparationDisposition::Executable | NoEffect
 ```
 
 Requirements:
 
+- `ToolPreparationDisposition` and `ToolPreparationStage` are defined in `ww-agent-tools`;
+- core embeds those exact tools-owned types and does not define a second taxonomy;
 - later stages do not run after earlier failure;
 - core does not duplicate preparation;
 - nested canonical bytes are tested directly;
-- effect/replay-aware policy fixture proves policy sees classification metadata;
+- policy input structurally requires effect/replay metadata;
+- behavioral policy proof covers exact classified values and substitution sensitivity;
 - function/module naming follows normal Rust conventions; do not create a manager/service layer merely to name the seam.
 
 Checkpoint: preparation conformance target + permanent gate.
@@ -103,7 +107,7 @@ Deliver:
 
 Deliver the already-approved record/reducer vocabulary:
 
-- preparation disposition/stage;
+- Agent-owned durable records embedding the tools-owned preparation disposition/stage types;
 - reserved result identity;
 - effect-start ambiguity marker;
 - effect completion;
@@ -120,6 +124,7 @@ T007 closes only when:
 
 - every `V-T007` check passes;
 - the tools crate has one preparation seam and no core dependency;
+- preparation disposition/stage ownership matches SPEC v3 and no duplicate taxonomy exists;
 - the reducer reconstructs/corrupt-checks the full durable grammar;
 - no production effect-order claim is attributed to T007;
 - no G004 capability or T008 loop is introduced;
@@ -143,7 +148,7 @@ Deliver:
 
 #### Work unit B — no-effect settlement
 
-Kernel calls the single T007 preparation seam.
+Kernel calls the single T007 preparation seam and consumes the tools-owned `ToolPreparationDisposition`.
 
 If `NoEffect`:
 
@@ -276,11 +281,12 @@ Two agents MUST NOT concurrently alter the durable record vocabulary or the same
 
 | Risk | Mitigation |
 | --- | --- |
+| preparation types placed in core create a forbidden tools→core dependency or duplicate taxonomy | own disposition/stage in `ww-agent-tools`; core embeds exact types |
 | tools logic fragments across core and tools | one production preparation seam; core consumes, never duplicates |
 | run tool order leaks registry insertion order | configured-pin projection tests in T007 + request integration test in T008 |
 | schema silently reaches external resources | fragment-only `$ref`/`$dynamicRef`; disabled resolver features; explicit rejection |
 | canonical digest test false-greens | assert nested canonical bytes, then digest |
-| policy seam is structurally present but behaviorally unused | effect/replay-aware conformance policy |
+| policy seam is structurally present but behaviorally unused | non-optional classification fields + effect/replay-aware substitution/observation proof |
 | cancellation becomes ordinary tool error | machine-distinguishable Cancelled execution outcome + T008/T009 mapping |
 | T007 claims a proof it cannot perform | T007 proves grammar; T008 owns real commit-before-effect probe |
 | `ToolEffectStarted` is misread as effect receipt | treat only as ambiguity boundary |
