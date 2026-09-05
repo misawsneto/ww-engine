@@ -64,9 +64,9 @@ Focused checks are additive and never replace this gate.
 - [x] `V-T007-14` validation occurs before digest/effect/replay classification
 - [x] `V-T007-15` effect/replay classification occurs before policy
 - [x] `V-T007-16` policy evaluates exactly once per preparation attempt
-- [ ] `V-T007-17` policy Deny invokes executor/probe 0 times
-- [ ] `V-T007-19` `test.echo` returns deterministic structured output and is Safe
-- [ ] `V-T007-20` `test.unsafe_once` invokes its probe once per direct execute and is Never
+- [x] `V-T007-17` policy Deny invokes executor/probe 0 times
+- [x] `V-T007-19` `test.echo` returns deterministic structured output and is Safe
+- [x] `V-T007-20` `test.unsafe_once` invokes its probe once per direct execute and is Never
 
 ### Durable grammar and reducer
 
@@ -75,18 +75,18 @@ Focused checks are additive and never replace this gate.
 - [ ] `V-T007-26` reducer rejects changed tool/version/digest/effect/replay/policy across attempts of one logical call
 - [ ] `V-T007-27` reducer rejects wrong reserved result ID, effect on NoEffect, duplicate preparation/result, and source-order violation
 - [ ] `V-T007-28` Agent history reconstructs the same tool state after SQLite reopen
-- [ ] `V-T007-29` tools crate imports no Agent core/runtime/store/SQLite/filesystem/process/network/Flow/Orchestration dependency
-- [ ] `V-T007-30` tools public request/context types contain no Agent run/logical-call/attempt/entry identity and no core dependency
+- [x] `V-T007-29` tools crate imports no Agent core/runtime/store/SQLite/filesystem/process/network/Flow/Orchestration dependency
+- [x] `V-T007-30` tools public request/context types contain no Agent run/logical-call/attempt/entry identity and no core dependency
 - [ ] `V-T007-31` Resolve/Validate/Classify terminate as Rejected; only Policy Deny terminates as Denied
 
 ### D022 preparation-contract checks
 
 - [x] `V-T007-32` exactly one production tools preparation seam is exercised end-to-end; core exposes no competing preparation pipeline
-- [ ] `V-T007-33` `ToolPolicyInput.effect` and `.replay` are non-optional in the public contract; an effect/replay-aware policy changes decision when classification metadata is substituted, and instrumentation proves it observes the exact classified values before evaluation
+- [x] `V-T007-33` `ToolPolicyInput.effect` and `.replay` are non-optional in the public contract; an effect/replay-aware policy changes decision when classification metadata is substituted, and instrumentation proves it observes the exact classified values before evaluation
 - [x] `V-T007-34` canonicalization test asserts nested canonical serialized bytes directly; digest equality alone cannot satisfy the check
 - [ ] `V-T007-35` Q008 placement is exact: `ToolCallPrepared::NoEffect.failed_at=Policy` + Deny; `ToolAttemptDenied` has no duplicate stage field
-- [ ] `V-T007-36` tool execution contract represents Output, OrdinaryError, and Cancelled as machine-distinguishable normal outcomes; panic/invariant is outside that outcome contract
-- [ ] `V-T007-37` policy Deny returns stable `NoEffect(Policy)` data containing `policy_denied` code/message and durable `PolicyDecision::Deny`; this check does not claim model-visible result persistence
+- [x] `V-T007-36` tool execution contract represents Output, OrdinaryError, and Cancelled as machine-distinguishable normal outcomes; panic/invariant is outside that outcome contract
+- [x] `V-T007-37` policy Deny returns stable `NoEffect(Policy)` data containing `policy_denied` code/message and durable `PolicyDecision::Deny`; this check does not claim model-visible result persistence
 - [ ] `V-T007-38` handcrafted executable history contains source/call/attempt/reserved-result identities plus pinned tool/version, digest, effect, replay, policy, and `ToolEffectStarted`; reducer reconstructs the expected effect-in-flight ambiguity state
 - [ ] `V-T007-39` reducer treats `ToolEffectStarted` as an ambiguity boundary, not evidence that an external effect definitely occurred; T007 performs no commit-before-effect production proof
 - [ ] `V-T007-40` Resolve/Validate/Classify/Policy `NoEffect` histories contain no effect-start/effect-completion record and reconstruct the matching no-effect state
@@ -134,6 +134,30 @@ Canonicalization needs no recursive sort. `serde_json::Map` is a `BTreeMap`
 while `preserve_order` is disabled, so serialization already emits recursively
 sorted keys; the byte assertion is what would fail if that feature were ever
 enabled.
+
+`V-T007-17`, `V-T007-19`, `V-T007-20`, `V-T007-33`, and `V-T007-37` are
+satisfied by T007 work unit 3 in `crates/ww-agent-tools/tests/fixtures.rs`.
+`V-T007-33` is proved twice: an effect/replay-aware policy flips from Allow to
+Deny when classification metadata is substituted, and the production seam's
+policy log asserts the exact classified values, including the synthetic
+attributes derived from the arguments. `V-T007-17`/`V-T007-37` share the denial
+test, which asserts the stable `policy_denied` code, the durable
+`PolicyDecision::Deny`, an absent executor, and a probe count of zero.
+
+`V-T007-36` is satisfied by work unit 4 in
+`crates/ww-agent-tools/tests/outcomes.rs`. An exhaustive match over
+`ToolInvocationOutcome` distinguishes Output, OrdinaryError, and Cancelled;
+the enum has no panic/invariant variant, so a contract violation cannot be
+normalized into a normal outcome.
+
+`V-T007-29` and `V-T007-30` are enforced by the permanent CI architecture
+boundary step. `ww-agent-tools` declares no Agent core, runtime, storage,
+transport, capability, Flow, or Orchestration dependency and imports none, so
+its public `ToolRequest`/`ToolContext` cannot carry Agent run, logical-call,
+attempt, or entry identity.
+
+`V-T007-41` remains open. Its tools half is done; the check closes when
+`ww-agent-core` embeds these exact types in work unit 5.
 
 ```bash
 cargo test -p ww-agent-tools --test preparation --locked
