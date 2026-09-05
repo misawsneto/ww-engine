@@ -55,8 +55,8 @@ The first pass correctly added a single preparation seam direction, effect/repla
 
 A subsequent independent critique found the unlock premature. The critique was accepted because:
 
-1. material requirements existed only in lower-authority `TASKS.md` while SPEC/PLAN/V&V remained v2;
-2. `ww-refine-goal` requires a new explicit SPEC version and reconciled PLAN/Tasks/Verification/Evaluations before unlock;
+1. material requirements existed only in lower-authority `TASKS.md` while SPEC/PLAN/Verification/Evaluations remained v2;
+2. `ww-refine-goal` requires a reconciled complete packet before unlock;
 3. T007 preparation cannot by itself prove real commit-before-effect execution; that production proof belongs in T008;
 4. tool cancellation behavior was semantically specified but not representable distinctly from ordinary `ToolExecutionError` at the tools/core API boundary;
 5. exact function/module naming in TASKS contradicted SPEC's implementation-flexibility rule;
@@ -70,12 +70,11 @@ This is a planning-authority/process defect, not a domain-model or ADR change.
 
 The D022 lock was restored at `e26bcc3737a5f78e906bd22c64d09bcf490be2e4` before further planning mutations.
 
-The candidate reconciliation now does the following:
+The v3 draft reconciliation now:
 
-- promotes the material tool architecture into `SPEC v3-candidate`;
-- reconciles `PLAN v3-candidate`, TASKS, Verification, Evaluations, handoff, and Project State;
+- places material tool architecture in `SPEC v3` with draft state separate from version identity;
+- reconciles `PLAN v3`, Tasks, Verification, Evaluations, handoff, Project State, and README;
 - keeps one production tool-preparation seam semantically mandatory while allowing idiomatic function/module naming;
-- keeps durable preparation taxonomy canonical but removes unnecessary exact module/file mandates;
 - makes run configured pin order authoritative and proves it against different registration order;
 - expands offline schema rules to non-fragment `$ref` and `$dynamicRef`; `$id` alone is not rejected;
 - requires effect/replay-aware policy conformance and nested canonical-byte proof;
@@ -83,16 +82,45 @@ The candidate reconciliation now does the following:
 - keeps T007 responsible for pure preparation + durable grammar/reducer;
 - moves actual `ToolEffectStarted` commit-before-executor proof to T008;
 - retains Q008 without adding a new record field;
-- adds stable D022 Verification IDs and matching Evaluations.
+- preserves published Verification identifiers rather than silently repurposing them.
 
-No Goal/Task topology change, new durable record, or new prerequisite is introduced.
+### Identity/version reconciliation
 
-The corrected packet remains under `REPLAN_LOCK` until the exact candidate head passes the complete D017 gate and the requester approves the resulting packet.
+Review of the v2→v3 Verification diff found that `V-T007-18`, `V-T007-21`, `V-T007-22`, and `V-T007-23` had been reused for materially different propositions. They are now treated as consumed v2 identifiers with explicit mappings to the current proof checks. New propositions use new check IDs.
+
+The generic lesson was added to `ww-refine-goal`: explicit identifiers remain attached to the same semantic subject; materially changed propositions require a new identifier or explicit supersession/replacement mapping; title-addressed record families do not gain artificial IDs; version identity and lifecycle state remain separate.
+
+G003 now uses `v3` as the planning-generation identity and `draft` as its lifecycle state. The approved implementation basis remains v2 until requester approval promotes the same v3 generation.
+
+### A004 follow-up ownership review
+
+A004 then found one blocking ownership contradiction: a tools-side preparation seam could not return `ToolPreparationDisposition` if that type were core-owned, because SPEC also forbids `ww-agent-tools → ww-agent-core` dependency and D022 forbids a duplicate public/durable preparation taxonomy.
+
+The resolved architecture is now explicit in SPEC v3:
+
+```text
+ww-agent-tools
+  owns ToolPreparationDisposition
+  owns ToolPreparationStage
+  owns the single preparation seam
+        ↓
+ww-agent-core
+  depends on ww-agent-tools
+  embeds those exact tools-owned values in Agent-owned durable records
+```
+
+The phrase “Agent-owned record shapes” now refers to the durable record containers, not ownership of every field type inside them. Core MUST NOT redefine equivalent preparation enums.
+
+A004 also correctly noted that “metadata omitted” was not a meaningful runtime conformance case because `ToolPolicyInput.effect` and `.replay` are non-optional. The v3 contract now treats omission as a structural/type-level guarantee; behavioral conformance proves exact classified values reach policy and substitution changes behavior where expected.
+
+No new Goal, Task, Decision, domain entity, durable record variant, or dependency direction is introduced by these clarifications.
+
+The corrected packet remains under `REPLAN_LOCK` until the exact draft head passes the complete D017 gate and the requester approves the complete v3 packet.
 
 ## Planned terminal review focus
 
 - provider-neutral kernel ownership and dependency direction;
-- one tools preparation authority with no core duplication;
+- one tools preparation authority with tools-owned disposition/stage types and no core duplication;
 - deterministic recovery reducer and corrupt-history behavior;
 - Agent/common SQLite ownership without Agent DTO leakage;
 - exact arguments, configured tool order, policy/replay classification, and result uniqueness;
